@@ -135,6 +135,15 @@
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
+        @keyframes pulse-btn {
+            0%, 100% {
+                transform: translateY(0) scale(1);
+            }
+            50% {
+                transform: translateY(-5px) scale(1.02);
+            }
+        }
+
         @media (max-width: 600px) {
             h1 { font-size: 2rem; }
             .subtitle { font-size: 1.2rem; }
@@ -180,6 +189,12 @@
         </div>
 
         <div style="margin-top: 2rem;">
+            <a href="gallery.html" class="btn" style="font-size: 1.3rem; padding: 1.5rem 3rem; background: linear-gradient(135deg, #4CAF50, #45a049); box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4); animation: pulse-btn 2s infinite;">
+                🎮 3D 갤러리 입장하기!
+            </a>
+        </div>
+
+        <div style="margin-top: 1rem;">
             <a href="https://github.com/syhongart/lifeunity" class="btn">
                 📦 GitHub 저장소
             </a>
