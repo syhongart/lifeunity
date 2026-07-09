@@ -1569,7 +1569,7 @@ function createCourtyard(scene, theme) {
       [cx + 1.8, cz + 1.4],
     ];
     for (const [ux, uz] of uplightSpots) {
-      const spot = new THREE.SpotLight(0xffb066, 150, 15, Math.PI / 5.5, 0.55, 1.8);
+      const spot = new THREE.SpotLight(0xffb066, 150, 15, Math.PI / 5, 0.9, 1.8);
       spot.position.set(ux, 0.35, uz);
       const target = new THREE.Object3D();
       target.position.set(cx, 8.5, cz);

@@ -608,11 +608,13 @@ function buildSpotlight(art, scene) {
   const lx = art.pos.x + nx * offset;
   const lz = art.pos.z + nz * offset;
 
-  const spot = new THREE.SpotLight(0xfff4e0, 150);
-  spot.angle = Math.PI / 8;
-  spot.penumbra = 0.5;
+  // 넓은 콘 + 높은 penumbra = 갤러리 월워셔처럼 부드럽게 퍼지는 빛
+  // (콘 경계가 딱딱한 원으로 잘리지 않도록 가장자리 대부분을 페더링)
+  const spot = new THREE.SpotLight(0xfff4e0, 170);
+  spot.angle = Math.PI / 5.5;
+  spot.penumbra = 0.95;
   spot.decay = 2;
-  spot.distance = 14;
+  spot.distance = 16;
   // 그림자는 메인 DirectionalLight(4096)가 담당 — 스포트라이트 14개가 각각
   // 섀도맵을 매 프레임 갱신하면 저사양 기기에서 프레임 드랍이 커서 비활성화
   spot.castShadow = false;
