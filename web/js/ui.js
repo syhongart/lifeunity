@@ -3,7 +3,7 @@
 // MoMA 미니멀 미학: Helvetica, 화이트/블랙, 골드(#d4af37) 포인트
 
 import { AVATAR_COLORS } from './config.js';
-import { CHARACTERS } from './avatar.js';
+import { CHARACTERS, RPM_ALLOWED_PREFIXES } from './avatar.js';
 import {
   PROVIDERS as AUTH_PROVIDERS,
   MOCK_NAMES as AUTH_MOCK_PREFILL,
@@ -207,6 +207,56 @@ function injectStyles() {
   color: #111;
   background: #f6f3ea;
 }
+
+/* ------------------------- 커스텀 아바타 (Ready Player Me) ------------------------- */
+.lu-rpm-toggle {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 11px; letter-spacing: 0.05em;
+  color: #999; background: transparent;
+  border: none; cursor: pointer;
+  padding: 2px 0; text-align: center;
+  transition: color 0.2s ease;
+}
+.lu-rpm-toggle:hover { color: var(--lu-gold); }
+.lu-rpm-panel {
+  max-height: 0; overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease, margin-top 0.3s ease;
+}
+.lu-rpm-panel.lu-open {
+  max-height: 160px; opacity: 1; margin-top: 10px;
+}
+#lu-rpm-url {
+  width: 100%;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 13px; color: #111;
+  background: #fafafa;
+  border: 1px solid #eee;
+  padding: 9px 10px; outline: none;
+  border-radius: 0;
+  transition: border-color 0.25s ease;
+}
+#lu-rpm-url::placeholder { color: #bbb; }
+#lu-rpm-url:focus { border-color: var(--lu-gold); }
+#lu-rpm-url.lu-invalid { border-color: #c0392b; }
+.lu-rpm-hint {
+  margin-top: 6px; text-align: left;
+  font-size: 10px; color: #aaa;
+}
+.lu-rpm-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 10px; letter-spacing: 0.03em; color: #999;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.lu-rpm-link:hover { color: var(--lu-gold); border-bottom-color: var(--lu-gold); }
+
 #lu-enter-btn {
   width: 100%; margin-top: 30px;
   font-family: var(--lu-font); font-weight: 300;
@@ -1098,6 +1148,76 @@ function buildLobby() {
     charsRow.appendChild(btn);
   });
 
+  // 커스텀 아바타 (Ready Player Me) — 접이식. 유효한 URL이 입력되면 캐릭터 선택보다
+  // 우선한다 (submit()에서 처리).
+  const LU_RPM_STORAGE_KEY = 'lu-rpm-url';
+  function readStoredRpmUrl() {
+    try {
+      return localStorage.getItem(LU_RPM_STORAGE_KEY) || '';
+    } catch (_) {
+      return ''; // 프라이빗 모드 등 localStorage 접근 불가 시 무시
+    }
+  }
+  function isValidRpmUrl(url) {
+    return (
+      typeof url === 'string' &&
+      url.toLowerCase().endsWith('.glb') &&
+      RPM_ALLOWED_PREFIXES.some((prefix) => url.startsWith(prefix))
+    );
+  }
+
+  const rpmToggle = el('button', {
+    className: 'lu-rpm-toggle',
+    type: 'button',
+    text: '나만의 아바타 (Ready Player Me) ▾',
+  });
+  const rpmInput = el('input', {
+    id: 'lu-rpm-url',
+    type: 'text',
+    placeholder: 'https://models.readyplayer.me/....glb',
+    autocomplete: 'off',
+    spellcheck: 'false',
+  });
+  const rpmHint = el('div', {
+    className: 'lu-rpm-hint',
+    text: 'readyplayer.me에서 만든 아바타 주소를 붙여넣으세요',
+  });
+  const rpmLink = el('a', {
+    className: 'lu-rpm-link',
+    href: 'https://readyplayer.me/',
+    target: '_blank',
+    rel: 'noopener noreferrer',
+    text: 'readyplayer.me에서 아바타 만들기 →',
+  });
+  const rpmPanel = el('div', { className: 'lu-rpm-panel' }, [rpmInput, rpmHint, rpmLink]);
+
+  let rpmOpen = false;
+  function setRpmOpen(open) {
+    rpmOpen = open;
+    rpmPanel.classList.toggle('lu-open', open);
+    rpmToggle.textContent = `나만의 아바타 (Ready Player Me) ${open ? '▴' : '▾'}`;
+  }
+  rpmToggle.addEventListener('click', () => setRpmOpen(!rpmOpen));
+
+  function syncRpmValidity() {
+    const v = rpmInput.value.trim();
+    rpmInput.classList.toggle('lu-invalid', v.length > 0 && !isValidRpmUrl(v));
+  }
+
+  const storedRpmUrl = readStoredRpmUrl();
+  if (storedRpmUrl) {
+    rpmInput.value = storedRpmUrl;
+    setRpmOpen(true); // 저장된 URL이 있으면 시작부터 펼쳐 보여준다
+  }
+  syncRpmValidity();
+
+  rpmInput.addEventListener('input', () => {
+    try { localStorage.setItem(LU_RPM_STORAGE_KEY, rpmInput.value.trim()); } catch (_) { /* 무시 */ }
+    syncRpmValidity();
+  });
+  rpmInput.addEventListener('keydown', (e) => e.stopPropagation()); // 로비 입력 중 WASD/Enter 전역 처리 차단
+  rpmInput.addEventListener('keyup', (e) => e.stopPropagation());
+
   // 색상 스와치
   const swatchLabel = el('div', { className: 'lu-field-label', text: '아바타 색상', style: 'margin-top:20px;' });
   const swatches = el('div', { className: 'lu-swatches' });
@@ -1137,6 +1257,7 @@ function buildLobby() {
     authBox, orDivider,
     nickLabel, nickInput, nickHint,
     charLabel, charsRow,
+    rpmToggle, rpmPanel,
     swatchLabel, swatches,
     enterBtn,
     pickerBox,
@@ -1152,8 +1273,13 @@ function buildLobby() {
   function submit() {
     let nickname = nickInput.value.trim().slice(0, MAX_NICKNAME_LEN);
     if (!nickname) nickname = '게스트';
+    // 유효한 커스텀 RPM URL이 입력돼 있으면 캐릭터 선택보다 우선한다.
+    // 무효값(빈 값 포함)은 조용히 무시하고 선택된 캐릭터를 그대로 쓴다.
+    const rpmUrl = rpmInput.value.trim();
+    const char = isValidRpmUrl(rpmUrl) ? `rpm:${rpmUrl}` : selectedChar;
+    syncRpmValidity();
     if (typeof callbacks.onEnter === 'function') {
-      callbacks.onEnter({ nickname, color: selectedColor, char: selectedChar });
+      callbacks.onEnter({ nickname, color: selectedColor, char });
     }
   }
   enterBtn.addEventListener('click', submit);

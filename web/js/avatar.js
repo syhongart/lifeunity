@@ -17,8 +17,8 @@ export const CHARACTERS = [
   { id: 'mage', name: '마법사', file: './assets/avatars/mage.glb' },
   { id: 'barbarian', name: '전사', file: './assets/avatars/barbarian.glb' },
   { id: 'rogue', name: '방랑자', file: './assets/avatars/rogue.glb' },
+  { id: 'human', name: '휴먼', file: './assets/avatars/human.glb', anims: 'rpm' },
 ];
-const CHAR_IDS = new Set(CHARACTERS.map((c) => c.id));
 const DEFAULT_CHAR_ID = 'knight';
 
 // KayKit 캐릭터의 메시 전방은 +Z(three.js 카메라 전방 -Z와 반대)라서 π 보정이 필요하다.
@@ -27,6 +27,103 @@ const CHAR_FORWARD_OFFSET = Math.PI;
 
 // 아바타 목표 신장(m) — 캐릭터별 원본 비례가 달라도 균일 스케일로 맞춘다
 const TARGET_HEIGHT = 1.8;
+
+// ---------------------------------------------------------------------------
+// Ready Player Me 커스텀 아바타 — 허용 URL 프리픽스 (프로덕션: RPM 공식 CDN 1개)
+// 테스트에서 이 배열을 바꿔 다른 프리픽스를 허용/거부하는 경로를 검증할 수 있다.
+// ---------------------------------------------------------------------------
+export const RPM_ALLOWED_PREFIXES = ['https://models.readyplayer.me/'];
+
+function isAllowedRpmUrl(url) {
+  return (
+    typeof url === 'string' &&
+    url.toLowerCase().endsWith('.glb') &&
+    RPM_ALLOWED_PREFIXES.some((prefix) => url.startsWith(prefix))
+  );
+}
+
+// ---------------------------------------------------------------------------
+// RPM 애니메이션 라이브러리 클립 — human 및 커스텀 RPM 아바타가 공유한다.
+// 각 GLB는 메시 없이 animations[0] 하나(RPM 표준 릭 본 이름)만 담고 있어,
+// 대상 스켈레톤의 본 이름과 매칭되면 clipAction()으로 바로 재생 가능하다.
+// ---------------------------------------------------------------------------
+const RPM_ANIM_FILES = {
+  idle: './assets/anims/rpm-idle.glb',
+  walk: './assets/anims/rpm-walk.glb',
+  run: './assets/anims/rpm-run.glb',
+};
+let _rpmClipsPromise = null;
+// 동기 접근용 캐시 — _templates Map과 동일한 패턴. 로드 완료 전에 human/커스텀 RPM
+// 아바타가 생성되면 이 시점의 값(일부 또는 전부 null)을 그대로 쓴다 — 애니메이션 없는
+// 정적 포즈로 렌더될 뿐, 캡슐 폴백까지 가지는 않는다(모델 자체는 정상 로드되었으므로).
+let _rpmClips = { idle: null, walk: null, run: null };
+
+function loadOneClip(file) {
+  const loader = new GLTFLoader();
+  return new Promise((resolve, reject) => {
+    loader.load(
+      file,
+      (gltf) => resolve((gltf.animations && gltf.animations[0]) || null),
+      undefined,
+      (err) => reject(err)
+    );
+  });
+}
+
+/**
+ * RPM idle/walk/run 클립 3종을 병렬 로드해 캐시한다. 실패 시 null을 반환하고
+ * (throw하지 않음) 호출부가 개별 클립 유무를 보고 대응하게 한다.
+ * @returns {Promise<{idle: THREE.AnimationClip|null, walk: THREE.AnimationClip|null, run: THREE.AnimationClip|null}>}
+ */
+function loadRpmClips() {
+  if (_rpmClipsPromise) return _rpmClipsPromise;
+  _rpmClipsPromise = Promise.all([
+    loadOneClip(RPM_ANIM_FILES.idle).catch((err) => {
+      console.warn('RPM idle 클립 로드 실패:', err);
+      return null;
+    }),
+    loadOneClip(RPM_ANIM_FILES.walk).catch((err) => {
+      console.warn('RPM walk 클립 로드 실패:', err);
+      return null;
+    }),
+    loadOneClip(RPM_ANIM_FILES.run).catch((err) => {
+      console.warn('RPM run 클립 로드 실패:', err);
+      return null;
+    }),
+  ]).then(([idle, walk, run]) => {
+    _rpmClips = { idle, walk, run };
+    return _rpmClips;
+  });
+  return _rpmClipsPromise;
+}
+
+// ---------------------------------------------------------------------------
+// 커스텀 RPM URL 아바타 — GLB 템플릿을 URL별로 1회만 로드해 캐시한다.
+// ---------------------------------------------------------------------------
+const _rpmUrlTemplates = new Map(); // url → {scene, animations} | null(실패)
+const _rpmUrlPromises = new Map(); // url → Promise<void> (중복 fetch 방지)
+
+function loadRpmUrlTemplateOnce(url) {
+  if (_rpmUrlPromises.has(url)) return _rpmUrlPromises.get(url);
+  const loader = new GLTFLoader();
+  const promise = new Promise((resolve) => {
+    loader.load(
+      url,
+      (gltf) => {
+        _rpmUrlTemplates.set(url, { scene: gltf.scene, animations: gltf.animations || [] });
+        resolve();
+      },
+      undefined,
+      (err) => {
+        console.warn(`커스텀 RPM 아바타 로드 실패(${url}), 캡슐 폴백 사용:`, err);
+        _rpmUrlTemplates.set(url, null);
+        resolve();
+      }
+    );
+  });
+  _rpmUrlPromises.set(url, promise);
+  return promise;
+}
 
 // ---------------------------------------------------------------------------
 // 템플릿 프리로드 — 모듈 레벨 캐시. 여러 곳에서 호출돼도 캐릭터별 GLTF fetch는 1회.
@@ -61,7 +158,10 @@ function loadOneTemplate(charDef) {
  */
 export function preloadAvatarTemplates() {
   if (_preloadAllPromise) return _preloadAllPromise;
-  _preloadAllPromise = Promise.all(CHARACTERS.map(loadOneTemplate)).then(() => undefined);
+  _preloadAllPromise = Promise.all([
+    ...CHARACTERS.map(loadOneTemplate),
+    loadRpmClips(),
+  ]).then(() => undefined);
   return _preloadAllPromise;
 }
 
@@ -235,7 +335,17 @@ function findClip(animations, exactName, fallbackKey) {
 // 리깅 아바타 (템플릿 로드 성공 시)
 // ---------------------------------------------------------------------------
 
-function createRiggedAvatar(template, colorHex, nickname) {
+/**
+ * @param {{scene: THREE.Object3D, animations: THREE.AnimationClip[]}} template
+ * @param {string} colorHex
+ * @param {string} nickname
+ * @param {{idle: THREE.AnimationClip|null, walk: THREE.AnimationClip|null, run: THREE.AnimationClip|null}|null} [animOverride]
+ *   전달 시 template.animations(모델 내장 클립) 대신 이 idle/walk/run 클립을 그대로 사용한다.
+ *   RPM 휴먼/커스텀 아바타처럼 모델 자체는 애니메이션이 없고 별도 클립 라이브러리를
+ *   본 이름 매칭으로 재생하는 경우에 쓰인다.
+ * @param {number} [forwardOffset] - 캐릭터 전방 보정(라디안). 기본 CHAR_FORWARD_OFFSET.
+ */
+function createRiggedAvatar(template, colorHex, nickname, animOverride = null, forwardOffset = CHAR_FORWARD_OFFSET) {
   const group = new THREE.Group();
 
   const root = SkeletonUtils.clone(template.scene);
@@ -264,17 +374,26 @@ function createRiggedAvatar(template, colorHex, nickname) {
 
   // ---- 전방 보정 래퍼 (CHAR_FORWARD_OFFSET — 현재 0, QA 결과에 따라 조정) ----
   const wrapper = new THREE.Group();
-  wrapper.rotation.y = CHAR_FORWARD_OFFSET;
+  wrapper.rotation.y = forwardOffset;
   wrapper.add(root);
   group.add(wrapper);
 
-  // ---- 애니메이션 믹서 + idle/walk/run 액션 (정확 이름 우선 매칭) ----
+  // ---- 애니메이션 믹서 + idle/walk/run 액션 ----
+  // animOverride가 있으면(RPM 휴먼/커스텀) 모델 내장 클립 대신 그 클립을 그대로 쓰고,
+  // 없으면(KayKit 4종) 기존처럼 정확 이름 우선 매칭으로 내장 클립에서 찾는다.
   const mixer = new THREE.AnimationMixer(root);
   const animations = template.animations;
 
-  const idleClip = findClip(animations, 'Idle', 'idle') || animations[0] || null;
-  const walkClip = findClip(animations, 'Walking_A', 'walk');
-  const runClip = findClip(animations, 'Running_A', 'run');
+  let idleClip, walkClip, runClip;
+  if (animOverride) {
+    idleClip = animOverride.idle || null;
+    walkClip = animOverride.walk || null;
+    runClip = animOverride.run || null;
+  } else {
+    idleClip = findClip(animations, 'Idle', 'idle') || animations[0] || null;
+    walkClip = findClip(animations, 'Walking_A', 'walk');
+    runClip = findClip(animations, 'Running_A', 'run');
+  }
 
   const idleAction = idleClip ? mixer.clipAction(idleClip) : null;
   const walkAction = walkClip ? mixer.clipAction(walkClip) : null;
@@ -334,6 +453,65 @@ function createRiggedAvatar(template, colorHex, nickname) {
   };
 }
 
+// 커스텀 RPM 아바타 charId 프리픽스 — 'rpm:https://models.readyplayer.me/xxx.glb'
+const RPM_URL_PREFIX = 'rpm:';
+
+/**
+ * 커스텀 RPM URL 아바타 인스턴스 생성.
+ * 이미 캐시된 템플릿이 있으면 즉시 리깅 아바타로 반환한다. 아직 로드된 적이 없으면
+ * 캡슐 폴백을 즉시 반환하면서 백그라운드로 로드를 시작하고, 로드가 끝나면 (그룹 참조는
+ * 그대로 유지한 채) 내부 콘텐츠만 리깅 아바타로 교체한다 — 호출부(예: multiplayer.js)는
+ * 최초 생성 시점에만 group을 scene에 add하고 이후 재사용하므로, 그룹 참조가 바뀌면
+ * 안 된다. 로드 실패 시에는 캡슐 폴백을 그대로 유지한다.
+ */
+function createRpmUrlAvatarInstance(url, colorHex, nickname) {
+  const cached = _rpmUrlTemplates.get(url);
+  if (cached) {
+    try {
+      return createRiggedAvatar(cached, colorHex, nickname, _rpmClips);
+    } catch (err) {
+      console.warn(`커스텀 RPM 아바타 생성 실패(${url}), 캡슐 폴백 사용:`, err);
+      return createFallbackAvatar(colorHex, nickname);
+    }
+  }
+  if (_rpmUrlTemplates.has(url)) {
+    // 이전에 로드를 시도했다가 실패한 URL — 재시도하지 않고 캡슐 폴백 고정
+    return createFallbackAvatar(colorHex, nickname);
+  }
+
+  const group = new THREE.Group();
+  let current = createFallbackAvatar(colorHex, nickname);
+  group.add(current.group);
+  let disposed = false;
+
+  loadRpmUrlTemplateOnce(url).then(() => {
+    if (disposed) return;
+    const template = _rpmUrlTemplates.get(url);
+    if (!template) return; // 로드 실패 — 캡슐 폴백 유지 (경고는 로더가 이미 출력)
+
+    group.remove(current.group);
+    current.dispose();
+    try {
+      current = createRiggedAvatar(template, colorHex, nickname, _rpmClips);
+    } catch (err) {
+      console.warn(`커스텀 RPM 아바타 생성 실패(${url}), 캡슐 폴백 사용:`, err);
+      current = createFallbackAvatar(colorHex, nickname);
+    }
+    group.add(current.group);
+  });
+
+  return {
+    group,
+    update(delta, speed) {
+      current.update(delta, speed);
+    },
+    dispose() {
+      disposed = true;
+      current.dispose();
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // 공개 API — 인스턴스 생성
 // ---------------------------------------------------------------------------
@@ -342,17 +520,31 @@ function createRiggedAvatar(template, colorHex, nickname) {
  * 아바타 인스턴스 생성.
  * Group 원점은 발바닥(y=0) 기준. 외부에서 position / rotation.y 조작.
  *
- * @param {string} charId - CHARACTERS의 id (예: 'knight'). 유효하지 않으면 'knight'로 폴백.
+ * @param {string} charId - CHARACTERS의 id (예: 'knight'), 또는 커스텀 Ready Player Me
+ *   아바타를 가리키는 'rpm:https://models.readyplayer.me/xxx.glb' 형태의 문자열.
+ *   허용된 도메인이 아니거나 형식이 유효하지 않으면, 혹은 그 외 알 수 없는 값이면
+ *   'knight'로 폴백한다.
  * @param {string} colorHex - 닉네임 라벨 테두리 색 (예: '#e74c3c')
  * @param {string} nickname - 머리 위 라벨 텍스트
  * @returns {{group: THREE.Group, update: (delta:number, speed:number)=>void, dispose: ()=>void}}
  */
 export function createAvatarInstance(charId, colorHex, nickname) {
-  const resolvedId = CHAR_IDS.has(charId) ? charId : DEFAULT_CHAR_ID;
+  if (typeof charId === 'string' && charId.startsWith(RPM_URL_PREFIX)) {
+    const url = charId.slice(RPM_URL_PREFIX.length);
+    if (isAllowedRpmUrl(url)) {
+      return createRpmUrlAvatarInstance(url, colorHex, nickname);
+    }
+    console.warn(`허용되지 않은 RPM 아바타 URL, '${DEFAULT_CHAR_ID}'로 폴백:`, url);
+    charId = DEFAULT_CHAR_ID;
+  }
+
+  const charDef = CHARACTERS.find((c) => c.id === charId) || CHARACTERS.find((c) => c.id === DEFAULT_CHAR_ID);
+  const resolvedId = charDef.id;
   const template = _templates.get(resolvedId);
   if (template) {
     try {
-      return createRiggedAvatar(template, colorHex, nickname);
+      const animOverride = charDef.anims === 'rpm' ? _rpmClips : null;
+      return createRiggedAvatar(template, colorHex, nickname, animOverride, charDef.forwardOffset);
     } catch (err) {
       console.warn(`리깅 아바타(${resolvedId}) 생성 실패, 캡슐 폴백 사용:`, err);
     }
