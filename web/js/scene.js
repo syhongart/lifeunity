@@ -64,8 +64,9 @@ function createParquetTexture() {
   ctx.fillStyle = '#b98d5f';
   ctx.fillRect(0, 0, size, size);
 
-  const plankW = 256;
-  const plankH = 64;
+  // 실측 비율: 텍스처 한 장 = 3.57m (repeat 14) → 플랭크 폭 ≈17cm, 길이 ≈1.8m
+  const plankW = 512;
+  const plankH = 48;
   const oakTones = ['#b98d5f', '#c49a6c', '#ad8153', '#bf9265', '#b28758', '#c79f73', '#a97d4f'];
   const rand = makeRand(12345);
 
@@ -142,8 +143,8 @@ function createParquetTexture() {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(6, 6);
-  tex.anisotropy = 8;
+  tex.repeat.set(14, 14); // 50m ÷ 14 = 3.57m 주기 → 실제 원목마루 스케일
+  tex.anisotropy = 16;
   return tex;
 }
 
