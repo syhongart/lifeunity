@@ -36,6 +36,7 @@ import {
   showTourBar,
   hideTourBar,
   setTourHandlers,
+  setActionHandlers,
 } from './ui.js';
 
 let renderer = null;
@@ -171,6 +172,11 @@ async function init() {
     onExit: exitTour,
     onToggleAuto: tourToggleAuto,
   });
+  // 터치 기기 액션 독(투어)·작품 패널 '크게 보기' 버튼 — 키보드 T/E의 대체 진입점
+  setActionHandlers({
+    onTour: () => { if (entered) toggleTour(); },
+    onViewArtwork: viewCurrentArtwork,
+  });
 
   // 3. 플레이어 컨트롤러 (로비 동안 비활성)
   // 생성자가 스폰 위치를 z=8로 재설정하므로, 의도한 스폰(z=12)은 생성 후 지정
@@ -224,15 +230,20 @@ function loadGalleryDirectory() {
 // 전역 키 입력 — E(라이트박스) / M(작품 목록) / T(투어) / ←→(투어 이전·다음) / ESC(투어 종료).
 // 채팅 입력창 포커스 중에는 ui.js의 입력 핸들러가 keydown을 stopPropagation하므로
 // 여기까지 도달하지 않는다.
+// 현재 감상 대상 작품을 라이트박스로 — E키와 터치 '크게 보기' 버튼이 공유하는 진입점.
+// 투어 중에는 정차 중인 작품을 그대로 대상으로 삼는다 (감상 포즈는 근접 판정
+// 거리보다 살짝 멀 수 있어 직접 지정).
+function viewCurrentArtwork() {
+  if (!entered || isLightboxOpen()) return;
+  const art = touring ? placedArtworks[tourIndex] : getNearbyArtwork(camera.position);
+  if (!art) return;
+  showLightbox(art);
+  player.disable();
+}
+
 function onKeyDown(e) {
   if (e.code === 'KeyE') {
-    if (!entered || isLightboxOpen()) return;
-    // 투어 중에는 정차 중인 작품을 그대로 대상으로 삼는다 (감상 포즈는 근접 판정
-    // 거리보다 살짝 멀어 getNearbyArtwork가 못 잡을 수 있어 직접 지정).
-    const art = touring ? placedArtworks[tourIndex] : getNearbyArtwork(camera.position);
-    if (!art) return;
-    showLightbox(art);
-    player.disable();
+    viewCurrentArtwork();
     return;
   }
 
