@@ -232,7 +232,36 @@ function injectStyles() {
   transition: max-height 0.3s ease, opacity 0.25s ease, margin-top 0.3s ease;
 }
 .lu-rpm-panel.lu-open {
-  max-height: 220px; opacity: 1; margin-top: 10px;
+  max-height: 320px; opacity: 1; margin-top: 10px;
+}
+/* 상태 A — 커스텀 아바타 없음: [직접 만들기] 버튼 + 접이식 "주소가 있다면" 링크 */
+.lu-rpm-make-btn {
+  display: block; width: 100%;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 12px; letter-spacing: 0.08em;
+  color: #111; background: var(--lu-gold);
+  border: 1px solid var(--lu-gold); border-radius: 2px;
+  padding: 11px 0; cursor: pointer; text-align: center;
+  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+.lu-rpm-make-btn:hover { background: #c9a02f; border-color: #c9a02f; }
+.lu-rpm-has-link {
+  display: block; width: 100%;
+  margin-top: 10px;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 10px; letter-spacing: 0.02em; color: #999;
+  background: transparent; border: none; cursor: pointer;
+  padding: 2px 0; text-align: center;
+  transition: color 0.2s ease;
+}
+.lu-rpm-has-link:hover { color: var(--lu-gold); }
+.lu-rpm-url-row {
+  max-height: 0; overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease, margin-top 0.3s ease;
+}
+.lu-rpm-url-row.lu-open {
+  max-height: 160px; opacity: 1; margin-top: 8px;
 }
 #lu-rpm-url {
   width: 100%;
@@ -261,21 +290,43 @@ function injectStyles() {
   transition: color 0.2s ease, border-color 0.2s ease;
 }
 .lu-rpm-link:hover { color: var(--lu-gold); border-bottom-color: var(--lu-gold); }
-.lu-rpm-actions {
+/* 상태 B — 커스텀 아바타 있음: 미리보기 + 상태 칩 */
+.lu-rpm-chip {
   display: flex; align-items: center; flex-wrap: wrap;
-  justify-content: space-between; gap: 10px 14px;
-  margin-top: 4px;
+  gap: 8px 10px;
 }
-.lu-rpm-create-btn {
+.lu-rpm-chip-avatar {
+  flex: 0 0 auto;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #f2efe6;
+  border: 1px solid #eee;
+}
+.lu-rpm-chip-text {
+  flex: 1 1 auto;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 12px; letter-spacing: 0.03em; color: #111;
+  min-width: 120px;
+}
+.lu-rpm-chip-btn {
   flex: 0 0 auto;
   font-family: var(--lu-font); font-weight: 300;
-  font-size: 11px; letter-spacing: 0.05em;
-  color: var(--lu-gold); background: transparent;
-  border: 1px solid var(--lu-gold); border-radius: 2px;
-  padding: 7px 14px; cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  font-size: 10px; letter-spacing: 0.04em;
+  color: #999; background: transparent;
+  border: 1px solid #ddd; border-radius: 2px;
+  padding: 6px 10px; cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
-.lu-rpm-create-btn:hover { background: var(--lu-gold); color: #111; }
+.lu-rpm-chip-btn:hover { border-color: var(--lu-gold); color: var(--lu-gold); }
+/* 커스텀 아바타가 우선일 때 캐릭터 선택 행을 옅게 처리 */
+.lu-chars.lu-dimmed { opacity: 0.45; transition: opacity 0.2s ease; }
+.lu-rpm-priority-note {
+  display: none;
+  font-size: 10px; font-weight: 300; letter-spacing: 0.02em;
+  color: #999;
+}
+.lu-rpm-priority-note.lu-show { display: inline; }
 
 /* --------------------- RPM 아바타 크리에이터 모달 (iframe) --------------------- */
 #lu-rpm-creator {
@@ -1225,6 +1276,8 @@ function buildLobby() {
 
   // 캐릭터 선택 (KayKit Adventurers 4종) — 색상 스와치 위에 배치
   const charLabel = el('div', { className: 'lu-field-label', text: '캐릭터', style: 'margin-top:26px;' });
+  const charPriorityNote = el('span', { className: 'lu-rpm-priority-note', text: ' (커스텀 아바타 우선)' });
+  charLabel.appendChild(charPriorityNote);
   const charsRow = el('div', { className: 'lu-chars' });
   CHARACTERS.forEach((c) => {
     const btn = el('button', {
@@ -1242,8 +1295,10 @@ function buildLobby() {
     charsRow.appendChild(btn);
   });
 
-  // 커스텀 아바타 (Ready Player Me) — 접이식. 유효한 URL이 입력되면 캐릭터 선택보다
-  // 우선한다 (submit()에서 처리).
+  // 커스텀 아바타 (Ready Player Me) — 접이식. URL은 내부 구현 세부사항이라 기본
+  // UI에는 절대 노출하지 않는다: [직접 만들기] → 완성 → 끝이 기본 흐름이고,
+  // 이미 URL을 알고 있는 소수만 작은 링크를 펼쳐 붙여넣는다.
+  // localStorage에 유효한 URL이 저장돼 있으면 캐릭터 선택보다 우선한다 (submit()에서 처리).
   const LU_RPM_STORAGE_KEY = 'lu-rpm-url';
   function readStoredRpmUrl() {
     try {
@@ -1259,11 +1314,27 @@ function buildLobby() {
       RPM_ALLOWED_PREFIXES.some((prefix) => url.startsWith(prefix))
     );
   }
+  // RPM은 GLB 주소의 확장자를 .png로 바꾸면 렌더 미리보기 이미지를 내려준다.
+  function rpmPreviewUrl(url) {
+    return url.replace(/\.glb(\?.*)?$/i, '.png');
+  }
 
   const rpmToggle = el('button', {
     className: 'lu-rpm-toggle',
     type: 'button',
     text: '나만의 아바타 (Ready Player Me) ▾',
+  });
+
+  // ---- 상태 A: 커스텀 아바타 없음 ----
+  const rpmMakeBtn = el('button', {
+    className: 'lu-rpm-make-btn',
+    type: 'button',
+    text: '아바타 직접 만들기',
+  });
+  const rpmHasLink = el('button', {
+    className: 'lu-rpm-has-link',
+    type: 'button',
+    text: '이미 만든 아바타 주소가 있다면 ▾',
   });
   const rpmInput = el('input', {
     id: 'lu-rpm-url',
@@ -1283,21 +1354,26 @@ function buildLobby() {
     rel: 'noopener noreferrer',
     text: 'readyplayer.me에서 아바타 만들기 →',
   });
-  const rpmCreateBtn = el('button', {
-    className: 'lu-rpm-create-btn',
-    type: 'button',
-    text: '아바타 직접 만들기',
-  });
-  rpmCreateBtn.addEventListener('click', () => {
-    openRpmCreator((url) => {
-      rpmInput.value = url;
-      // 기존 검증/저장(localStorage) 로직을 그대로 태우기 위해 input 이벤트를 디스패치한다.
-      rpmInput.dispatchEvent(new Event('input', { bubbles: true }));
-      setRpmOpen(true); // RPM 패널은 펼쳐진 상태를 유지
-    });
-  });
-  const rpmActions = el('div', { className: 'lu-rpm-actions' }, [rpmLink, rpmCreateBtn]);
-  const rpmPanel = el('div', { className: 'lu-rpm-panel' }, [rpmInput, rpmHint, rpmActions]);
+  const rpmUrlRow = el('div', { className: 'lu-rpm-url-row' }, [rpmInput, rpmHint, rpmLink]);
+  const rpmStateA = el('div', { className: 'lu-rpm-state-a' }, [rpmMakeBtn, rpmHasLink, rpmUrlRow]);
+
+  let urlRowOpen = false;
+  function setUrlRowOpen(open) {
+    urlRowOpen = open;
+    rpmUrlRow.classList.toggle('lu-open', open);
+    rpmHasLink.textContent = `이미 만든 아바타 주소가 있다면 ${open ? '▴' : '▾'}`;
+  }
+  rpmHasLink.addEventListener('click', () => setUrlRowOpen(!urlRowOpen));
+
+  // ---- 상태 B: 커스텀 아바타 있음 (가로 칩) ----
+  const rpmChipAvatar = el('img', { className: 'lu-rpm-chip-avatar', alt: '' });
+  rpmChipAvatar.addEventListener('error', () => { rpmChipAvatar.style.display = 'none'; });
+  const rpmChipText = el('span', { className: 'lu-rpm-chip-text', text: '나만의 아바타 사용 중' });
+  const rpmChangeBtn = el('button', { className: 'lu-rpm-chip-btn', type: 'button', text: '변경' });
+  const rpmUseDefaultBtn = el('button', { className: 'lu-rpm-chip-btn', type: 'button', text: '기본 캐릭터 사용' });
+  const rpmStateB = el('div', { className: 'lu-rpm-chip' }, [rpmChipAvatar, rpmChipText, rpmChangeBtn, rpmUseDefaultBtn]);
+
+  const rpmPanel = el('div', { className: 'lu-rpm-panel' }, [rpmStateA, rpmStateB]);
 
   let rpmOpen = false;
   function setRpmOpen(open) {
@@ -1312,16 +1388,65 @@ function buildLobby() {
     rpmInput.classList.toggle('lu-invalid', v.length > 0 && !isValidRpmUrl(v));
   }
 
-  const storedRpmUrl = readStoredRpmUrl();
-  if (storedRpmUrl) {
-    rpmInput.value = storedRpmUrl;
-    setRpmOpen(true); // 저장된 URL이 있으면 시작부터 펼쳐 보여준다
+  // 저장된 URL 유무(그리고 유효성)에 따라 상태 A/B를 전환하고, 칩 미리보기와
+  // 캐릭터 선택 행의 옅음 처리/문구를 함께 갱신한다.
+  function renderRpmState() {
+    const stored = readStoredRpmUrl();
+    const hasCustom = isValidRpmUrl(stored);
+    rpmStateA.style.display = hasCustom ? 'none' : '';
+    rpmStateB.style.display = hasCustom ? '' : 'none';
+    charsRow.classList.toggle('lu-dimmed', hasCustom);
+    charPriorityNote.classList.toggle('lu-show', hasCustom);
+    if (hasCustom) {
+      rpmChipAvatar.style.display = '';
+      rpmChipAvatar.src = rpmPreviewUrl(stored);
+    }
   }
+
+  // 크리에이터 export 콜백 및 수동 붙여넣기가 공통으로 태우는 저장 경로.
+  // localStorage에 저장하고, 숨겨진 rpmInput과 값을 동기화한 뒤 패널을 재렌더한다.
+  function setRpmUrl(url) {
+    const v = typeof url === 'string' ? url.trim() : '';
+    rpmInput.value = v;
+    try { localStorage.setItem(LU_RPM_STORAGE_KEY, v); } catch (_) { /* 무시 */ }
+    syncRpmValidity();
+    renderRpmState();
+  }
+  function clearRpmUrl() {
+    rpmInput.value = '';
+    try { localStorage.removeItem(LU_RPM_STORAGE_KEY); } catch (_) { /* 무시 */ }
+    syncRpmValidity();
+    renderRpmState();
+  }
+
+  rpmMakeBtn.addEventListener('click', () => {
+    openRpmCreator((url) => {
+      setRpmUrl(url);
+      setRpmOpen(true); // RPM 패널은 펼쳐진 상태를 유지
+    });
+  });
+  rpmChangeBtn.addEventListener('click', () => {
+    openRpmCreator((url) => {
+      setRpmUrl(url);
+      setRpmOpen(true);
+    });
+  });
+  rpmUseDefaultBtn.addEventListener('click', () => clearRpmUrl());
+
+  const storedRpmUrl = readStoredRpmUrl();
+  rpmInput.value = storedRpmUrl;
   syncRpmValidity();
+  renderRpmState();
+  if (storedRpmUrl) {
+    setRpmOpen(true); // 저장된 값이 있으면 시작부터 펼쳐 보여준다
+    if (!isValidRpmUrl(storedRpmUrl)) setUrlRowOpen(true); // 예전에 남은 무효값이면 고칠 수 있게 입력 행도 펼친다
+  }
 
   rpmInput.addEventListener('input', () => {
-    try { localStorage.setItem(LU_RPM_STORAGE_KEY, rpmInput.value.trim()); } catch (_) { /* 무시 */ }
+    const v = rpmInput.value.trim();
+    try { localStorage.setItem(LU_RPM_STORAGE_KEY, v); } catch (_) { /* 무시 */ }
     syncRpmValidity();
+    if (isValidRpmUrl(v)) renderRpmState(); // 유효한 주소를 다 붙여넣으면 곧바로 상태 B(칩)로 전환
   });
   rpmInput.addEventListener('keydown', (e) => e.stopPropagation()); // 로비 입력 중 WASD/Enter 전역 처리 차단
   rpmInput.addEventListener('keyup', (e) => e.stopPropagation());
@@ -1381,9 +1506,9 @@ function buildLobby() {
   function submit() {
     let nickname = nickInput.value.trim().slice(0, MAX_NICKNAME_LEN);
     if (!nickname) nickname = '게스트';
-    // 유효한 커스텀 RPM URL이 입력돼 있으면 캐릭터 선택보다 우선한다.
+    // 유효한 커스텀 RPM URL이 저장돼 있으면 캐릭터 선택보다 우선한다.
     // 무효값(빈 값 포함)은 조용히 무시하고 선택된 캐릭터를 그대로 쓴다.
-    const rpmUrl = rpmInput.value.trim();
+    const rpmUrl = readStoredRpmUrl();
     const char = isValidRpmUrl(rpmUrl) ? `rpm:${rpmUrl}` : selectedChar;
     syncRpmValidity();
     if (typeof callbacks.onEnter === 'function') {
