@@ -2,7 +2,9 @@
 // 루이지애나 미술관(덴마크) 스타일: 통유리 벽 너머로 정원·바다가 보이는 미술관
 //
 // createMuseum(scene, themeName = 'daylight') → { bounds: {minX,maxX,minZ,maxZ} }
-// themeName: 'daylight' | 'sunset' | 'night' (미지정/미상 테마는 daylight로 폴백) — THEMES 상수 참고
+// themeName: 'daylight' | 'sunset' | 'night' | 'cycle' (미지정/미상 테마는 daylight로 폴백) — THEMES 상수 참고
+// 'cycle': 정적 프리셋이 아니라 실시간 낮밤 순환 모드 — sceneTick(delta)이 매 프레임 태양 위치/
+// 조명/하늘/바다색을 daylight·sunset·night 3개 키프레임 사이에서 부드럽게 보간한다 (하루 720초).
 // - 북쪽 벽: 차콜 전시벽 / 서쪽 벽: 화이트 전시벽
 // - 동쪽·남쪽 벽: 통유리 커튼월 (다크 멀리언) — 바깥 풍경이 보임
 // - 천장: 따뜻한 우드 슬랫
@@ -133,6 +135,182 @@ export const THEMES = {
 function resolveTheme(themeName) {
   return THEMES[themeName] || THEMES.daylight;
 }
+
+// ---------------------------------------------------------------------------
+// 'cycle' 테마 — 실시간 낮밤 순환 (담당 A)
+// THEMES.daylight/sunset/night 3종을 키프레임으로 재사용해 매 프레임 보간한다.
+// 무거운 리소스(캔버스 텍스처)는 createMuseum 시점에 딱 한 번만 만들고,
+// sceneTick에서는 색/광량/투명도 등 가벼운 숫자만 갱신한다 (성능 우선).
+// ---------------------------------------------------------------------------
+const CYCLE_DAY_SECONDS = 720;   // 하루 길이 (12분)
+const CYCLE_ARC_RADIUS = 150;    // 태양이 그리는 동-서 원호 반지름
+
+// 그림자 카메라 프러스텀: 세 정적 테마의 프러스텀을 모두 포함하는 합집합
+// (태양이 움직이는 동안 프레임마다 재계산하지 않고 한 번만 넉넉히 잡는다)
+const CYCLE_SHADOW_CAMERA = {
+  left: Math.min(THEMES.daylight.shadowCamera.left, THEMES.sunset.shadowCamera.left, THEMES.night.shadowCamera.left),
+  right: Math.max(THEMES.daylight.shadowCamera.right, THEMES.sunset.shadowCamera.right, THEMES.night.shadowCamera.right),
+  top: Math.max(THEMES.daylight.shadowCamera.top, THEMES.sunset.shadowCamera.top, THEMES.night.shadowCamera.top),
+  bottom: Math.min(THEMES.daylight.shadowCamera.bottom, THEMES.sunset.shadowCamera.bottom, THEMES.night.shadowCamera.bottom),
+  near: 1,
+  far: Math.max(THEMES.daylight.shadowCamera.far, THEMES.sunset.shadowCamera.far, THEMES.night.shadowCamera.far),
+};
+
+const lerpN = (a, b, t) => a + (b - a) * t;
+
+// 현지 시각(시+분)을 0..1 위상으로 (0=자정, 0.5=정오)
+function getLocalPhase() {
+  const now = new Date();
+  return (now.getHours() * 60 + now.getMinutes()) / 1440;
+}
+
+// 위상 → 두 인접 키프레임 + 그 사이 보간 비율
+// elev > 0.3 → daylight / 0.3~0.02 → daylight↔sunset / 0.02~-0.12 → sunset↔night / 그 이하 → night
+function cycleSegment(elev) {
+  if (elev > 0.3) return { from: 'daylight', to: 'daylight', t: 0 };
+  if (elev > 0.02) return { from: 'daylight', to: 'sunset', t: (0.3 - elev) / (0.3 - 0.02) };
+  if (elev > -0.12) return { from: 'sunset', to: 'night', t: (0.02 - elev) / (0.02 - -0.12) };
+  return { from: 'night', to: 'night', t: 0 };
+}
+
+// 주어진 위상의 전체 조명/색 스냅샷 계산 (초기 건축 + 매 프레임 갱신이 공유하는 단일 소스)
+function cycleFrameAt(phase) {
+  const elev = Math.sin((phase - 0.25) * Math.PI * 2);
+  const seg = cycleSegment(elev);
+  const { from, to, t } = seg;
+  const F = THEMES[from];
+  const T = THEMES[to];
+
+  // 태양 — daylight/sunset 구간에서만 밝기를 가지며, night로 넘어갈수록 사그라든다
+  let sunColor, sunIntensity;
+  if (to === 'night') {
+    // sunset → night: 색은 노을에 고정한 채 밝기만 0으로 페이드
+    sunColor = new THREE.Color(F.sun.color);
+    sunIntensity = F.sun.intensity * (1 - t);
+  } else if (from === 'night') {
+    sunColor = new THREE.Color(THEMES.sunset.sun.color);
+    sunIntensity = 0;
+  } else {
+    sunColor = new THREE.Color(F.sun.color).lerp(new THREE.Color(T.sun.color), t);
+    sunIntensity = lerpN(F.sun.intensity, T.sun.intensity, t);
+  }
+
+  // 달 — 고정 위치/색(night 파라미터), night 가중치에 비례해 밝기만 블렌드 인
+  let moonIntensity = 0;
+  if (from === 'sunset' && to === 'night') moonIntensity = THEMES.night.sun.intensity * t;
+  else if (from === 'night' && to === 'night') moonIntensity = THEMES.night.sun.intensity;
+
+  // 태양 위치 — 동→서 원호 (위상 기반 방위각, 반지름 ~150, 고도는 elev 비례)
+  const arcAngle = (phase - 0.25) * Math.PI * 2;
+  const sunPos = [Math.cos(arcAngle) * CYCLE_ARC_RADIUS, elev * CYCLE_ARC_RADIUS, 0];
+
+  const hemiSky = new THREE.Color(F.hemi.sky).lerp(new THREE.Color(T.hemi.sky), t);
+  const hemiGround = new THREE.Color(F.hemi.ground).lerp(new THREE.Color(T.hemi.ground), t);
+  const hemiIntensity = lerpN(F.hemi.intensity, T.hemi.intensity, t);
+
+  const ambientColor = new THREE.Color(F.ambient.color).lerp(new THREE.Color(T.ambient.color), t);
+  const ambientIntensity = lerpN(F.ambient.intensity, T.ambient.intensity, t);
+
+  const fogColor = new THREE.Color(F.fog.color).lerp(new THREE.Color(T.fog.color), t);
+  const fogNear = lerpN(F.fog.near, T.fog.near, t);
+  const fogFar = lerpN(F.fog.far, T.fog.far, t);
+
+  const bgColor = new THREE.Color(F.background).lerp(new THREE.Color(T.background), t);
+
+  const downlightIntensity = lerpN(F.downlight.intensity, T.downlight.intensity, t);
+
+  const seaColor = new THREE.Color(F.sea.color).lerp(new THREE.Color(T.sea.color), t);
+
+  // 하늘 돔 3장의 오퍼시티 가중치 (텍스처는 재생성하지 않고 opacity만 블렌드)
+  let domeDay = 0, domeSunset = 0, domeNight = 0;
+  if (from === 'daylight' && to === 'daylight') domeDay = 1;
+  else if (from === 'daylight' && to === 'sunset') { domeDay = 1 - t; domeSunset = t; }
+  else if (from === 'sunset' && to === 'night') { domeSunset = 1 - t; domeNight = t; }
+  else domeNight = 1;
+
+  return {
+    elev, seg,
+    sunColor, sunIntensity, sunPos,
+    moonIntensity,
+    hemiSky, hemiGround, hemiIntensity,
+    ambientColor, ambientIntensity,
+    fogColor, fogNear, fogFar,
+    bgColor,
+    downlightIntensity,
+    seaColor,
+    domeDay, domeSunset, domeNight,
+    treeUplightIntensity: 150 * domeNight, // night 가중치에 비례해 중정 업라이트 페이드 인
+  };
+}
+
+// createMuseum(scene, 'cycle') 건축 시 필요한 '정적' 테마 형태로 초기 프레임을 감싼다.
+// (grassTint/fill/downlight 색/sea 재질값 등 프레임마다 갱신 대상이 아닌 값은 daylight를 기본으로 삼는다)
+function buildCycleTheme(phase) {
+  const frame = cycleFrameAt(phase);
+  const { seg } = frame;
+  const grassTint = new THREE.Color(THEMES[seg.from].grassTint)
+    .lerp(new THREE.Color(THEMES[seg.to].grassTint), seg.t)
+    .getHex();
+
+  return {
+    sun: { pos: frame.sunPos, color: frame.sunColor.getHex(), intensity: frame.sunIntensity },
+    fill: THEMES.daylight.fill,
+    hemi: { sky: frame.hemiSky.getHex(), ground: frame.hemiGround.getHex(), intensity: frame.hemiIntensity },
+    ambient: { color: frame.ambientColor.getHex(), intensity: frame.ambientIntensity },
+    fog: { color: frame.fogColor.getHex(), near: frame.fogNear, far: frame.fogFar },
+    background: frame.bgColor.getHex(),
+    downlight: {
+      color: THEMES.daylight.downlight.color,
+      emissive: THEMES.daylight.downlight.emissive,
+      intensity: frame.downlightIntensity,
+    },
+    sea: { color: frame.seaColor.getHex(), roughness: THEMES.daylight.sea.roughness, metalness: THEMES.daylight.sea.metalness },
+    grassTint,
+    treeUplights: true, // cycle에서는 항상 업라이트 픽스처를 만들고 밝기만 동적으로 페이드
+    shadowCamera: CYCLE_SHADOW_CAMERA,
+  };
+}
+
+// 매 프레임: cycleFrameAt() 스냅샷을 실제 조명/재질/돔에 반영
+function applyCycleFrame(cs, frame) {
+  cs.sunLight.color.copy(frame.sunColor);
+  cs.sunLight.intensity = frame.sunIntensity;
+  cs.sunLight.position.set(frame.sunPos[0], frame.sunPos[1], frame.sunPos[2]);
+  // 밤에는 광량 0인 태양의 4096² 섀도맵 렌더를 건너뛴다 (성능)
+  cs.sunLight.castShadow = frame.sunIntensity > 0.01;
+
+  cs.moonLight.intensity = frame.moonIntensity;
+
+  cs.hemiLight.color.copy(frame.hemiSky);
+  cs.hemiLight.groundColor.copy(frame.hemiGround);
+  cs.hemiLight.intensity = frame.hemiIntensity;
+
+  cs.ambientLight.color.copy(frame.ambientColor);
+  cs.ambientLight.intensity = frame.ambientIntensity;
+
+  cs.scene.fog.color.copy(frame.fogColor);
+  cs.scene.fog.near = frame.fogNear;
+  cs.scene.fog.far = frame.fogFar;
+  cs.scene.background.copy(frame.bgColor);
+
+  if (cs.downlights) {
+    for (const light of cs.downlights.lights) light.intensity = frame.downlightIntensity;
+    cs.downlights.bulbMat.emissiveIntensity = 2.5 * (frame.downlightIntensity / 22);
+  }
+
+  if (cs.seaMat) cs.seaMat.color.copy(frame.seaColor);
+
+  for (const spot of cs.treeUplights) spot.intensity = frame.treeUplightIntensity;
+
+  if (cs.skyDomes) {
+    cs.skyDomes.daylight.material.opacity = frame.domeDay;
+    cs.skyDomes.sunset.material.opacity = frame.domeSunset;
+    cs.skyDomes.night.material.opacity = frame.domeNight;
+  }
+}
+
+// 활성 cycle 상태 (정적 테마일 땐 null → sceneTick에서 사이클 코드 실행 안 함)
+let cycleState = null;
 
 // 움직이는 생물(나비/새) — sceneTick(delta)이 매 프레임 갱신
 const creatures = [];
@@ -393,15 +571,14 @@ function createGrassTexture() {
 }
 
 // ---------------------------------------------------------------------------
-// 하늘 돔 (그라디언트 + 구름)
+// 하늘 돔 (그라디언트 + 구름) — 텍스처 드로잉은 renderSkyTexture()로 공유
 // ---------------------------------------------------------------------------
-function createSky(scene, theme) {
+function renderSkyTexture(sky) {
   const size = 1024;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
-  const sky = theme.sky;
 
   // 세로 그라디언트: 천정 색 → 수평선 색 (테마별 stops)
   const grad = ctx.createLinearGradient(0, 0, 0, size);
@@ -456,13 +633,45 @@ function createSky(scene, theme) {
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function createSky(scene, theme, isCycle) {
+  if (isCycle) {
+    // daylight/sunset/night 3장의 텍스처를 미리(딱 한 번) 만들어 겹쳐 놓고,
+    // sceneTick에서는 각 돔의 opacity만 블렌드한다 (텍스처 재생성 없음 — 성능 우선)
+    const makeDome = (sky, radius) => new THREE.Mesh(
+      new THREE.SphereGeometry(radius, 32, 16),
+      new THREE.MeshBasicMaterial({
+        map: renderSkyTexture(sky),
+        side: THREE.BackSide,
+        fog: false,
+        transparent: true,
+        // depthWrite: false → 어떤 돔도 깊이버퍼에 쓰지 않으므로 돔끼리 깊이 비교가 없어 z-fighting 불가.
+        // depthTest는 기본값(true)을 유지해야 실내 불투명 지오메트리(벽/바닥/작품)가 하늘을 정상적으로 가린다.
+        // (depthTest:false로 두면 투명 패스가 불투명 패스 뒤에 그려지며 하늘이 전시장 전체를 덮어버린다)
+        depthWrite: false,
+        opacity: 0,
+      })
+    );
+    const domeNight = makeDome(THEMES.night.sky, 450);
+    const domeSunset = makeDome(THEMES.sunset.sky, 448);
+    const domeDaylight = makeDome(THEMES.daylight.sky, 446);
+    for (const d of [domeNight, domeSunset, domeDaylight]) d.position.y = -20;
+    domeNight.renderOrder = -3;
+    domeSunset.renderOrder = -2;
+    domeDaylight.renderOrder = -1;
+    scene.add(domeNight, domeSunset, domeDaylight);
+    return { daylight: domeDaylight, sunset: domeSunset, night: domeNight };
+  }
 
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(450, 32, 16),
-    new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false })
+    new THREE.MeshBasicMaterial({ map: renderSkyTexture(theme.sky), side: THREE.BackSide, fog: false })
   );
   dome.position.y = -20; // 수평선을 낮춰 지평선 근처까지 그라디언트가 오도록
   scene.add(dome);
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -627,6 +836,8 @@ function createOutdoors(scene, theme) {
   pad.position.set(48, 0.06, 6);
   pad.receiveShadow = true;
   scene.add(pad);
+
+  return { seaMat: sea.material };
 }
 
 // ---------------------------------------------------------------------------
@@ -1349,7 +1560,9 @@ function createCourtyard(scene, theme) {
     scene.add(rock);
   }
 
-  // ---- night 테마: 중정 큰 나무 밑 업라이트 2개 (위로 조준, 웜 스팟) ----
+  // ---- night 테마 / cycle: 중정 큰 나무 밑 업라이트 2개 (위로 조준, 웜 스팟) ----
+  // cycle은 항상 픽스처를 만들어 두고 sceneTick에서 night 가중치로 밝기만 페이드한다
+  const treeUplights = [];
   if (theme.treeUplights) {
     const uplightSpots = [
       [cx - 1.6, cz - 1.1],
@@ -1364,8 +1577,11 @@ function createCourtyard(scene, theme) {
       spot.target = target;
       spot.castShadow = false; // 업라이트는 강조용 — 별도 그림자 부담 없이 가볍게
       scene.add(spot);
+      treeUplights.push(spot);
     }
   }
+
+  return { treeUplights };
 }
 
 // ---------------------------------------------------------------------------
@@ -1506,6 +1722,12 @@ let sceneTime = 0;
 export function sceneTick(delta) {
   sceneTime += delta;
   for (const c of creatures) c.update(sceneTime);
+
+  // 정적 테마일 땐 cycleState가 null이라 아래 코드가 실행되지 않는다
+  if (cycleState) {
+    cycleState.phase = (cycleState.phase + delta / CYCLE_DAY_SECONDS) % 1;
+    applyCycleFrame(cycleState, cycleFrameAt(cycleState.phase));
+  }
 }
 
 function createLightTracks(scene) {
@@ -1561,6 +1783,7 @@ function createDownlights(scene, theme) {
 
   const coords = [-14, 0, 14];
   const shadeY = 6.5; // 펜던트 갓 높이
+  const lights = [];
 
   for (const x of coords) {
     for (const z of coords) {
@@ -1595,8 +1818,11 @@ function createDownlights(scene, theme) {
       const light = new THREE.PointLight(theme.downlight.color, theme.downlight.intensity, 18, 2);
       light.position.set(x, shadeY - 0.3, z);
       scene.add(light);
+      lights.push(light);
     }
   }
+
+  return { lights, bulbMat };
 }
 
 function createGlobalLights(scene, theme) {
@@ -1605,7 +1831,8 @@ function createGlobalLights(scene, theme) {
   hemi.position.set(0, 40, 0);
   scene.add(hemi);
 
-  scene.add(new THREE.AmbientLight(theme.ambient.color, theme.ambient.intensity));
+  const ambient = new THREE.AmbientLight(theme.ambient.color, theme.ambient.intensity);
+  scene.add(ambient);
 
   // 태양(daylight/sunset) 또는 달(night) — 유리벽을 통해 실내로 들어오는 주 방향광
   const sun = new THREE.DirectionalLight(theme.sun.color, theme.sun.intensity);
@@ -1629,32 +1856,63 @@ function createGlobalLights(scene, theme) {
   const fill = new THREE.DirectionalLight(theme.fill.color, theme.fill.intensity);
   fill.position.set(...theme.fill.pos);
   scene.add(fill);
+
+  return { hemi, ambient, sun, fill };
 }
 
 // ---------------------------------------------------------------------------
 // 공개 API
 // ---------------------------------------------------------------------------
 export function createMuseum(scene, themeName = 'daylight') {
-  const theme = resolveTheme(themeName);
+  const isCycle = themeName === 'cycle';
+  // cycle 시작 위상: 관람객 현지 시각(시+분) 비례 — 접속 즉시 "지금" 시각의 하늘로 시작
+  const initPhase = isCycle ? getLocalPhase() : 0;
+  const theme = isCycle ? buildCycleTheme(initPhase) : resolveTheme(themeName);
 
   // 안개: 실내는 또렷, 먼 풍경은 대기원근으로 옅어짐 (테마별 색/거리)
   scene.background = new THREE.Color(theme.background);
   scene.fog = new THREE.Fog(theme.fog.color, theme.fog.near, theme.fog.far);
 
-  createSky(scene, theme);
-  createOutdoors(scene, theme);
+  const skyRefs = createSky(scene, theme, isCycle);
+  const outdoorRefs = createOutdoors(scene, theme);
 
   createFloor(scene);
   createSolidWalls(scene);
   createGlassWalls(scene);
   createPartitions(scene);
-  createCourtyard(scene, theme);
+  const courtyardRefs = createCourtyard(scene, theme);
   createBaseboards(scene);
   createCeiling(scene);
   createLightTracks(scene);
-  createDownlights(scene, theme);
-  createGlobalLights(scene, theme);
+  const downlightRefs = createDownlights(scene, theme);
+  const lightRefs = createGlobalLights(scene, theme);
   createCreatures(scene);
+
+  if (isCycle) {
+    // 달 — night 테마의 고정 위치/색을 그대로 재사용, 밝기만 매 프레임 블렌드
+    const moon = new THREE.DirectionalLight(THEMES.night.sun.color, 0);
+    moon.position.set(...THEMES.night.sun.pos);
+    scene.add(moon);
+    scene.add(moon.target);
+
+    cycleState = {
+      scene,
+      phase: initPhase,
+      sunLight: lightRefs.sun,
+      hemiLight: lightRefs.hemi,
+      ambientLight: lightRefs.ambient,
+      moonLight: moon,
+      seaMat: outdoorRefs.seaMat,
+      downlights: downlightRefs,
+      treeUplights: courtyardRefs.treeUplights,
+      skyDomes: skyRefs,
+    };
+    // 태양이 움직이므로 넉넉한 합집합 프러스텀을 실제로 반영 (새 라이트에만 영향 — 정적 테마 불변)
+    lightRefs.sun.shadow.camera.updateProjectionMatrix();
+    applyCycleFrame(cycleState, cycleFrameAt(initPhase)); // 첫 프레임부터 정확한 상태로 시작
+  } else {
+    cycleState = null; // 정적 테마로 재생성 시 이전 cycle 참조를 폐기
+  }
 
   return {
     bounds: {

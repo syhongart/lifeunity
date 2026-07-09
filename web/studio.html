@@ -139,7 +139,7 @@
   /* Theme picker */
   .theme-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 14px;
   }
   .theme-card {
@@ -194,6 +194,12 @@
       #8fcdf0 0%, #d8f0ff 30%,
       #ffb26b 38%, #e8654f 62%,
       #171d42 72%, #0a0e28 100%);
+  }
+  .theme-swatch-cycle {
+    background: linear-gradient(90deg,
+      #7fb2e0 0%, #d8f0ff 22%,
+      #ffb26b 40%, #c96a5e 55%,
+      #0a0e28 72%, #232a52 88%, #e8654f 100%);
   }
   .theme-card-body {
     display: flex;
@@ -589,6 +595,14 @@
             <span class="theme-card-desc">관람객의 현지 시각에 따라 낮·황혼·밤이 자동 적용</span>
           </span>
         </label>
+        <label class="theme-card" data-theme="cycle">
+          <input type="radio" name="theme" value="cycle">
+          <span class="theme-swatch theme-swatch-cycle"></span>
+          <span class="theme-card-body">
+            <span class="theme-card-title">실시간 낮밤</span>
+            <span class="theme-card-desc">태양이 실제로 뜨고 지는 살아있는 전시장 (12분 주기)</span>
+          </span>
+        </label>
       </div>
     </div>
   </section>
@@ -673,7 +687,7 @@
   var STORAGE_KEY = 'lifeunity-studio-draft-v1';
   var MAX_ARTWORKS = 14;
   var MAX_FEATURED = 2;
-  var THEMES = ['daylight', 'sunset', 'night', 'auto'];
+  var THEMES = ['daylight', 'sunset', 'night', 'auto', 'cycle'];
 
   var state = {
     id: '',

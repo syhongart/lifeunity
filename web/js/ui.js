@@ -27,6 +27,12 @@ let lightboxCloseTimer = null;
 let artworkListOpen = false;
 let onArtworkSelect = null; // initArtworkList(artworks, onSelect)의 onSelect
 
+// 방명록 패널 상태
+let guestbookOpen = false;
+let onGuestbookSubmit = null; // initGuestbook({ onSubmit })의 onSubmit
+let pendingGuestbookNotes = null; // initUI() 이전에 setGuestbookNotes()가 불렸을 때 대기시켜 둘 값
+const MAX_GUESTBOOK_TEXT = 120;
+
 // 투어 바 버튼 콜백 (setTourHandlers로 배선)
 let tourHandlers = { onPrev: null, onNext: null, onExit: null, onToggleAuto: null };
 
@@ -35,8 +41,8 @@ const IS_TOUCH =
   (typeof window !== 'undefined' && 'ontouchstart' in window) ||
   (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
 
-// 터치 액션 버튼 콜백 (setActionHandlers로 배선) — 키보드 없는 기기의 M/T/E 대체
-let actionHandlers = { onTour: null, onViewArtwork: null };
+// 터치 액션 버튼 콜백 (setActionHandlers로 배선) — 키보드 없는 기기의 M/T/E/G 대체
+let actionHandlers = { onTour: null, onViewArtwork: null, onGuestbook: null };
 
 // initUI() 호출 이전에 setGalleryTitle / initGalleryPicker / initArtworkList가
 // 먼저 불려도 값을 잃지 않도록 대기시켜 두었다가 DOM 생성 직후 적용한다.
@@ -553,6 +559,100 @@ function injectStyles() {
   font-size: 12px; color: #aaa;
 }
 
+/* ------------------------------- 방명록 패널 ------------------------------- */
+/* 작품 목록 패널과 대칭 — 화면 왼쪽에서 슬라이드-인 */
+#lu-guestbook {
+  position: fixed; z-index: 650;
+  top: 0; left: 0; bottom: 0;
+  width: min(340px, calc(100vw - 24px));
+  background: rgba(255,255,255,0.97);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: #111;
+  box-shadow: 18px 0 50px rgba(0,0,0,0.28);
+  transform: translateX(-105%);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex; flex-direction: column;
+}
+#lu-guestbook.lu-open { transform: translateX(0); }
+#lu-guestbook-head {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid #eee;
+}
+#lu-guestbook-title {
+  font-size: 13px; letter-spacing: 0.16em; text-indent: 0.16em;
+  color: #111;
+}
+#lu-guestbook-close {
+  flex: 0 0 auto;
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid #ddd; border-radius: 50%;
+  color: #999; font-size: 15px; font-weight: 300; line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+#lu-guestbook-close:hover { border-color: var(--lu-gold); color: var(--lu-gold); transform: rotate(90deg); }
+#lu-guestbook-body {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto;
+}
+.lu-gbook-note {
+  padding: 14px 24px;
+  border-bottom: 1px solid #f0f0ee;
+}
+.lu-gbook-name { font-size: 12px; font-weight: 400; color: var(--lu-gold); }
+.lu-gbook-time {
+  margin-left: 8px;
+  font-size: 10px; letter-spacing: 0.04em; color: #aaa;
+}
+.lu-gbook-text {
+  margin-top: 6px;
+  font-size: 13px; line-height: 1.6; color: #333;
+  word-break: break-word; white-space: pre-wrap;
+}
+.lu-gbook-empty {
+  padding: 40px 24px; text-align: center;
+  font-size: 12px; color: #aaa;
+}
+#lu-guestbook-footer {
+  flex: 0 0 auto;
+  padding: 16px 24px 20px;
+  border-top: 1px solid #eee;
+}
+#lu-gbook-input {
+  width: 100%; resize: none;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 13px; color: #111;
+  background: #fafafa;
+  border: 1px solid #eee;
+  padding: 10px 12px; outline: none;
+  border-radius: 0;
+  transition: border-color 0.25s ease;
+}
+#lu-gbook-input::placeholder { color: #bbb; }
+#lu-gbook-input:focus { border-color: var(--lu-gold); }
+.lu-gbook-footer-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 10px;
+}
+.lu-gbook-count {
+  font-size: 10px; letter-spacing: 0.04em; color: #bbb;
+}
+#lu-gbook-submit {
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 12px; letter-spacing: 0.2em; text-indent: 0.2em;
+  color: #fff; background: #111;
+  border: 1px solid #111;
+  padding: 9px 18px; cursor: pointer;
+  transition: background 0.25s ease, color 0.25s ease, opacity 0.25s ease;
+}
+#lu-gbook-submit:hover { background: var(--lu-gold); border-color: var(--lu-gold); color: #111; }
+#lu-gbook-submit:disabled { opacity: 0.35; cursor: default; }
+#lu-gbook-submit:disabled:hover { background: #111; border-color: #111; color: #fff; }
+
 /* -------------------------------- 투어 바 -------------------------------- */
 #lu-tourbar {
   position: fixed; z-index: 500;
@@ -616,6 +716,10 @@ function injectStyles() {
   #lu-artlist { width: calc(100vw - 24px); }
   #lu-artlist-head { padding: 18px 18px 14px; }
   .lu-artlist-card { padding: 12px 18px; gap: 12px; }
+  #lu-guestbook { width: calc(100vw - 24px); }
+  #lu-guestbook-head { padding: 18px 18px 14px; }
+  .lu-gbook-note { padding: 12px 18px; }
+  #lu-guestbook-footer { padding: 14px 18px 16px; }
   #lu-tourbar {
     bottom: 92px; padding: 9px 14px; gap: 10px;
     font-size: 11px; max-width: calc(100vw - 20px);
@@ -749,6 +853,7 @@ function buildControls() {
         ['Enter', '채팅'],
         ['M', '작품 목록'],
         ['T', '투어'],
+        ['G', '방명록'],
       ];
   const panel = el('div', { id: 'lu-controls', className: 'lu lu-hud' });
   panel.appendChild(el('div', { className: 'lu-controls-title', text: 'CONTROLS' }));
@@ -798,7 +903,13 @@ function buildMobileDock() {
     if (typeof actionHandlers.onTour === 'function') actionHandlers.onTour();
   });
 
-  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [listBtn, tourBtn]);
+  const gbookBtn = el('button', {
+    className: 'lu-dock-btn', type: 'button', 'aria-label': '방명록',
+    text: '방명록',
+  });
+  gbookBtn.addEventListener('click', () => toggleGuestbook());
+
+  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [listBtn, tourBtn, gbookBtn]);
   document.body.appendChild(dock);
   return dock;
 }
@@ -962,6 +1073,112 @@ function buildArtworkList() {
   return { panel, body };
 }
 
+// ---------------------------------------------------------------------------
+// 방명록 패널 — G 키(또는 HUD 버튼)로 열어 전시에 한 줄 메모를 남긴다
+// ---------------------------------------------------------------------------
+
+// '3분 전' / '2시간 전' / '어제' / 'YYYY.MM.DD' — 노트 작성 시각을 사람이 읽기 쉬운 형태로.
+function formatRelativeTime(ts) {
+  const now = Date.now();
+  const diffMs = Math.max(0, now - ts);
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return '방금 전';
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+
+  const d = new Date(ts);
+  const n = new Date(now);
+  const startOfDay = (dt) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
+  const dayDiff = Math.round((startOfDay(n) - startOfDay(d)) / 86400000);
+  if (dayDiff <= 1) return '어제';
+
+  const yy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yy}.${mm}.${dd}`;
+}
+
+function renderGuestbookNotes(notes) {
+  const body = els.guestbook.body;
+  body.innerHTML = '';
+  if (!Array.isArray(notes) || notes.length === 0) {
+    body.appendChild(el('div', { className: 'lu-gbook-empty', text: '첫 방명록을 남겨보세요' }));
+    return;
+  }
+  notes.forEach((note) => {
+    const head = el('div', {}, [
+      el('span', { className: 'lu-gbook-name', text: note.name || '게스트' }),
+      el('span', { className: 'lu-gbook-time', text: formatRelativeTime(note.ts) }),
+    ]);
+    const text = el('div', { className: 'lu-gbook-text', text: note.text || '' });
+    body.appendChild(el('div', { className: 'lu-gbook-note' }, [head, text]));
+  });
+}
+
+function buildGuestbookPanel() {
+  const closeBtn = el('button', { id: 'lu-guestbook-close', type: 'button', 'aria-label': '닫기', text: '×' });
+  const head = el('div', { id: 'lu-guestbook-head' }, [
+    el('div', { id: 'lu-guestbook-title', text: 'GUESTBOOK — 방명록' }),
+    closeBtn,
+  ]);
+  const body = el('div', { id: 'lu-guestbook-body' });
+
+  const input = el('textarea', {
+    id: 'lu-gbook-input',
+    rows: '3',
+    maxlength: String(MAX_GUESTBOOK_TEXT),
+    placeholder: '전시에 한 줄 메모를 남겨보세요…',
+    spellcheck: 'false',
+  });
+  const count = el('span', { className: 'lu-gbook-count', text: `0/${MAX_GUESTBOOK_TEXT}` });
+  const submitBtn = el('button', { id: 'lu-gbook-submit', type: 'button', text: '남기기' });
+  submitBtn.disabled = true;
+  const footerRow = el('div', { className: 'lu-gbook-footer-row' }, [count, submitBtn]);
+  const footer = el('div', { id: 'lu-guestbook-footer' }, [input, footerRow]);
+
+  const panel = el('div', { id: 'lu-guestbook', className: 'lu' }, [head, body, footer]);
+  document.body.appendChild(panel);
+
+  closeBtn.addEventListener('click', () => hideGuestbook());
+
+  function updateCount() {
+    const len = input.value.length;
+    count.textContent = `${len}/${MAX_GUESTBOOK_TEXT}`;
+    submitBtn.disabled = input.value.trim().length === 0;
+  }
+
+  function submit() {
+    const text = input.value.trim().slice(0, MAX_GUESTBOOK_TEXT);
+    if (!text) return;
+    input.value = '';
+    updateCount();
+    input.blur();
+    if (typeof onGuestbookSubmit === 'function') onGuestbookSubmit(text);
+  }
+
+  // 입력창 포커스 중 키 이벤트가 플레이어 조작(WASD/G 등)으로 전파되지 않도록 차단
+  // (채팅 입력창과 동일 패턴)
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Escape') {
+      input.value = '';
+      updateCount();
+      input.blur();
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      submit();
+    }
+  });
+  input.addEventListener('keyup', (e) => e.stopPropagation());
+  input.addEventListener('keypress', (e) => e.stopPropagation());
+  input.addEventListener('input', updateCount);
+
+  submitBtn.addEventListener('click', submit);
+
+  return { panel, body, input, count, submitBtn };
+}
+
 function buildTourBar() {
   const prevBtn = el('button', { type: 'button', 'aria-label': '이전 작품', text: '◀ 이전' });
   const sep1 = el('span', { className: 'lu-tour-sep' });
@@ -993,8 +1210,9 @@ function buildTourBar() {
 // ESC 우선순위 규약:
 //   ① 라이트박스가 열려 있으면 라이트박스만 닫는다
 //   ② (라이트박스가 닫혀 있고) 작품 목록이 열려 있으면 작품 목록만 닫는다
-//   ③ 둘 다 닫혀 있으면 ui.js는 아무것도 하지 않는다 (투어 종료는 main.js 담당)
-// 채팅 입력창 포커스 중 ESC는 입력창 자체 keydown 핸들러가 stopPropagation하므로
+//   ③ (위 둘이 닫혀 있고) 방명록이 열려 있으면 방명록만 닫는다
+//   ④ 셋 다 닫혀 있으면 ui.js는 아무것도 하지 않는다 (투어 종료는 main.js 담당)
+// 채팅/방명록 입력창 포커스 중 ESC는 입력창 자체 keydown 핸들러가 stopPropagation하므로
 // 이 전역 핸들러까지 도달하지 않는다 (기존 동작 유지).
 function bindGlobalKeys() {
   window.addEventListener('keydown', (e) => {
@@ -1012,6 +1230,12 @@ function bindGlobalKeys() {
         e.preventDefault();
         e.stopImmediatePropagation();
         hideArtworkList();
+        return;
+      }
+      if (guestbookOpen) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        hideGuestbook();
         return;
       }
       return;
@@ -1058,6 +1282,7 @@ export function initUI({ onEnter, onChatSend } = {}) {
     galleryTitle: buildGalleryTitle(),
     lightbox: buildLightbox(),
     artworkList: buildArtworkList(),
+    guestbook: buildGuestbookPanel(),
     tourBar: buildTourBar(),
     dock: buildMobileDock(),
   };
@@ -1068,6 +1293,7 @@ export function initUI({ onEnter, onChatSend } = {}) {
   if (pendingGalleryTitle !== null) applyGalleryTitle(pendingGalleryTitle);
   if (pendingPicker) applyGalleryPicker(pendingPicker.galleries, pendingPicker.currentId, pendingPicker.onPick);
   if (pendingArtworkList) renderArtworkList(pendingArtworkList);
+  if (pendingGuestbookNotes) renderGuestbookNotes(pendingGuestbookNotes);
 }
 
 export function showLoading(show) {
@@ -1327,12 +1553,14 @@ export function hideTourBar() {
   els.tourBar.bar.classList.remove('lu-open');
 }
 
-// 터치 액션 독/작품 패널 버튼 콜백 — 키보드 없는 기기에서 T(투어)/E(크게 보기) 대체.
-// main.js가 배선한다.
-export function setActionHandlers({ onTour, onViewArtwork } = {}) {
+// 터치 액션 독/작품 패널 버튼 콜백 — 키보드 없는 기기에서 T(투어)/E(크게 보기)/G(방명록) 대체.
+// main.js가 배선한다. 방명록 독 버튼 자체는 ui.js 내부에서 toggleGuestbook()을 직접 호출하므로
+// onGuestbook은 현재 ui.js 내부에서 호출하지 않지만, 계약대로 인터페이스에 포함해 둔다.
+export function setActionHandlers({ onTour, onViewArtwork, onGuestbook } = {}) {
   actionHandlers = {
     onTour: typeof onTour === 'function' ? onTour : null,
     onViewArtwork: typeof onViewArtwork === 'function' ? onViewArtwork : null,
+    onGuestbook: typeof onGuestbook === 'function' ? onGuestbook : null,
   };
 }
 
@@ -1345,4 +1573,41 @@ export function setTourHandlers({ onPrev, onNext, onExit, onToggleAuto } = {}) {
     onExit: typeof onExit === 'function' ? onExit : null,
     onToggleAuto: typeof onToggleAuto === 'function' ? onToggleAuto : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// 방명록 패널 — G 키(또는 HUD 버튼)로 열어 전시에 한 줄 메모를 남긴다
+// ---------------------------------------------------------------------------
+
+// onSubmit(text) — 입력창에서 [남기기] 또는 Ctrl/Cmd+Enter로 제출된 본문(트림·120자 이내).
+// 닉네임 결합(makeNote) 및 저장/브로드캐스트는 main.js 담당.
+export function initGuestbook({ onSubmit } = {}) {
+  onGuestbookSubmit = typeof onSubmit === 'function' ? onSubmit : null;
+}
+
+export function toggleGuestbook() {
+  if (!els) return;
+  if (guestbookOpen) {
+    hideGuestbook();
+  } else {
+    guestbookOpen = true;
+    els.guestbook.panel.classList.add('lu-open');
+  }
+}
+
+export function hideGuestbook() {
+  if (!els || !guestbookOpen) return;
+  guestbookOpen = false;
+  els.guestbook.panel.classList.remove('lu-open');
+}
+
+export function isGuestbookOpen() {
+  return guestbookOpen;
+}
+
+// notes: note[] (id/name/text/ts) — 전체 교체 렌더. 최신순으로 전달되어야 한다.
+export function setGuestbookNotes(notes) {
+  pendingGuestbookNotes = Array.isArray(notes) ? notes : [];
+  if (!els) return; // initUI() 호출 시 pendingGuestbookNotes가 적용됨
+  renderGuestbookNotes(pendingGuestbookNotes);
 }
