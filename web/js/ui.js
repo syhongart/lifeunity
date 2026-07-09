@@ -3,6 +3,14 @@
 // MoMA 미니멀 미학: Helvetica, 화이트/블랙, 골드(#d4af37) 포인트
 
 import { AVATAR_COLORS } from './config.js';
+import {
+  PROVIDERS as AUTH_PROVIDERS,
+  MOCK_NAMES as AUTH_MOCK_PREFILL,
+  loginWith as authLoginWith,
+  logout as authLogout,
+  getProfile as authGetProfile,
+  onAuthChange,
+} from './auth.js';
 
 const GOLD = '#d4af37';
 const MAX_CHAT_MESSAGES = 8;
@@ -211,6 +219,91 @@ function injectStyles() {
   transition: color 0.2s ease, border-color 0.2s ease;
 }
 .lu-studio-link:hover { color: var(--lu-gold); border-bottom-color: var(--lu-gold); }
+
+/* ------------------------------ 소셜 로그인 ------------------------------ */
+#lu-auth { margin: 26px 0 6px; }
+.lu-social-wrap { display: flex; flex-direction: column; gap: 9px; }
+.lu-social-btn {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 11px 16px;
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.18);
+  border-radius: 3px;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 13px; letter-spacing: 0.02em;
+  color: #222;
+  cursor: pointer;
+  transition: border-color 0.25s ease, background 0.25s ease, opacity 0.25s ease;
+}
+.lu-social-btn:hover { border-color: rgba(0,0,0,0.45); }
+.lu-social-btn:disabled { opacity: 0.55; cursor: default; }
+.lu-social-busy { background: rgba(0,0,0,0.03); }
+.lu-social-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  font-size: 11px; font-weight: 500;
+  flex: 0 0 auto;
+}
+.lu-social-google .lu-social-badge { background: #fff; border: 1px solid #dadce0; color: #4285f4; }
+.lu-social-kakao .lu-social-badge { background: #fee500; color: #191919; }
+.lu-social-kakao { background: rgba(254,229,0,0.12); border-color: rgba(210,190,0,0.45); }
+.lu-social-kakao:hover { background: rgba(254,229,0,0.22); }
+.lu-social-naver .lu-social-badge { background: #03c75a; color: #fff; }
+.lu-social-naver { background: rgba(3,199,90,0.07); border-color: rgba(3,150,70,0.35); }
+.lu-social-naver:hover { background: rgba(3,199,90,0.14); }
+.lu-social-note {
+  margin-top: 2px;
+  font-size: 10px; letter-spacing: 0.03em;
+  color: #b0aca4;
+  text-align: center;
+}
+
+.lu-logged-chip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid rgba(0,0,0,0.14);
+  border-left: 2px solid var(--lu-gold);
+  border-radius: 3px;
+  background: rgba(0,0,0,0.025);
+}
+.lu-logged-avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: #1a1a1c; color: var(--lu-gold);
+  font-size: 13px; font-weight: 400;
+  flex: 0 0 auto;
+}
+.lu-logged-name { font-size: 13px; color: #1a1a1a; }
+.lu-logged-via {
+  font-size: 10px; color: #999;
+  border: 1px solid #ddd; border-radius: 50%;
+  width: 17px; height: 17px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.lu-logout-btn {
+  margin-left: auto;
+  background: transparent; border: none;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 11px; letter-spacing: 0.04em;
+  color: #999; cursor: pointer;
+  transition: color 0.25s ease;
+}
+.lu-logout-btn:hover { color: var(--lu-gold); }
+
+.lu-auth-or {
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0 4px;
+}
+.lu-auth-or::before, .lu-auth-or::after {
+  content: ''; flex: 1; height: 1px; background: rgba(0,0,0,0.1);
+}
+.lu-auth-or span {
+  font-size: 10px; letter-spacing: 0.12em;
+  color: #b0aca4;
+}
 
 /* --------------------------------- HUD --------------------------------- */
 .lu-hud {
@@ -565,16 +658,39 @@ function injectStyles() {
   position: fixed; z-index: 650;
   top: 0; left: 0; bottom: 0;
   width: min(340px, calc(100vw - 24px));
+  overflow: visible; /* 책갈피 탭이 패널 오른쪽 바깥으로 나온다 */
   background: rgba(255,255,255,0.97);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   color: #111;
   box-shadow: 18px 0 50px rgba(0,0,0,0.28);
-  transform: translateX(-105%);
+  transform: translateX(-100%); /* 닫혀도 책갈피 탭은 화면에 남는다 */
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   display: flex; flex-direction: column;
 }
 #lu-guestbook.lu-open { transform: translateX(0); }
+
+/* 책갈피 탭 — 패널 오른쪽 가장자리에 붙어 함께 미끄러진다 */
+#lu-gbtab {
+  position: absolute;
+  right: -33px; top: 38%;
+  writing-mode: vertical-rl;
+  padding: 15px 8px 15px 6px;
+  background: rgba(10,10,12,0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-left: 2px solid var(--lu-gold);
+  border-radius: 0 9px 9px 0;
+  color: rgba(255,255,255,0.92);
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 12px; letter-spacing: 0.3em;
+  cursor: pointer;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.6s ease, color 0.25s ease;
+}
+#lu-gbtab.lu-visible { opacity: 1; pointer-events: auto; }
+#lu-gbtab:hover { color: var(--lu-gold); }
 #lu-guestbook-head {
   flex: 0 0 auto;
   display: flex; align-items: center; justify-content: space-between;
@@ -764,6 +880,76 @@ function buildLobby() {
   const sub = el('div', { className: 'lu-lobby-sub', text: 'VIRTUAL EXHIBITION' });
   const rule = el('div', { className: 'lu-lobby-rule' });
 
+  // ---- 소셜 로그인 (현재 mock — auth.js 참고) ----
+  const authBox = el('div', { id: 'lu-auth' });
+
+  const socialWrap = el('div', { className: 'lu-social-wrap' });
+  const loggedWrap = el('div', { className: 'lu-logged-wrap' });
+
+  const buildSocialButtons = () => {
+    socialWrap.textContent = '';
+    for (const key of Object.keys(AUTH_PROVIDERS)) {
+      const p = AUTH_PROVIDERS[key];
+      const btn = el('button', {
+        className: `lu-social-btn lu-social-${key}`,
+        type: 'button',
+      }, [
+        el('span', { className: 'lu-social-badge', text: p.short }),
+        el('span', { text: p.label }),
+      ]);
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.classList.add('lu-social-busy');
+        try {
+          await authLoginWith(key);
+        } catch (_) {
+          /* mock에서는 실패 없음 */
+        }
+        btn.disabled = false;
+        btn.classList.remove('lu-social-busy');
+      });
+      socialWrap.appendChild(btn);
+    }
+    socialWrap.appendChild(el('div', {
+      className: 'lu-social-note',
+      text: '계정 연동 준비 중 — 지금은 프로필 미리보기로 동작합니다',
+    }));
+  };
+
+  const buildLoggedChip = (p) => {
+    loggedWrap.textContent = '';
+    const avatar = el('span', { className: 'lu-logged-avatar', text: p.initial || p.name.slice(0, 1) });
+    const name = el('span', { className: 'lu-logged-name', text: `${p.name}님` });
+    const via = el('span', { className: 'lu-logged-via', text: AUTH_PROVIDERS[p.provider] ? AUTH_PROVIDERS[p.provider].short : '' });
+    const logoutBtn = el('button', { className: 'lu-logout-btn', type: 'button', text: '로그아웃' });
+    logoutBtn.addEventListener('click', () => authLogout());
+    loggedWrap.appendChild(el('div', { className: 'lu-logged-chip' }, [avatar, name, via, logoutBtn]));
+  };
+
+  const syncAuthUI = (p) => {
+    if (p) {
+      buildLoggedChip(p);
+      socialWrap.style.display = 'none';
+      loggedWrap.style.display = '';
+      // 프로필 이름을 닉네임에 프리필 (사용자가 수정 가능)
+      nickInput.value = p.name.slice(0, MAX_NICKNAME_LEN);
+    } else {
+      socialWrap.style.display = '';
+      loggedWrap.style.display = 'none';
+      if (!nickInput.value || Object.values(AUTH_MOCK_PREFILL).includes(nickInput.value)) {
+        nickInput.value = '게스트';
+      }
+    }
+  };
+
+  buildSocialButtons();
+  authBox.appendChild(socialWrap);
+  authBox.appendChild(loggedWrap);
+
+  const orDivider = el('div', { className: 'lu-auth-or' }, [
+    el('span', { text: '또는 게스트로 입장' }),
+  ]);
+
   // 닉네임
   const nickLabel = el('label', { className: 'lu-field-label', for: 'lu-nickname', text: '닉네임' });
   const nickInput = el('input', {
@@ -812,6 +998,7 @@ function buildLobby() {
 
   const card = el('div', { className: 'lu-lobby-card' }, [
     title, sub, rule,
+    authBox, orDivider,
     nickLabel, nickInput, nickHint,
     swatchLabel, swatches,
     enterBtn,
@@ -820,6 +1007,10 @@ function buildLobby() {
   ]);
   const overlay = el('div', { id: 'lu-lobby', className: 'lu' }, [card]);
   document.body.appendChild(overlay);
+
+  // 저장된 로그인 세션 복원 + 상태 변화 반영
+  syncAuthUI(authGetProfile());
+  onAuthChange(syncAuthUI);
 
   function submit() {
     let nickname = nickInput.value.trim().slice(0, MAX_NICKNAME_LEN);
@@ -903,13 +1094,8 @@ function buildMobileDock() {
     if (typeof actionHandlers.onTour === 'function') actionHandlers.onTour();
   });
 
-  const gbookBtn = el('button', {
-    className: 'lu-dock-btn', type: 'button', 'aria-label': '방명록',
-    text: '방명록',
-  });
-  gbookBtn.addEventListener('click', () => toggleGuestbook());
-
-  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [listBtn, tourBtn, gbookBtn]);
+  // 방명록은 화면 왼쪽 책갈피 탭(#lu-gbtab)이 담당하므로 독 버튼은 두지 않는다
+  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [listBtn, tourBtn]);
   document.body.appendChild(dock);
   return dock;
 }
@@ -1137,7 +1323,17 @@ function buildGuestbookPanel() {
   const footerRow = el('div', { className: 'lu-gbook-footer-row' }, [count, submitBtn]);
   const footer = el('div', { id: 'lu-guestbook-footer' }, [input, footerRow]);
 
-  const panel = el('div', { id: 'lu-guestbook', className: 'lu' }, [head, body, footer]);
+  // 책갈피 탭 — 패널이 닫혀 있어도 화면 왼쪽 가장자리에 살짝 나와 있고,
+  // 패널의 자식이므로 열릴 때 패널과 함께 미끄러진다
+  const tab = el('button', {
+    id: 'lu-gbtab',
+    type: 'button',
+    'aria-label': '방명록 열기/닫기',
+    text: '방명록',
+  });
+  tab.addEventListener('click', () => toggleGuestbook());
+
+  const panel = el('div', { id: 'lu-guestbook', className: 'lu' }, [head, body, footer, tab]);
   document.body.appendChild(panel);
 
   closeBtn.addEventListener('click', () => hideGuestbook());
@@ -1176,7 +1372,7 @@ function buildGuestbookPanel() {
 
   submitBtn.addEventListener('click', submit);
 
-  return { panel, body, input, count, submitBtn };
+  return { panel, body, input, count, submitBtn, tab };
 }
 
 function buildTourBar() {
@@ -1311,6 +1507,7 @@ export function hideLobby() {
   els.status.classList.add('lu-visible');
   els.chat.wrap.classList.add('lu-visible');
   els.galleryTitle.classList.add('lu-visible');
+  els.guestbook.tab.classList.add('lu-visible');
 }
 
 export function showArtworkInfo(art) {
