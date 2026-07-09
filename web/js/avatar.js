@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import * as SkeletonUtils from '../vendor/SkeletonUtils.js';
+import { buildDclAvatar, decodeLook, retargetClipForDcl } from './avatarkit.js';
 
 // ---------------------------------------------------------------------------
 // 캐릭터 정의 — 로비 선택 UI(ui.js)와 템플릿 로더가 공유하는 단일 진실 소스
@@ -24,6 +25,20 @@ const DEFAULT_CHAR_ID = 'knight';
 // KayKit 캐릭터의 메시 전방은 +Z(three.js 카메라 전방 -Z와 반대)라서 π 보정이 필요하다.
 // QA 실측으로 확정: 보정 0일 때 북쪽을 바라보는 아바타가 등을 보였음 (2인 접속 스크린샷).
 const CHAR_FORWARD_OFFSET = Math.PI;
+
+// DCL(Decentraland base-avatars) 커스텀 아바타 전방 보정 — KayKit과 별도 상수.
+// QA 실측: DCL GLB 원본은 이미 +Z를 바라봐(KayKit 원본은 -Z를 바라봐 π 보정이 필요했던 것과 반대),
+// 카메라가 +Z에서 원점을 바라볼 때 바로 정면이 보인다 — 보정 불필요(0).
+const DCL_FORWARD_OFFSET = 0;
+
+// DCL 리그의 바인드 포즈는 T포즈(팔이 수평)인데 RPM/Mixamo idle·walk 클립의 "레스트"는
+// 이미 팔이 몸통 옆으로 내려온 자연스러운 자세다 — 레스트-상대 델타 리타게팅은 이
+// 차이를 좌표축 관례 차이와 구분할 수 없어 팔이 계속 T포즈 근처에 머문다(QA 실측).
+// 상완 본에 로컬 Z축 +90°를 더해 T포즈 기준을 자연스러운 팔 늘어뜨림 쪽으로 보정한다.
+const DCL_ARM_CALIBRATION = new Map([
+  ['Avatar_LeftArm', new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2)],
+  ['Avatar_RightArm', new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2)],
+]);
 
 // 아바타 목표 신장(m) — 캐릭터별 원본 비례가 달라도 균일 스케일로 맞춘다
 const TARGET_HEIGHT = 1.8;
@@ -57,13 +72,40 @@ let _rpmClipsPromise = null;
 // 아바타가 생성되면 이 시점의 값(일부 또는 전부 null)을 그대로 쓴다 — 애니메이션 없는
 // 정적 포즈로 렌더될 뿐, 캡슐 폴백까지 가지는 않는다(모델 자체는 정상 로드되었으므로).
 let _rpmClips = { idle: null, walk: null, run: null };
+// DCL 리타게팅용 — RPM 리그의 레스트(바인드 포즈) 정보. idle→walk→run 순으로
+// 최초 성공한 클립에서 1회만 추출한다(동일 리그이므로 값은 동일해야 함).
+// DCL 본의 로컬 레스트 회전값은 RPM/Mixamo 표준과 축 관례가 달라(Armature 좌표
+// 보정 회전 등) 트랙 이름만 바꿔 복사하면 포즈가 붕괴한다(QA로 실측 확인) — 본별
+// 레스트 쿼터니언 델타를 구해 재적용해야 하므로, 모든 본의 레스트 로컬 회전을 맵으로 둔다.
+let _rpmHipsRest = null; // { local: THREE.Vector3, worldY: number } | null
+let _rpmRestQuats = null; // Map<boneName, THREE.Quaternion> | null
 
 function loadOneClip(file) {
   const loader = new GLTFLoader();
   return new Promise((resolve, reject) => {
     loader.load(
       file,
-      (gltf) => resolve((gltf.animations && gltf.animations[0]) || null),
+      (gltf) => {
+        const clip = (gltf.animations && gltf.animations[0]) || null;
+        let hipsRestLocal = null;
+        let hipsRestWorldY = null;
+        const restQuats = new Map();
+        if (gltf.scene) {
+          gltf.scene.updateMatrixWorld(true);
+          let hipsNode = null;
+          gltf.scene.traverse((o) => {
+            if (o.name) restQuats.set(o.name, o.quaternion.clone());
+            if (!hipsNode && o.name === 'Hips') hipsNode = o;
+          });
+          if (hipsNode) {
+            hipsRestLocal = hipsNode.position.clone();
+            const wp = new THREE.Vector3();
+            hipsNode.getWorldPosition(wp);
+            hipsRestWorldY = wp.y;
+          }
+        }
+        resolve({ clip, hipsRestLocal, hipsRestWorldY, restQuats: restQuats.size ? restQuats : null });
+      },
       undefined,
       (err) => reject(err)
     );
@@ -77,21 +119,26 @@ function loadOneClip(file) {
  */
 function loadRpmClips() {
   if (_rpmClipsPromise) return _rpmClipsPromise;
+  const empty = { clip: null, hipsRestLocal: null, hipsRestWorldY: null, restQuats: null };
   _rpmClipsPromise = Promise.all([
     loadOneClip(RPM_ANIM_FILES.idle).catch((err) => {
       console.warn('RPM idle 클립 로드 실패:', err);
-      return null;
+      return empty;
     }),
     loadOneClip(RPM_ANIM_FILES.walk).catch((err) => {
       console.warn('RPM walk 클립 로드 실패:', err);
-      return null;
+      return empty;
     }),
     loadOneClip(RPM_ANIM_FILES.run).catch((err) => {
       console.warn('RPM run 클립 로드 실패:', err);
-      return null;
+      return empty;
     }),
   ]).then(([idle, walk, run]) => {
-    _rpmClips = { idle, walk, run };
+    _rpmClips = { idle: idle.clip, walk: walk.clip, run: run.clip };
+    const restSrc = idle.hipsRestLocal ? idle : walk.hipsRestLocal ? walk : run.hipsRestLocal ? run : null;
+    _rpmHipsRest = restSrc ? { local: restSrc.hipsRestLocal, worldY: restSrc.hipsRestWorldY } : null;
+    const quatSrc = idle.restQuats ? idle : walk.restQuats ? walk : run.restQuats ? run : null;
+    _rpmRestQuats = quatSrc ? quatSrc.restQuats : null;
     return _rpmClips;
   });
   return _rpmClipsPromise;
@@ -453,6 +500,359 @@ function createRiggedAvatar(template, colorHex, nickname, animOverride = null, f
   };
 }
 
+// ---------------------------------------------------------------------------
+// DCL 커스텀 아바타 ('dcl:' + JSON.stringify(look)) — avatarkit.js가 조립,
+// 여기서는 정규화/애니메이션 리타게팅/씬 편입만 담당한다.
+// ---------------------------------------------------------------------------
+
+/**
+ * SkinnedMesh는 본 변형이 Object3D.matrixWorld에 반영되지 않아(GPU 스키닝) 일반
+ * Box3.setFromObject()로는 실제 렌더 크기를 잴 수 없다. 귀여움 슬라이더가 머리
+ * 뼈를 스케일하므로, getVertexPosition()으로 정확히 잰다.
+ * 주의: SkinnedMesh.getVertexPosition()은 내부적으로 bindMatrixInverse(= 자기
+ * matrixWorld의 역행렬)를 마지막에 곱해 결과를 "메시 로컬 공간"으로 되돌려 놓는다
+ * (레이캐스팅에서 로컬 공간 레이와 비교하기 위한 설계) — 월드 좌표가 필요하므로
+ * obj.matrixWorld를 다시 곱해야 한다.
+ * @param {THREE.Object3D} root
+ * @returns {THREE.Box3}
+ */
+function computeSkinnedWorldBox3(root) {
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  const v = new THREE.Vector3();
+  let any = false;
+  root.traverse((obj) => {
+    if (!obj.isSkinnedMesh || obj.visible === false) return;
+    const posAttr = obj.geometry && obj.geometry.attributes && obj.geometry.attributes.position;
+    if (!posAttr) return;
+    for (let i = 0; i < posAttr.count; i++) {
+      obj.getVertexPosition(i, v);
+      v.applyMatrix4(obj.matrixWorld);
+      box.expandByPoint(v);
+      any = true;
+    }
+  });
+  if (!any) box.setFromObject(root);
+  return box;
+}
+
+/**
+ * RPM Hips.position 트랙(리타게팅 후 'Avatar_Hips.position')을 DCL 리그에서 쓸 수
+ * 있게 재보정한다. retargetClipForDcl()은 계약상 값에 hipsScale만 곱하므로(레스트
+ * 오프셋/좌표축 차이는 모른다), 여기서 RPM 레스트 기준 델타를 뽑아 DCL의 실제
+ * 레스트 로컬 위치에 다시 앵커링하고, Hips 부모(Armature)의 현재 월드 회전으로
+ * 축을 맞춘다. 필요한 레스트 정보가 없거나 계산 결과가 유한하지 않으면 트랙을
+ * 통째로 버려 실패를 흡수한다(회전 트랙만으로도 완전한 걷기 애니메이션이 된다).
+ * @returns {boolean} 성공 여부
+ */
+function reanchorDclHipsPositionTrack(track, hipsScale, dclHipsLocalRest, dclParentWorldQuat) {
+  if (!track || !dclHipsLocalRest || !dclParentWorldQuat || !_rpmHipsRest || !_rpmHipsRest.local) return false;
+  const rpmRestScaled = _rpmHipsRest.local.clone().multiplyScalar(hipsScale);
+  const invParentQuat = dclParentWorldQuat.clone().invert();
+  const values = track.values;
+  const tmp = new THREE.Vector3();
+  for (let i = 0; i + 2 < values.length; i += 3) {
+    tmp.set(values[i] - rpmRestScaled.x, values[i + 1] - rpmRestScaled.y, values[i + 2] - rpmRestScaled.z);
+    tmp.applyQuaternion(invParentQuat);
+    const nx = dclHipsLocalRest.x + tmp.x;
+    const ny = dclHipsLocalRest.y + tmp.y;
+    const nz = dclHipsLocalRest.z + tmp.z;
+    if (!Number.isFinite(nx) || !Number.isFinite(ny) || !Number.isFinite(nz)) return false;
+    values[i] = nx;
+    values[i + 1] = ny;
+    values[i + 2] = nz;
+  }
+  return true;
+}
+
+/**
+ * 회전 트랙(quaternion) 하나를 레스트-상대 델타로 재보정한다. DCL 본의 로컬 레스트
+ * 회전이 RPM/Mixamo 표준과 축 관례가 달라(QA 실측 확인 — 이름만 바꿔 복사하면
+ * 포즈가 완전히 붕괴함), 각 프레임 값에서 RPM 레스트 회전을 제거해 '순수 관절
+ * 변화량'을 뽑고, 그 변화량을 DCL 본 자신의 레스트 회전 위에 다시 얹는다:
+ *   q_dst(t) = restQuat_dst · restQuat_src⁻¹ · q_src(t)
+ * @returns {boolean} 성공 여부(레스트 정보 없으면 false — 호출부가 트랙을 드롭)
+ */
+function reanchorRotationTrack(track, dclRestQuat, rpmRestQuat) {
+  if (!track || !dclRestQuat || !rpmRestQuat) return false;
+  const rpmRestInv = rpmRestQuat.clone().invert();
+  const values = track.values;
+  const q = new THREE.Quaternion();
+  const corrected = new THREE.Quaternion();
+  for (let i = 0; i + 3 < values.length; i += 4) {
+    q.set(values[i], values[i + 1], values[i + 2], values[i + 3]);
+    corrected.copy(dclRestQuat).multiply(rpmRestInv).multiply(q);
+    if (
+      !Number.isFinite(corrected.x) ||
+      !Number.isFinite(corrected.y) ||
+      !Number.isFinite(corrected.z) ||
+      !Number.isFinite(corrected.w)
+    ) {
+      return false;
+    }
+    values[i] = corrected.x;
+    values[i + 1] = corrected.y;
+    values[i + 2] = corrected.z;
+    values[i + 3] = corrected.w;
+  }
+  return true;
+}
+
+/**
+ * 트랙의 모든 프레임 쿼터니언에 고정 오프셋을 post-multiply한다(DCL_ARM_CALIBRATION 등
+ * "레스트 기준점 자체"를 보정하는 용도 — 매 프레임 동일 오프셋이므로 애니메이션의
+ * 상대적 움직임은 그대로 보존된다).
+ */
+function applyQuaternionOffset(track, offsetQuat) {
+  const values = track.values;
+  const q = new THREE.Quaternion();
+  for (let i = 0; i + 3 < values.length; i += 4) {
+    q.set(values[i], values[i + 1], values[i + 2], values[i + 3]);
+    q.multiply(offsetQuat);
+    values[i] = q.x;
+    values[i + 1] = q.y;
+    values[i + 2] = q.z;
+    values[i + 3] = q.w;
+  }
+}
+
+/**
+ * buildDclAvatar() 결과에 TARGET_HEIGHT 정규화 + 전방 보정 + RPM 클립 리타게팅
+ * 애니메이션을 씌운다. 기존 createRiggedAvatar()의 idle/walk/run 블렌드 로직을
+ * 그대로 따른다(KayKit 5종 경로는 건드리지 않음 — 별도 함수).
+ * @param {{group: THREE.Group, skeleton: THREE.Skeleton, dispose: () => void}} built
+ */
+function createDclAnimatedAvatar(built, colorHex, nickname) {
+  const dclRoot = built.group;
+  const skeleton = built.skeleton;
+
+  // 리타겟 보정용 — DCL 각 본의 로컬 레스트 회전(믹서가 애니메이션을 적용하기 전,
+  // buildDclAvatar 직후의 값 = 바인드 포즈)을 이름별로 캡처해 둔다.
+  const dclRestQuats = new Map();
+  for (const b of skeleton.bones) dclRestQuats.set(b.name, b.quaternion.clone());
+
+  const dclHipsBone = skeleton.getBoneByName
+    ? skeleton.getBoneByName('Avatar_Hips')
+    : skeleton.bones.find((b) => b.name === 'Avatar_Hips');
+  const dclHipsLocalRest = dclHipsBone ? dclHipsBone.position.clone() : null;
+
+  // hipsScale용 네이티브(정규화 전) 월드 y 측정
+  dclRoot.updateMatrixWorld(true);
+  let dclHipsRestWorldY = null;
+  if (dclHipsBone) {
+    const wp = new THREE.Vector3();
+    dclHipsBone.getWorldPosition(wp);
+    dclHipsRestWorldY = wp.y;
+  }
+  let hipsScale = 1;
+  if (
+    Number.isFinite(dclHipsRestWorldY) &&
+    dclHipsRestWorldY > 0 &&
+    _rpmHipsRest &&
+    Number.isFinite(_rpmHipsRest.worldY) &&
+    _rpmHipsRest.worldY > 0
+  ) {
+    const ratio = dclHipsRestWorldY / _rpmHipsRest.worldY;
+    if (Number.isFinite(ratio) && ratio > 0) hipsScale = ratio;
+  }
+
+  // ---- 스케일 정규화(스킨 변형 반영) + 발바닥 y=0 정렬 — 기존 createRiggedAvatar와 동일 패턴 ----
+  let box = computeSkinnedWorldBox3(dclRoot);
+  const rawHeight = box.max.y - box.min.y;
+  const scaleFactor = rawHeight > 0.0001 ? TARGET_HEIGHT / rawHeight : 1;
+  dclRoot.scale.setScalar(scaleFactor);
+  dclRoot.updateMatrixWorld(true);
+  box = computeSkinnedWorldBox3(dclRoot);
+  dclRoot.position.y -= box.min.y;
+  dclRoot.updateMatrixWorld(true);
+  box = computeSkinnedWorldBox3(dclRoot); // 라벨 높이 계산용 최종 실측값
+
+  // ---- 전방 보정 래퍼 ----
+  const group = new THREE.Group();
+  const wrapper = new THREE.Group();
+  wrapper.rotation.y = DCL_FORWARD_OFFSET;
+  wrapper.add(dclRoot);
+  group.add(wrapper);
+  group.updateMatrixWorld(true);
+
+  // Hips 부모(Armature)의 '현재' 월드 회전 — 좌표축 보정 기준(래퍼 회전 포함, 자동으로 맞음)
+  const dclParentWorldQuat =
+    dclHipsBone && dclHipsBone.parent ? dclHipsBone.parent.getWorldQuaternion(new THREE.Quaternion()) : null;
+
+  // ---- 애니메이션: RPM 클립을 Avatar_ 접두어로 리타겟 + DCL 리그에 없는 뼈 트랙 제거 ----
+  const dclBoneNames = new Set(skeleton.bones.map((b) => b.name));
+  function prepClip(rawClip) {
+    if (!rawClip) return null;
+    let retargeted;
+    try {
+      retargeted = retargetClipForDcl(rawClip, hipsScale);
+    } catch (err) {
+      console.warn('DCL 클립 리타게팅 실패:', err);
+      return null;
+    }
+    if (!retargeted) return null;
+    retargeted.tracks = retargeted.tracks.filter((t) => {
+      const dot = t.name.lastIndexOf('.');
+      const boneName = dot === -1 ? t.name : t.name.slice(0, dot);
+      return dclBoneNames.has(boneName);
+    });
+
+    retargeted.tracks = retargeted.tracks.filter((t) => {
+      if (!t.name.endsWith('.quaternion')) return true;
+      const boneName = t.name.slice(0, t.name.length - '.quaternion'.length); // 'Avatar_X'
+      const srcName = boneName.startsWith('Avatar_') ? boneName.slice('Avatar_'.length) : boneName;
+      const dclRest = dclRestQuats.get(boneName);
+      const rpmRest = _rpmRestQuats ? _rpmRestQuats.get(srcName) : null;
+      let ok = false;
+      try {
+        ok = reanchorRotationTrack(t, dclRest, rpmRest);
+        const calib = DCL_ARM_CALIBRATION.get(boneName);
+        if (ok && calib) applyQuaternionOffset(t, calib);
+      } catch (err) {
+        ok = false;
+      }
+      return ok;
+    });
+
+    const hipsIdx = retargeted.tracks.findIndex((t) => t.name === 'Avatar_Hips.position');
+    if (hipsIdx !== -1) {
+      let ok = false;
+      try {
+        ok = reanchorDclHipsPositionTrack(retargeted.tracks[hipsIdx], hipsScale, dclHipsLocalRest, dclParentWorldQuat);
+      } catch (err) {
+        ok = false;
+      }
+      if (!ok) retargeted.tracks.splice(hipsIdx, 1);
+    }
+    return retargeted.tracks.length ? retargeted : null;
+  }
+
+  const idleClip = prepClip(_rpmClips.idle);
+  const walkClip = prepClip(_rpmClips.walk);
+  const runClip = prepClip(_rpmClips.run);
+
+  const mixer = new THREE.AnimationMixer(dclRoot);
+  const idleAction = idleClip ? mixer.clipAction(idleClip) : null;
+  const walkAction = walkClip ? mixer.clipAction(walkClip) : null;
+  const runAction = runClip ? mixer.clipAction(runClip) : null;
+
+  const actions = [idleAction, walkAction, runAction].filter(Boolean);
+  for (const action of actions) {
+    action.play();
+    action.enabled = true;
+    action.setEffectiveWeight(0);
+  }
+  if (idleAction) idleAction.setEffectiveWeight(1);
+
+  const weights = { idle: idleAction ? 1 : 0, walk: 0, run: 0 };
+  const BLEND_RATE = 8;
+
+  const label = createNicknameSprite(nickname, colorHex);
+  label.position.y = box.max.y + 0.25;
+  group.add(label);
+
+  return {
+    group,
+    update(delta, speed) {
+      if (mixer) mixer.update(delta);
+
+      let target = 'idle';
+      if (speed >= 3.2 && runAction) target = 'run';
+      else if (speed >= 0.15 && walkAction) target = 'walk';
+
+      if (target === 'walk' && walkAction) {
+        walkAction.timeScale = THREE.MathUtils.clamp(speed / 1.7, 0.6, 1.6);
+      }
+      if (target === 'run' && runAction) {
+        runAction.timeScale = Math.max(0.1, speed / 4);
+      }
+
+      const targetWeights = { idle: 0, walk: 0, run: 0 };
+      targetWeights[target] = 1;
+
+      const t = Math.min(1, BLEND_RATE * delta);
+      weights.idle += (targetWeights.idle - weights.idle) * t;
+      weights.walk += (targetWeights.walk - weights.walk) * t;
+      weights.run += (targetWeights.run - weights.run) * t;
+
+      if (idleAction) idleAction.setEffectiveWeight(weights.idle);
+      if (walkAction) walkAction.setEffectiveWeight(weights.walk);
+      if (runAction) runAction.setEffectiveWeight(weights.run);
+    },
+    dispose() {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(dclRoot);
+      built.dispose();
+      if (label.material.map) label.material.map.dispose();
+      label.material.dispose();
+    },
+  };
+}
+
+// 커스텀 DCL 아바타 charId 프리픽스 — 'dcl:' + JSON.stringify(look)
+const DCL_CHAR_PREFIX = 'dcl:';
+
+/**
+ * 커스텀 DCL 아바타 인스턴스 생성. buildDclAvatar()가 비동기라 RPM URL 아바타와
+ * 동일한 패턴을 쓴다 — 캡슐 폴백을 즉시 반환하고, 조립/리타게팅이 끝나면 그룹
+ * 내부 콘텐츠만 교체한다(그룹 참조 자체는 유지 — 호출부가 이미 scene에 add했을 수 있음).
+ */
+function createDclAvatarInstance(charId, colorHex, nickname) {
+  const group = new THREE.Group();
+  let current = createFallbackAvatar(colorHex, nickname);
+  group.add(current.group);
+  let disposed = false;
+
+  (async () => {
+    const look = decodeLook(charId);
+    if (!look) {
+      console.warn(`잘못된 DCL 아바타 룩, 캡슐 폴백 사용: ${charId}`);
+      return;
+    }
+    let built;
+    try {
+      built = await buildDclAvatar(look);
+    } catch (err) {
+      console.warn('DCL 아바타 조립 실패, 캡슐 폴백 사용:', err);
+      return;
+    }
+    if (disposed) {
+      built.dispose();
+      return;
+    }
+    await loadRpmClips();
+    if (disposed) {
+      built.dispose();
+      return;
+    }
+
+    let rigged;
+    try {
+      rigged = createDclAnimatedAvatar(built, colorHex, nickname);
+    } catch (err) {
+      console.warn('DCL 아바타 리깅 실패, 캡슐 폴백 유지:', err);
+      built.dispose();
+      return;
+    }
+
+    group.remove(current.group);
+    current.dispose();
+    current = rigged;
+    group.add(current.group);
+  })();
+
+  return {
+    group,
+    update(delta, speed) {
+      current.update(delta, speed);
+    },
+    dispose() {
+      disposed = true;
+      current.dispose();
+    },
+  };
+}
+
 // 커스텀 RPM 아바타 charId 프리픽스 — 'rpm:https://models.readyplayer.me/xxx.glb'
 const RPM_URL_PREFIX = 'rpm:';
 
@@ -520,8 +920,9 @@ function createRpmUrlAvatarInstance(url, colorHex, nickname) {
  * 아바타 인스턴스 생성.
  * Group 원점은 발바닥(y=0) 기준. 외부에서 position / rotation.y 조작.
  *
- * @param {string} charId - CHARACTERS의 id (예: 'knight'), 또는 커스텀 Ready Player Me
- *   아바타를 가리키는 'rpm:https://models.readyplayer.me/xxx.glb' 형태의 문자열.
+ * @param {string} charId - CHARACTERS의 id (예: 'knight'), 커스텀 DCL 아바타를 가리키는
+ *   'dcl:' + JSON.stringify(look) 형태의 문자열, 또는 커스텀 Ready Player Me 아바타를
+ *   가리키는 'rpm:https://models.readyplayer.me/xxx.glb' 형태의 문자열.
  *   허용된 도메인이 아니거나 형식이 유효하지 않으면, 혹은 그 외 알 수 없는 값이면
  *   'knight'로 폴백한다.
  * @param {string} colorHex - 닉네임 라벨 테두리 색 (예: '#e74c3c')
@@ -529,6 +930,10 @@ function createRpmUrlAvatarInstance(url, colorHex, nickname) {
  * @returns {{group: THREE.Group, update: (delta:number, speed:number)=>void, dispose: ()=>void}}
  */
 export function createAvatarInstance(charId, colorHex, nickname) {
+  if (typeof charId === 'string' && charId.startsWith(DCL_CHAR_PREFIX)) {
+    return createDclAvatarInstance(charId, colorHex, nickname);
+  }
+
   if (typeof charId === 'string' && charId.startsWith(RPM_URL_PREFIX)) {
     const url = charId.slice(RPM_URL_PREFIX.length);
     if (isAllowedRpmUrl(url)) {
