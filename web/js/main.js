@@ -14,7 +14,7 @@ import {
 import { startAmbient } from './ambient.js';
 import { PlayerController } from './player.js';
 import { MultiplayerManager } from './multiplayer.js';
-import { preloadAvatarTemplate } from './avatar.js';
+import { preloadAvatarTemplates } from './avatar.js';
 import { loadNotes, saveNotes, mergeNotes, makeNote } from './guestbook.js';
 import {
   initUI,
@@ -179,10 +179,10 @@ async function init() {
   createMuseum(scene, resolveAutoTheme(ginfo.theme));
   await createArtworks(scene);
 
-  // 리깅 아바타(GLB) 백그라운드 프리로드 — await하지 않는다. 로비에서 닉네임/색을
-  // 고르는 동안 네트워크로 로드가 끝나길 노려, 입장(handleEnter) 시점에 이미 캐시돼
-  // 있도록 하기 위함. 실패해도 avatar.js가 내부적으로 캡슐 폴백으로 처리한다.
-  preloadAvatarTemplate();
+  // 리깅 아바타(GLB) 4종 백그라운드 프리로드 — await하지 않는다. 로비에서 닉네임/색/
+  // 캐릭터를 고르는 동안 네트워크로 로드가 끝나길 노려, 입장(handleEnter) 시점에 이미
+  // 캐시돼 있도록 하기 위함. 캐릭터별 개별 실패는 avatar.js가 캡슐 폴백으로 처리한다.
+  preloadAvatarTemplates();
 
   // 전시 제목 표시 + 전시 디렉터리 picker 배선 (ginfo 재사용)
   galleryInfo = ginfo;
@@ -565,7 +565,7 @@ function tourToggleAuto() {
   updateTourBar(placedArtworks[tourIndex]);
 }
 
-function handleEnter({ nickname, color }) {
+function handleEnter({ nickname, color, char }) {
   myNickname = nickname;
   entered = true;
   hideLobby();
@@ -575,7 +575,7 @@ function handleEnter({ nickname, color }) {
   startAmbient();
 
   try {
-    mp = new MultiplayerManager(scene, { nickname, color });
+    mp = new MultiplayerManager(scene, { nickname, color, char });
     // onChat은 원격 메시지 전용 (자기 메시지는 handleChatSend가 로컬 표시,
     // 에코는 senderId 필터로 차단됨) — 닉네임이 겹쳐도 안전
     mp.onChat = (name, text) => addChatMessage(name, text, false);

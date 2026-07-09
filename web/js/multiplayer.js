@@ -13,12 +13,13 @@ const LERP_RATE = 10;
 export class MultiplayerManager {
   /**
    * @param {THREE.Scene} scene
-   * @param {{nickname: string, color: string}} opts
+   * @param {{nickname: string, color: string, char?: string}} opts
    */
-  constructor(scene, { nickname, color }) {
+  constructor(scene, { nickname, color, char }) {
     this.scene = scene;
     this.nickname = nickname;
     this.color = color;
+    this.char = char || 'knight'; // 하위호환: 구버전(char 미전송) 원격도 'knight'로 폴백
 
     // 콜백 프로퍼티 (외부에서 할당)
     this.onChat = (name, text) => {};
@@ -30,7 +31,7 @@ export class MultiplayerManager {
     this.isHost = false;
     this.hostConn = null;         // 게스트일 때 호스트로의 연결
     this.connections = new Map(); // 호스트일 때: peerId → DataConnection
-    this.playerInfo = new Map();  // 호스트일 때: peerId → {nickname,color,x,y,z,ry}
+    this.playerInfo = new Map();  // 호스트일 때: peerId → {nickname,color,char,x,y,z,ry}
 
     // 원격 아바타: peerId → { inst, group, targetPos: Vector3, targetRy, prevPos, smoothedSpeed }
     this.remoteAvatars = new Map();
@@ -191,6 +192,7 @@ export class MultiplayerManager {
         this.playerInfo.set(conn.peer, {
           nickname: String(data.nickname || '게스트'),
           color: String(data.color || '#3498db'),
+          char: String(data.char || 'knight'), // 하위호환: char 없는 구버전 게스트도 'knight'
           x: 0, y: EYE_HEIGHT, z: 0, ry: 0,
         });
         this._updateCount();
@@ -242,12 +244,13 @@ export class MultiplayerManager {
     players[this.peer ? this.peer.id : 'host'] = {
       nickname: this.nickname,
       color: this.color,
+      char: this.char,
       x: selfState.x, y: selfState.y, z: selfState.z, ry: selfState.ry,
     };
     // 게스트들
     for (const [id, info] of this.playerInfo) {
       players[id] = {
-        nickname: info.nickname, color: info.color,
+        nickname: info.nickname, color: info.color, char: info.char,
         x: info.x, y: info.y, z: info.z, ry: info.ry,
       };
     }
@@ -276,7 +279,7 @@ export class MultiplayerManager {
         if (this._disposed) return;
         opened = true;
         this.onStatus('접속됨 (게스트)');
-        conn.send({ type: 'hello', nickname: this.nickname, color: this.color });
+        conn.send({ type: 'hello', nickname: this.nickname, color: this.color, char: this.char });
       });
 
       conn.on('data', (data) => this._onGuestData(data, peer.id));
@@ -369,7 +372,8 @@ export class MultiplayerManager {
     let av = this.remoteAvatars.get(id);
 
     if (!av) {
-      const inst = createAvatarInstance(info.color || '#3498db', info.nickname || '게스트');
+      // 하위호환: 원격 정보에 char가 없으면(구버전 접속자) 'knight'로 폴백
+      const inst = createAvatarInstance(info.char || 'knight', info.color || '#3498db', info.nickname || '게스트');
       const group = inst.group;
       const y = (info.y != null ? info.y : EYE_HEIGHT) - EYE_HEIGHT;
       group.position.set(info.x || 0, y, info.z || 0);
