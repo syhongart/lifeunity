@@ -4,6 +4,7 @@
 // 소유 파일: web/js/artworks.js (이 파일만 수정)
 
 import * as THREE from 'three';
+import { BUILDING, EYE_HEIGHT } from './config.js';
 
 // ---------------------------------------------------------------------------
 // 폴백 갤러리 데이터 — 루이지애나 스타일 레이아웃 (syhongart 개인전)
@@ -185,59 +186,33 @@ export const FALLBACK_GALLERY = {
 
 const ART_W = 2.8; // 작품 폭 (m)
 const ART_H = 2.0; // 작품 높이 (m)
-const ART_CENTER_Y = 2.6; // 작품 중심 높이 (m)
+const ART_CENTER_OFF = 1.6; // 작품 중심 높이 = 층 바닥 + 1.6m (미술관 표준 시선)
 const FRAME_DEPTH = 0.1; // 프레임 두께 (m)
 const FRAME_BORDER = 0.09; // 프레임 테두리 폭 (m)
-const CEILING_LIGHT_Y = 5.85; // 스포트라이트 높이 (천장 6m 바로 아래)
-const NEARBY_DIST = 3.5; // 근접 판정 거리 (m) — 감상 위치(3.2m)에서도 정보 패널이 뜨도록 여유
+const SPOT_OFF = 3.35; // 스포트라이트 높이 = 층 바닥 + 3.35m (코퍼 천장 3.6m 바로 아래)
+const NEARBY_DIST = 3.0; // 근접 판정 거리 (m) — 같은 층(|dy|<2)에서만
 
 // ---------------------------------------------------------------------------
-// 자동 배치 슬롯 (pos 생략된 작품에 차례로 할당)
+// 자동 배치 — BUILDING.artworkSlots(다층 청사진)를 순서대로 소비한다.
+// 다층 전환으로 갤러리 JSON의 pos/rotY는 더 이상 사용하지 않는다(구 단층 좌표계).
+// featured:true 작품은 featured 슬롯 풀을 우선 사용한다.
 // ---------------------------------------------------------------------------
 
-const WALL_SLOTS = [
-  // 1~5: 북쪽 차콜 벽 z=-25, rotY=0
-  { x: -20, z: -25, rotY: 0 },
-  { x: -10, z: -25, rotY: 0 },
-  { x: 0, z: -25, rotY: 0 },
-  { x: 10, z: -25, rotY: 0 },
-  { x: 20, z: -25, rotY: 0 },
-  // 6~10: 서쪽 화이트 벽 x=-25, rotY=Math.PI/2
-  { x: -25, z: -18, rotY: Math.PI / 2 },
-  { x: -25, z: -9, rotY: Math.PI / 2 },
-  { x: -25, z: 0, rotY: Math.PI / 2 },
-  { x: -25, z: 9, rotY: Math.PI / 2 },
-  { x: -25, z: 18, rotY: Math.PI / 2 },
-  // 11~12: 가벽 뒷면 z=-5.125, rotY=Math.PI
-  { x: -8, z: -5.125, rotY: Math.PI },
-  { x: 8, z: -5.125, rotY: Math.PI },
-];
+function floorYOf(id) {
+  const f = BUILDING.floors.find((fl) => fl.id === id);
+  return f ? f.y : 0;
+}
 
-const FEATURED_SLOTS = [
-  // featured 슬롯: 가벽 앞면 z=-4.875, rotY=0
-  { x: -8, z: -4.875, rotY: 0 },
-  { x: 8, z: -4.875, rotY: 0 },
-];
-
-// pos가 명시된 작품은 그대로 두고, 생략된 작품에는 슬롯을 순서대로 할당한다.
-// featured:true 인 작품은 featured 슬롯 풀을 우선 사용한다.
-// 슬롯이 소진되면 해당 작품은 무시하고 console.warn 한다.
 function assignSlots(artworks) {
-  const wallSlots = WALL_SLOTS.slice();
-  const featuredSlots = FEATURED_SLOTS.slice();
+  const resolved = BUILDING.artworkSlots.map((s) => ({
+    ...s,
+    floorY: floorYOf(s.floor),
+  }));
+  const wallSlots = resolved.filter((s) => !s.featured);
+  const featuredSlots = resolved.filter((s) => s.featured);
   const placed = [];
 
   for (const art of artworks) {
-    if (
-      art.pos &&
-      typeof art.pos.x === 'number' &&
-      typeof art.pos.z === 'number'
-    ) {
-      const rotY = typeof art.rotY === 'number' ? art.rotY : 0;
-      placed.push({ ...art, rotY });
-      continue;
-    }
-
     const pool = art.featured ? featuredSlots : wallSlots;
     const slot = pool.shift();
     if (!slot) {
@@ -246,7 +221,14 @@ function assignSlots(artworks) {
       );
       continue;
     }
-    placed.push({ ...art, pos: { x: slot.x, z: slot.z }, rotY: slot.rotY });
+    placed.push({
+      ...art,
+      pos: { x: slot.x, z: slot.z },
+      rotY: slot.rotY,
+      floorY: slot.floorY,
+      centerY: slot.floorY + ART_CENTER_OFF,
+      size: art.size || slot.size,
+    });
   }
 
   return placed;
@@ -618,9 +600,10 @@ function buildSpotlight(art, scene) {
   // 그림자는 메인 DirectionalLight(4096)가 담당 — 스포트라이트 14개가 각각
   // 섀도맵을 매 프레임 갱신하면 저사양 기기에서 프레임 드랍이 커서 비활성화
   spot.castShadow = false;
-  spot.position.set(lx, CEILING_LIGHT_Y, lz);
+  const spotY = art.floorY + SPOT_OFF;
+  spot.position.set(lx, spotY, lz);
 
-  spot.target.position.set(art.pos.x, ART_CENTER_Y, art.pos.z);
+  spot.target.position.set(art.pos.x, art.centerY, art.pos.z);
   scene.add(spot);
   scene.add(spot.target);
 
@@ -655,11 +638,11 @@ function buildSpotlight(art, scene) {
   stem.position.y = 0.19;
   head.add(stem);
 
-  head.position.set(lx, CEILING_LIGHT_Y, lz);
+  head.position.set(lx, spotY, lz);
   // 헤드를 작품 방향으로 기울임: -Y 축(발광면)이 타깃을 향하도록
   const dir = new THREE.Vector3(
     art.pos.x - lx,
-    ART_CENTER_Y - CEILING_LIGHT_Y,
+    art.centerY - spotY,
     art.pos.z - lz
   ).normalize();
   const quat = new THREE.Quaternion().setFromUnitVectors(
@@ -683,7 +666,7 @@ export async function createArtworks(scene) {
 
   for (const art of ARTWORKS) {
     const frame = buildFrame(art, textureLoader);
-    frame.position.set(art.pos.x, ART_CENTER_Y, art.pos.z);
+    frame.position.set(art.pos.x, art.centerY, art.pos.z);
     frame.rotation.y = art.rotY;
 
     // 벽에 살짝 띄워 z-fighting 방지 (벽 안쪽 방향으로 프레임 절반 + 여유)
@@ -707,6 +690,8 @@ export function getNearbyArtwork(position) {
   let best = null;
   let bestDist = NEARBY_DIST;
   for (const art of ARTWORKS) {
+    // 같은 층에서만 (다른 층의 같은 x/z 작품이 잡히지 않도록)
+    if (Math.abs(position.y - (art.floorY + EYE_HEIGHT)) > 2.0) continue;
     const dx = position.x - art.pos.x;
     const dz = position.z - art.pos.z;
     const d = Math.sqrt(dx * dx + dz * dz);
@@ -728,13 +713,14 @@ export function getPlacedArtworks() {
 //   normal = (sin(art.rotY), cos(art.rotY))  (실내 쪽을 향함)
 //   감상 위치 = art.pos + normal * VIEWING_DIST (x, z)
 //   감상 yaw = art.rotY
-const VIEWING_DIST = 3.2;
+const VIEWING_DIST = 2.6;
 
 export function getViewingPose(art) {
   const nx = Math.sin(art.rotY);
   const nz = Math.cos(art.rotY);
   return {
     x: art.pos.x + nx * VIEWING_DIST,
+    y: art.floorY + EYE_HEIGHT,
     z: art.pos.z + nz * VIEWING_DIST,
     ry: art.rotY,
   };

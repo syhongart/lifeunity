@@ -13,7 +13,7 @@
 // 작품별 스포트라이트는 artworks.js 담당이므로 여기서 만들지 않는다.
 
 import * as THREE from 'three';
-import { ROOM } from './config.js';
+import { ROOM, BUILDING } from './config.js';
 
 const HALF = ROOM.size / 2;          // 25
 const WALL_T = 0.3;                  // 벽 두께
@@ -21,14 +21,6 @@ const BASEBOARD_H = 0.12;            // 걸레받이 높이
 const BASEBOARD_T = 0.02;            // 걸레받이 돌출
 const MULLION_GAP = 2.5;             // 유리 멀리언 간격 (m)
 
-// 파티션 가벽 위치/크기 — artworks.js와 좌표 공유
-export const PARTITIONS = [
-  { x: -8, z: -5, w: 3.8, h: 4.2, t: 0.25 },
-  { x: 8, z: -5, w: 3.8, h: 4.2, t: 0.25 },
-];
-
-// 실내 중정 (유리로 둘러싸인 정원 — 큰 나무가 지붕 개구부로 자람)
-const COURTYARD = { cx: 9, cz: 9, half: 4 }; // x 5..13, z 5..13
 
 
 // ---------------------------------------------------------------------------
@@ -60,7 +52,7 @@ export const THEMES = {
     sea: { color: 0x3f7396, roughness: 0.12, metalness: 0.25 },
     grassTint: 0xffffff,
     treeUplights: false,
-    shadowCamera: { left: -45, right: 70, top: 65, bottom: -45, near: 1, far: 180 },
+    shadowCamera: { left: -30, right: 45, top: 50, bottom: -28, near: 1, far: 180 },
   },
   sunset: {
     sky: {
@@ -601,112 +593,6 @@ function createConcreteMaps() {
   return concreteMapsCache;
 }
 
-// ---------------------------------------------------------------------------
-// 절차적 텍스처: 삼각 격자 콘크리트 와플 천장 (루이스 칸, 예일대 미술관)
-// 리브 3방향(0°, ±60°) — 격자 주기가 캔버스 치수와 일치해 심리스.
-// 발광맵: 일부 삼각형 리세스 안에 매입 조명 도트.
-// ---------------------------------------------------------------------------
-let waffleMapsCache = null;
-function createWaffleCeilingMaps() {
-  if (waffleMapsCache) return waffleMapsCache;
-  const side = 128;                              // 삼각형 한 변 (px)
-  const rowH = side * Math.sin(Math.PI / 3);     // 평행 리브 간격
-  const w = side * 8;                            // 1024
-  const h = Math.round(rowH * 8);                // 887 — 격자 주기의 정수배
-
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d');
-
-  // 리세스(깊은 삼각 홈) — 어두운 콘크리트
-  ctx.fillStyle = '#2a2723';
-  ctx.fillRect(0, 0, w, h);
-  const rand = makeRand(60103);
-  const img = ctx.getImageData(0, 0, w, h);
-  const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const n = (rand() - 0.5) * 12;
-    d[i] += n; d[i + 1] += n; d[i + 2] += n;
-  }
-  ctx.putImageData(img, 0, 0);
-
-  // 리브 3방향 — 회전 트릭으로 평행선 패밀리를 그린다
-  const span = Math.ceil(Math.hypot(w, h));
-  for (const ang of [0, Math.PI / 3, -Math.PI / 3]) {
-    ctx.save();
-    ctx.translate(w / 2, h / 2);
-    ctx.rotate(ang);
-    for (let yy = -span; yy <= span; yy += rowH) {
-      // 리브 그림자변 (리세스와의 경계 — 깊이감)
-      ctx.strokeStyle = '#4a453d';
-      ctx.lineWidth = 30;
-      ctx.beginPath();
-      ctx.moveTo(-span, yy);
-      ctx.lineTo(span, yy);
-      ctx.stroke();
-      // 리브 본체 (빛을 받는 콘크리트 면 — 두껍게)
-      ctx.strokeStyle = '#7d766a';
-      ctx.lineWidth = 22;
-      ctx.beginPath();
-      ctx.moveTo(-span, yy);
-      ctx.lineTo(span, yy);
-      ctx.stroke();
-      // 리브 중앙 하이라이트
-      ctx.strokeStyle = '#98907f';
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.moveTo(-span, yy);
-      ctx.lineTo(span, yy);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  // 발광맵 — 검정 바탕에 일부 삼각형 리세스마다 웜 화이트 도트
-  const eCanvas = document.createElement('canvas');
-  eCanvas.width = w;
-  eCanvas.height = h;
-  const ectx = eCanvas.getContext('2d');
-  ectx.fillStyle = '#000';
-  ectx.fillRect(0, 0, w, h);
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      if (((r * 7 + c * 3) % 5) !== 0) continue; // 드문드문
-      const x = (c + (r % 2 ? 0.5 : 0)) * side + side / 2;
-      const y = r * rowH + rowH * 0.55;
-      const g = ectx.createRadialGradient(x % w, y % h, 0.5, x % w, y % h, 7);
-      g.addColorStop(0, '#ffffff');
-      g.addColorStop(0.4, '#ffe9c4');
-      g.addColorStop(1, 'rgba(255,233,196,0)');
-      ectx.fillStyle = g;
-      ectx.beginPath();
-      ectx.arc(x % w, y % h, 7, 0, Math.PI * 2);
-      ectx.fill();
-    }
-  }
-
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  map.wrapS = THREE.RepeatWrapping;
-  map.wrapT = THREE.RepeatWrapping;
-  map.anisotropy = 8;
-
-  const normalMap = canvasToNormalTexture(canvas, 2.4);
-  normalMap.anisotropy = 8;
-
-  const emissiveMap = new THREE.CanvasTexture(eCanvas);
-  emissiveMap.colorSpace = THREE.SRGBColorSpace;
-  emissiveMap.wrapS = THREE.RepeatWrapping;
-  emissiveMap.wrapT = THREE.RepeatWrapping;
-
-  // 물리 스케일: 타일 폭 10m (삼각형 변 1.25m) — 예일대 코퍼 스케일 근사
-  const repeatX = ROOM.size / 10;
-  const repeatY = ROOM.size / (10 * (h / w));
-
-  waffleMapsCache = { map, normalMap, emissiveMap, repeatX, repeatY };
-  return waffleMapsCache;
-}
 
 // ---------------------------------------------------------------------------
 // 절차적 텍스처: 잔디
@@ -999,42 +885,7 @@ function createOutdoors(scene, theme) {
     makeTree(x + (rand() - 0.5) * 4, z + (rand() - 0.5) * 4, 1.1 + rand() * 1.0);
   }
 
-  // ---- 야외 조각 (헨리 무어 풍 브론즈 아치) — 동쪽 잔디, 바다를 배경으로 ----
-  const bronzeMat = new THREE.MeshStandardMaterial({
-    color: 0x4f4436,
-    roughness: 0.45,
-    metalness: 0.65,
-  });
-
-  const sculpture = new THREE.Group();
-
-  // 기울어진 아치 (반 토러스)
-  const arch = new THREE.Mesh(
-    new THREE.TorusGeometry(2.2, 0.75, 14, 28, Math.PI),
-    bronzeMat
-  );
-  arch.castShadow = true;
-  sculpture.add(arch);
-
-  // 아치 발치의 둥근 매스
-  const mass = new THREE.Mesh(new THREE.SphereGeometry(1.0, 18, 14), bronzeMat);
-  mass.scale.set(1.5, 0.75, 1.0);
-  mass.position.set(2.0, -1.6, 0.3);
-  mass.castShadow = true;
-  sculpture.add(mass);
-
-  sculpture.position.set(48, 2.25, 6);
-  sculpture.rotation.y = -0.7;
-  scene.add(sculpture);
-
-  // 조각 받침 콘크리트 패드
-  const pad = new THREE.Mesh(
-    new THREE.CylinderGeometry(3.4, 3.4, 0.18, 24),
-    new THREE.MeshStandardMaterial({ color: 0xb9b4ab, roughness: 0.85 })
-  );
-  pad.position.set(48, 0.06, 6);
-  pad.receiveShadow = true;
-  scene.add(pad);
+  // (브론즈 조각은 옥상 테라스로 이전 — createBuilding 참조)
 
   return { seaMat: sea.material };
 }
@@ -1042,27 +893,84 @@ function createOutdoors(scene, theme) {
 // ---------------------------------------------------------------------------
 // 건축 요소
 // ---------------------------------------------------------------------------
-function createFloor(scene) {
+// ---------------------------------------------------------------------------
+// 다층 미술관 건축 — BUILDING(config.js) 청사진 소비
+// B1 미디어 갤러리 / 1F 메인 / 2F(중앙 보이드) / 옥상 테라스
+// 코퍼 천장·계단·난간 전부 실물 지오메트리 (텍스처 페이크 금지)
+// ---------------------------------------------------------------------------
+
+// 사각형에서 구멍들을 뺀 나머지를 사각 세그먼트로 분할
+function splitRect(outer, holes) {
+  let rects = [outer];
+  for (const h of holes) {
+    const next = [];
+    for (const r of rects) {
+      // 교차 없음 → 그대로
+      if (h.x1 <= r.x0 || h.x0 >= r.x1 || h.z1 <= r.z0 || h.z0 >= r.z1) {
+        next.push(r);
+        continue;
+      }
+      const ix0 = Math.max(r.x0, h.x0);
+      const ix1 = Math.min(r.x1, h.x1);
+      const iz0 = Math.max(r.z0, h.z0);
+      const iz1 = Math.min(r.z1, h.z1);
+      if (r.z0 < iz0) next.push({ x0: r.x0, x1: r.x1, z0: r.z0, z1: iz0 });
+      if (iz1 < r.z1) next.push({ x0: r.x0, x1: r.x1, z0: iz1, z1: r.z1 });
+      if (r.x0 < ix0) next.push({ x0: r.x0, x1: ix0, z0: iz0, z1: iz1 });
+      if (ix1 < r.x1) next.push({ x0: ix1, x1: r.x1, z0: iz0, z1: iz1 });
+    }
+    rects = next;
+  }
+  return rects.filter((r) => r.x1 - r.x0 > 0.01 && r.z1 - r.z0 > 0.01);
+}
+
+function floorById(id) {
+  return BUILDING.floors.find((f) => f.id === id);
+}
+
+// 파케 바닥 텍스처를 세그먼트에 — 전역 정렬(오프셋)로 세그먼트 경계가 이어진다
+function parquetSegmentMaterial(rect, tint) {
   const maps = createParquetMaps();
-  const mat = new THREE.MeshStandardMaterial({
-    map: maps.map,
-    normalMap: maps.normalMap,
+  const perM = 16 / 50; // 원본 repeat 16/50m
+  const w = rect.x1 - rect.x0;
+  const d = rect.z1 - rect.z0;
+  const map = maps.map.clone();
+  const nrm = maps.normalMap.clone();
+  for (const t of [map, nrm]) {
+    t.needsUpdate = true;
+    t.repeat.set(perM * w, perM * d);
+    t.offset.set(((rect.x0 - BUILDING.minX) * perM) % 1, ((rect.z0 - BUILDING.minZ) * perM) % 1);
+  }
+  return new THREE.MeshStandardMaterial({
+    map,
+    normalMap: nrm,
     normalScale: new THREE.Vector2(0.7, 0.7),
-    roughness: 0.35,
+    color: tint || 0xffffff,
+    roughness: 0.4,
     metalness: 0.0,
   });
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.size, ROOM.size), mat);
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0;
-  floor.receiveShadow = true;
-  scene.add(floor);
 }
 
-function createSolidWalls(scene) {
-  const H = ROOM.wallHeight;
+function concreteMaterial(repeatX, repeatY, colorTint) {
+  const cm = createConcreteMaps();
+  const map = cm.map.clone();
+  const nrm = cm.normalMap.clone();
+  for (const t of [map, nrm]) {
+    t.needsUpdate = true;
+    t.repeat.set(repeatX, repeatY);
+  }
+  return new THREE.MeshStandardMaterial({
+    map,
+    normalMap: nrm,
+    normalScale: new THREE.Vector2(0.55, 0.55),
+    color: colorTint || 0xffffff,
+    roughness: 0.9,
+    metalness: 0.0,
+  });
+}
 
-  // 북쪽 벽: 화이트 회반죽 전시벽 (칸 갤러리 — 흰 벽에 작품)
-  const northMat = new THREE.MeshStandardMaterial({
+function plasterMaterial() {
+  return new THREE.MeshStandardMaterial({
     map: createPlasterMaps().map,
     normalMap: createPlasterMaps().normalMap,
     normalScale: new THREE.Vector2(0.35, 0.35),
@@ -1070,310 +978,449 @@ function createSolidWalls(scene) {
     roughness: 0.92,
     metalness: 0.0,
   });
-  const north = new THREE.Mesh(
-    new THREE.BoxGeometry(ROOM.size + WALL_T * 2, H, WALL_T),
-    northMat
-  );
-  north.position.set(0, H / 2, -HALF - WALL_T / 2);
-  north.castShadow = true;
-  north.receiveShadow = true;
-  scene.add(north);
-
-  // 서쪽 벽: 화이트 회반죽 전시벽
-  const plasterMat = new THREE.MeshStandardMaterial({
-    map: createPlasterMaps().map,
-    normalMap: createPlasterMaps().normalMap,
-    normalScale: new THREE.Vector2(0.35, 0.35),
-    color: 0xffffff,
-    roughness: 0.92,
-    metalness: 0.0,
-  });
-  const west = new THREE.Mesh(
-    new THREE.BoxGeometry(WALL_T, H, ROOM.size),
-    plasterMat
-  );
-  west.position.set(-HALF - WALL_T / 2, H / 2, 0);
-  west.castShadow = true;
-  west.receiveShadow = true;
-  scene.add(west);
 }
 
-function createGlassWalls(scene) {
-  const H = ROOM.wallHeight;
+const railSteelMat = () => new THREE.MeshStandardMaterial({
+  color: 0x26241f,
+  roughness: 0.4,
+  metalness: 0.75,
+});
 
-  // 유리 — 아주 옅은 하늘빛 반투명 (바깥이 훤히 보임)
+// 난간: 시작→끝 (x0,z0)-(x1,z1) 직선 구간, floorY 위에 세운다
+function buildRailing(scene, x0, z0, x1, z1, floorY) {
+  const mat = railSteelMat();
   const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0xdcecf2,
+    color: 0xd8e4e8,
     transparent: true,
-    opacity: 0.09,
-    roughness: 0.05,
-    metalness: 0.0,
+    opacity: 0.22,
+    roughness: 0.08,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
 
-  // 멀리언(창틀) — 다크 브라운 스틸
-  const mullionMat = new THREE.MeshStandardMaterial({
-    color: 0x241f1a,
-    roughness: 0.5,
-    metalness: 0.6,
-  });
+  const len = Math.hypot(x1 - x0, z1 - z0);
+  const ang = Math.atan2(x1 - x0, z1 - z0); // z축 기준 yaw
+  const cx = (x0 + x1) / 2;
+  const cz = (z0 + z1) / 2;
 
-  const buildGlassWall = (axis) => {
-    // axis: 'east' (x=+25, z 방향으로 길게) | 'south' (z=+25, x 방향으로 길게)
-    const glass = new THREE.Mesh(
-      new THREE.PlaneGeometry(ROOM.size, H),
-      glassMat
+  const group = new THREE.Group();
+
+  // 상부 레일
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, len, 10), mat);
+  top.rotation.x = Math.PI / 2;
+  top.position.y = 1.05;
+  group.add(top);
+
+  // 포스트 (1.2m 간격)
+  const nPosts = Math.max(2, Math.round(len / 1.2) + 1);
+  for (let i = 0; i < nPosts; i++) {
+    const t = nPosts === 1 ? 0.5 : i / (nPosts - 1);
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.045, 1.05, 0.045), mat);
+    post.position.set(0, 0.525, -len / 2 + t * len);
+    group.add(post);
+  }
+
+  // 유리 패널
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.85), glassMat);
+  glass.rotation.y = Math.PI / 2;
+  glass.position.y = 0.55;
+  group.add(glass);
+
+  group.rotation.y = ang;
+  group.position.set(cx, floorY, cz);
+  group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  scene.add(group);
+}
+
+// 계단: 청사진 스펙대로 솔리드 스텝 + 핸드레일
+function buildStair(scene, s) {
+  const mat = concreteMaterial(1.2, 2.4);
+  const rise = s.yTo - s.yFrom;
+  const runLen = s.z1 - s.z0;
+  const steps = 24;
+  const stepRise = rise / steps;
+  const stepRun = runLen / steps;
+  const width = s.x1 - s.x0;
+  const cx = (s.x0 + s.x1) / 2;
+
+  for (let i = 0; i < steps; i++) {
+    const topY = s.yFrom + (i + 1) * stepRise;
+    const h = topY - s.yFrom + 0.25; // 바닥에서 이어지는 솔리드 매스
+    const step = new THREE.Mesh(
+      new THREE.BoxGeometry(width, h, stepRun),
+      mat
     );
-    if (axis === 'east') {
-      glass.position.set(HALF, H / 2, 0);
-      glass.rotation.y = -Math.PI / 2;
-    } else {
-      glass.position.set(0, H / 2, HALF);
-      glass.rotation.y = Math.PI;
-    }
-    // 유리는 그림자를 만들지 않음 — 햇빛이 통과
-    scene.add(glass);
+    step.position.set(cx, topY - h / 2, s.z0 + (i + 0.5) * stepRun);
+    step.castShadow = true;
+    step.receiveShadow = true;
+    scene.add(step);
+  }
 
-    // 세로 멀리언 (2.5m 간격) — 회랑 사진의 스트라이프 그림자를 만든다
-    for (let d = -HALF; d <= HALF; d += MULLION_GAP) {
-      const post = new THREE.Mesh(
-        new THREE.BoxGeometry(0.14, H, 0.14),
-        mullionMat
-      );
-      if (axis === 'east') post.position.set(HALF, H / 2, d);
-      else post.position.set(d, H / 2, HALF);
+  // 핸드레일 (양측 경사 파이프 + 포스트)
+  const railMat = railSteelMat();
+  const slopeLen = Math.hypot(runLen, rise);
+  const slopeAng = Math.atan2(rise, runLen);
+  for (const rx of [s.x0 + 0.06, s.x1 - 0.06]) {
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, slopeLen, 10), railMat);
+    rail.rotation.x = Math.PI / 2 - slopeAng;
+    rail.position.set(rx, (s.yFrom + s.yTo) / 2 + 0.95, (s.z0 + s.z1) / 2);
+    rail.castShadow = true;
+    scene.add(rail);
+
+    for (const t of [0.08, 0.5, 0.92]) {
+      const py = s.yFrom + rise * t;
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.95, 0.045), railMat);
+      post.position.set(rx, py + 0.475, s.z0 + runLen * t);
       post.castShadow = true;
-      post.receiveShadow = true;
       scene.add(post);
     }
-
-    // 상/하 가로 레일
-    for (const y of [0.07, H - 0.07]) {
-      const rail = new THREE.Mesh(
-        axis === 'east'
-          ? new THREE.BoxGeometry(0.16, 0.14, ROOM.size)
-          : new THREE.BoxGeometry(ROOM.size, 0.14, 0.16),
-        mullionMat
-      );
-      if (axis === 'east') rail.position.set(HALF, y, 0);
-      else rail.position.set(0, y, HALF);
-      rail.castShadow = true;
-      scene.add(rail);
-    }
-
-    // 중간 가로 레일 (2.4m 높이 — 시선 위)
-    const mid = new THREE.Mesh(
-      axis === 'east'
-        ? new THREE.BoxGeometry(0.1, 0.1, ROOM.size)
-        : new THREE.BoxGeometry(ROOM.size, 0.1, 0.1),
-      mullionMat
-    );
-    if (axis === 'east') mid.position.set(HALF, 2.4, 0);
-    else mid.position.set(0, 2.4, HALF);
-    mid.castShadow = true;
-    scene.add(mid);
-  };
-
-  buildGlassWall('east');
-  buildGlassWall('south');
-}
-
-function createPartitions(scene) {
-  // 중앙 가벽 2개 — 화이트, artworks.js가 앞뒷면에 작품을 건다
-  const mat = new THREE.MeshStandardMaterial({
-    map: createPlasterMaps().map,
-    normalMap: createPlasterMaps().normalMap,
-    normalScale: new THREE.Vector2(0.35, 0.35),
-    color: 0xffffff,
-    roughness: 0.92,
-    metalness: 0.0,
-  });
-
-  // 예일대 미술관처럼 가벽이 나무 발 위에 살짝 떠 있다
-  const FOOT_H = 0.18;
-  const footMat = new THREE.MeshStandardMaterial({
-    color: 0x8a6a4a,
-    roughness: 0.7,
-    metalness: 0.0,
-  });
-
-  for (const p of PARTITIONS) {
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.t), mat);
-    wall.position.set(p.x, FOOT_H + p.h / 2, p.z);
-    wall.castShadow = true;
-    wall.receiveShadow = true;
-    scene.add(wall);
-
-    // 나무 발 4개
-    const fx = p.w / 2 - 0.35;
-    for (const [ox, oz] of [[-fx, 0], [fx, 0], [-fx * 0.33, 0], [fx * 0.33, 0]]) {
-      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.09, FOOT_H, p.t + 0.04), footMat);
-      foot.position.set(p.x + ox, FOOT_H / 2, p.z + oz);
-      foot.castShadow = true;
-      scene.add(foot);
-    }
   }
 }
 
-function createBaseboards(scene) {
-  // 솔리드 벽(북/서)에만 걸레받이
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0xeceae4,
-    roughness: 0.5,
-    metalness: 0.0,
-  });
-  const y = BASEBOARD_H / 2;
-  const inset = HALF - BASEBOARD_T / 2;
+// 실물 코퍼(우물반자) 천장 — 직교 보 그리드 + 리세스 + 매입등
+function buildCofferCeiling(scene, floorY, segments, lightsOut, theme, lightGrid) {
+  const ceilY = floorY + BUILDING.clearH;      // 보 밑면
+  const beamD = 0.32;                          // 보 깊이
+  const beamW = 0.14;
+  const gap = 1.1;
 
-  const north = new THREE.Mesh(
-    new THREE.BoxGeometry(ROOM.size, BASEBOARD_H, BASEBOARD_T),
-    mat
-  );
-  north.position.set(0, y, -inset);
+  const beamMat = concreteMaterial(2, 0.4, 0xcfc9bf);
+  const recessMat = new THREE.MeshStandardMaterial({
+    color: 0x35322d,
+    normalMap: createPlasterMaps().normalMap,
+    normalScale: new THREE.Vector2(0.25, 0.25),
+    roughness: 0.95,
+  });
+  const canMat = new THREE.MeshStandardMaterial({ color: 0x1a1816, roughness: 0.5, metalness: 0.6 });
+  const bulbMat = new THREE.MeshStandardMaterial({
+    color: 0xfff6e0,
+    emissive: theme.downlight.emissive,
+    emissiveIntensity: 2.5 * (theme.downlight.intensity / 22),
+    roughness: 1.0,
+  });
+
+  for (const r of segments) {
+    const w = r.x1 - r.x0;
+    const d = r.z1 - r.z0;
+
+    // 리세스 패널 (보 위쪽)
+    const recess = new THREE.Mesh(new THREE.PlaneGeometry(w, d), recessMat);
+    recess.rotation.x = Math.PI / 2;
+    recess.position.set((r.x0 + r.x1) / 2, ceilY + beamD, (r.z0 + r.z1) / 2);
+    scene.add(recess);
+
+    // X 방향 보 (z 그리드 위치마다) — 전역 그리드에 정렬
+    const zStart = Math.ceil((r.z0 - BUILDING.minZ) / gap);
+    for (let k = zStart; ; k++) {
+      const z = BUILDING.minZ + k * gap;
+      if (z > r.z1 - 0.05) break;
+      if (z < r.z0 + 0.05) continue;
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(w, beamD, beamW), beamMat);
+      beam.position.set((r.x0 + r.x1) / 2, ceilY + beamD / 2, z);
+      beam.castShadow = true;
+      scene.add(beam);
+    }
+    // Z 방향 보 (x 그리드)
+    const xStart = Math.ceil((r.x0 - BUILDING.minX) / gap);
+    for (let k = xStart; ; k++) {
+      const x = BUILDING.minX + k * gap;
+      if (x > r.x1 - 0.05) break;
+      if (x < r.x0 + 0.05) continue;
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(beamW, beamD, d), beamMat);
+      beam.position.set(x, ceilY + beamD / 2, (r.z0 + r.z1) / 2);
+      beam.castShadow = true;
+      scene.add(beam);
+    }
+
+    // 코퍼 셀 발광 픽스처 (3칸마다 하나, 메시만 — 실제 광원은 lightGrid에서)
+    for (let kx = xStart; ; kx++) {
+      const cxCell = BUILDING.minX + kx * gap + gap / 2;
+      if (cxCell > r.x1 - 0.2) break;
+      if (cxCell < r.x0 + 0.2) continue;
+      for (let kz = zStart; ; kz++) {
+        const czCell = BUILDING.minZ + kz * gap + gap / 2;
+        if (czCell > r.z1 - 0.2) break;
+        if (czCell < r.z0 + 0.2) continue;
+        if (((kx * 7 + kz * 5) % 3) !== 0) continue;
+        const can = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.1, 12), canMat);
+        can.position.set(cxCell, ceilY + beamD - 0.06, czCell);
+        scene.add(can);
+        const bulb = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.02, 12), bulbMat);
+        bulb.position.set(cxCell, ceilY + beamD - 0.12, czCell);
+        scene.add(bulb);
+      }
+    }
+  }
+
+  // 실제 광원 — 층당 소수만 (성능)
+  for (const [lx, lz] of lightGrid) {
+    const light = new THREE.PointLight(theme.downlight.color, theme.downlight.intensity * 0.7, 9, 2);
+    light.position.set(lx, ceilY - 0.15, lz);
+    scene.add(light);
+    lightsOut.push(light);
+  }
+
+  return bulbMat;
+}
+
+// 남측 파사드 — 1F 커튼월(중앙 입구), 2F 리본 윈도우
+function buildSouthFacade(scene) {
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: 0xdcecf2,
+    transparent: true,
+    opacity: 0.1,
+    roughness: 0.05,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const mullionMat = railSteelMat();
+  const z = BUILDING.maxZ;
+  const W = BUILDING.maxX - BUILDING.minX;
+  const f1 = floorById('f1');
+  const f2 = floorById('f2');
+
+  // ---- 1F 커튼월 (중앙 3m는 입구 개구부 — 유리 없음) ----
+  const H1 = BUILDING.clearH;
+  for (const [gx0, gx1] of [[BUILDING.minX, -1.5], [1.5, BUILDING.maxX]]) {
+    const gw = gx1 - gx0;
+    const pane = new THREE.Mesh(new THREE.PlaneGeometry(gw, H1), glassMat);
+    pane.position.set((gx0 + gx1) / 2, f1.y + H1 / 2, z);
+    pane.rotation.y = Math.PI;
+    scene.add(pane);
+  }
+  // 멀리언 (2.2m 간격) + 입구 프레임
+  for (let x = BUILDING.minX; x <= BUILDING.maxX + 0.01; x += 2.2) {
+    if (x > -1.5 && x < 1.5) continue;
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, H1, 0.12), mullionMat);
+    post.position.set(x, f1.y + H1 / 2, z);
+    post.castShadow = true;
+    scene.add(post);
+  }
+  for (const x of [-1.5, 1.5]) {
+    const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.18, H1, 0.18), mullionMat);
+    jamb.position.set(x, f1.y + H1 / 2, z);
+    jamb.castShadow = true;
+    scene.add(jamb);
+  }
+  const header = new THREE.Mesh(new THREE.BoxGeometry(W, 0.14, 0.16), mullionMat);
+  header.position.set(0, f1.y + H1 - 0.07, z);
+  scene.add(header);
+
+  // ---- 2F: 리본 윈도우 (y+1.2 ~ y+2.6), 위아래는 회반죽 밴드 ----
+  const pMat = plasterMaterial();
+  const below = new THREE.Mesh(new THREE.BoxGeometry(W, 1.2, BUILDING.wallT), pMat);
+  below.position.set(0, f2.y + 0.6, z);
+  below.castShadow = true;
+  below.receiveShadow = true;
+  scene.add(below);
+  const above = new THREE.Mesh(new THREE.BoxGeometry(W, BUILDING.clearH - 2.6 + 0.6, BUILDING.wallT), pMat);
+  above.position.set(0, f2.y + 2.6 + (BUILDING.clearH - 2.6 + 0.6) / 2, z);
+  above.castShadow = true;
+  above.receiveShadow = true;
+  scene.add(above);
+  const ribbon = new THREE.Mesh(new THREE.PlaneGeometry(W, 1.4), glassMat);
+  ribbon.position.set(0, f2.y + 1.9, z);
+  ribbon.rotation.y = Math.PI;
+  scene.add(ribbon);
+  for (let x = BUILDING.minX; x <= BUILDING.maxX + 0.01; x += 2.2) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.4, 0.08), mullionMat);
+    post.position.set(x, f2.y + 1.9, z);
+    scene.add(post);
+  }
+
+  // ---- B1 남측: 지하 솔리드 ----
+  const b1 = floorById('b1');
+  const b1wall = new THREE.Mesh(new THREE.BoxGeometry(W + 0.6, BUILDING.storyH, BUILDING.wallT), concreteMaterial(4, 1));
+  b1wall.position.set(0, b1.y + BUILDING.storyH / 2, z);
+  scene.add(b1wall);
+}
+
+function createBuilding(scene, theme) {
+  const B = BUILDING;
+  const W = B.maxX - B.minX;
+  const D = B.maxZ - B.minZ;
+  const outer = { x0: B.minX, x1: B.maxX, z0: B.minZ, z1: B.maxZ };
+  const lights = [];
+  let bulbMat = null;
+
+  // ---- 층별 슬래브 + 바닥 마감 + 코퍼 천장 ----
+  const roomFloors = ['b1', 'f1', 'f2'];
+  for (const f of B.floors) {
+    const holes = B.slabHoles[f.id] || [];
+    const segs = splitRect(outer, holes);
+
+    for (const r of segs) {
+      const w = r.x1 - r.x0;
+      const d = r.z1 - r.z0;
+      // 슬래브 (콘크리트 매스)
+      const slab = new THREE.Mesh(
+        new THREE.BoxGeometry(w, B.slabT, d),
+        concreteMaterial(w / 6, d / 6)
+      );
+      slab.position.set((r.x0 + r.x1) / 2, f.y - B.slabT / 2, (r.z0 + r.z1) / 2);
+      slab.castShadow = true;
+      slab.receiveShadow = true;
+      scene.add(slab);
+
+      // 바닥 마감 — 실내는 파케(B1은 어두운 틴트), 옥상은 우드 데크
+      const top = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, d),
+        parquetSegmentMaterial(r, f.id === 'b1' ? 0x9a8870 : (f.id === 'roof' ? 0xcdb894 : 0xffffff))
+      );
+      top.rotation.x = -Math.PI / 2;
+      top.position.set((r.x0 + r.x1) / 2, f.y + 0.002, (r.z0 + r.z1) / 2);
+      top.receiveShadow = true;
+      scene.add(top);
+    }
+  }
+
+  // ---- 코퍼 천장 (각 실내층: 천장 = 위층 슬래브 밑) ----
+  const lightGrids = {
+    b1: [[-6, -3], [0, -3], [6, -3], [0, 3]],
+    f1: [[-7, -4], [0, -4], [7, -4], [-7, 4], [0, 4], [7, 4]],
+    f2: [[-7, -4.5], [0, -4.5], [7, -4.5], [-7, 5], [7, 5]],
+  };
+  const aboveOf = { b1: 'f1', f1: 'f2', f2: 'roof' };
+  for (const id of roomFloors) {
+    const f = floorById(id);
+    const holesAbove = B.slabHoles[aboveOf[id]] || [];
+    const segs = splitRect(outer, holesAbove);
+    const bm = buildCofferCeiling(scene, f.y, segs, lights, theme, lightGrids[id]);
+    if (!bulbMat) bulbMat = bm;
+  }
+
+  // ---- 외피 벽 (북/동/서 — 지하부터 옥상 파라펫 하단까지) ----
+  const shellMat = concreteMaterial(3, 2);
+  const shellH = floorById('roof').y - floorById('b1').y; // 12.6
+  const shellYc = floorById('b1').y + shellH / 2;
+  const north = new THREE.Mesh(new THREE.BoxGeometry(W + B.wallT * 2, shellH, B.wallT), shellMat);
+  north.position.set(0, shellYc, B.minZ - B.wallT / 2);
+  north.castShadow = true;
   north.receiveShadow = true;
   scene.add(north);
+  for (const [x, sx] of [[B.minX - B.wallT / 2, 1], [B.maxX + B.wallT / 2, 1]]) {
+    const side = new THREE.Mesh(new THREE.BoxGeometry(B.wallT, shellH, D), shellMat);
+    side.position.set(x, shellYc, 0);
+    side.castShadow = true;
+    side.receiveShadow = true;
+    scene.add(side);
+  }
 
-  const west = new THREE.Mesh(
-    new THREE.BoxGeometry(BASEBOARD_T, BASEBOARD_H, ROOM.size),
-    mat
-  );
-  west.position.set(-inset, y, 0);
-  west.receiveShadow = true;
-  scene.add(west);
-}
-
-function createCeiling(scene) {
-  // 삼각 격자 콘크리트 와플 천장 (루이스 칸) — 평천장 6m
-  // 중정(x 5~13, z 5~13) 위는 완전히 뚫림 — 큰 나무 관통
-  const H = ROOM.wallHeight;
-  const maps = createWaffleCeilingMaps();
-  const roofMat = new THREE.MeshStandardMaterial({
-    color: 0x4a4642,
-    roughness: 0.92,
-    side: THREE.DoubleSide,
-  });
-
-  const c0 = COURTYARD.cx - COURTYARD.half;
-  const c1 = COURTYARD.cx + COURTYARD.half;
-  const cz0 = COURTYARD.cz - COURTYARD.half;
-  const cz1 = COURTYARD.cz + COURTYARD.half;
-
-  // 중정 개구부를 비운 사각 세그먼트
-  const rects = [
-    [-HALF, HALF, -HALF, cz0],
-    [-HALF, c0, cz0, cz1],
-    [c1, HALF, cz0, cz1],
-    [-HALF, HALF, cz1, HALF],
-  ];
-
-  for (const [x0, x1, z0, z1] of rects) {
-    const w = x1 - x0;
-    const dpt = z1 - z0;
-    if (w <= 0 || dpt <= 0) continue;
-
-    const map = maps.map.clone();
-    const nrm = maps.normalMap.clone();
-    const emi = maps.emissiveMap.clone();
-    for (const t of [map, nrm, emi]) {
-      t.needsUpdate = true;
-      // 전체 50m 기준의 반복/오프셋 → 세그먼트 사이에서 격자가 이어진다
-      t.repeat.set((maps.repeatX * w) / ROOM.size, (maps.repeatY * dpt) / ROOM.size);
-      t.offset.set(
-        (((x0 + HALF) / ROOM.size) * maps.repeatX) % 1,
-        (((z0 + HALF) / ROOM.size) * maps.repeatY) % 1
-      );
+  // ---- 실내 회반죽 라이닝 (층별 북/동/서) ----
+  for (const id of roomFloors) {
+    const f = floorById(id);
+    const pMat = plasterMaterial();
+    const lining = [
+      { w: W, h: BUILDING.clearH, x: 0, z: B.minZ + 0.02, ry: 0 },
+      { w: D, h: BUILDING.clearH, x: B.maxX - 0.02, z: 0, ry: -Math.PI / 2 },
+      { w: D, h: BUILDING.clearH, x: B.minX + 0.02, z: 0, ry: Math.PI / 2 },
+    ];
+    for (const L of lining) {
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(L.w, L.h), pMat);
+      p.position.set(L.x, f.y + BUILDING.clearH / 2, L.z);
+      p.rotation.y = L.ry;
+      p.receiveShadow = true;
+      scene.add(p);
     }
-
-    const mat = new THREE.MeshStandardMaterial({
-      map,
-      normalMap: nrm,
-      normalScale: new THREE.Vector2(1.7, 1.7),
-      emissiveMap: emi,
-      emissive: new THREE.Color(0xffdba6),
-      emissiveIntensity: 1.5,
-      roughness: 0.92,
-      metalness: 0.0,
-    });
-
-    const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, dpt), mat);
-    panel.rotation.x = Math.PI / 2;
-    panel.position.set((x0 + x1) / 2, H, (z0 + z1) / 2);
-    panel.receiveShadow = true;
-    scene.add(panel);
-
-    // 지붕 슬래브 (와플 구조 두께 위)
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(w, 0.4, dpt), roofMat);
-    roof.position.set((x0 + x1) / 2, H + 0.65, (z0 + z1) / 2);
-    roof.castShadow = true;
-    scene.add(roof);
   }
 
-  // 중정 개구부 콘크리트 커브
-  const cm = createConcreteMaps();
-  const curbMat = new THREE.MeshStandardMaterial({
-    map: cm.map,
-    normalMap: cm.normalMap,
-    normalScale: new THREE.Vector2(0.5, 0.5),
-    roughness: 0.92,
-  });
-  const curbT = 0.3;
-  const curbSegs = [
-    { w: c1 - c0 + curbT * 2, d: curbT, x: COURTYARD.cx, z: cz0 - curbT / 2 },
-    { w: c1 - c0 + curbT * 2, d: curbT, x: COURTYARD.cx, z: cz1 + curbT / 2 },
-    { w: curbT, d: cz1 - cz0, x: c0 - curbT / 2, z: COURTYARD.cz },
-    { w: curbT, d: cz1 - cz0, x: c1 + curbT / 2, z: COURTYARD.cz },
+  // ---- 남측 파사드 ----
+  buildSouthFacade(scene);
+
+  // ---- 계단 ----
+  for (const s of B.stairs) buildStair(scene, s);
+
+  // ---- 난간 (개구부/보이드 가장자리 — 계단 진입변은 개방) ----
+  const f1y = floorById('f1').y;
+  const f2y = floorById('f2').y;
+  const roofY = floorById('roof').y;
+  // 1F: B1 계단 개구부 (동변 + 북변; 남변은 계단 도착 지점이라 개방)
+  buildRailing(scene, -8.7, -7, -8.7, -1, f1y);
+  buildRailing(scene, -10.7, -7, -8.7, -7, f1y);
+  // 2F: 1F→2F 계단 개구부 (동변 + 남변; 북변 도착 개방)
+  buildRailing(scene, -8.7, 1, -8.7, 7, f2y);
+  buildRailing(scene, -10.7, 1, -8.7, 1, f2y);
+  // 2F: 중앙 보이드 4변
+  buildRailing(scene, -4, -3, 5, -3, f2y);
+  buildRailing(scene, -4, 3, 5, 3, f2y);
+  buildRailing(scene, -4, -3, -4, 3, f2y);
+  buildRailing(scene, 5, -3, 5, 3, f2y);
+  // 옥상: 2F→옥상 계단 개구부 (서변 + 남변; 북변 도착 개방)
+  buildRailing(scene, 8.7, 1, 8.7, 7, roofY);
+  buildRailing(scene, 8.7, 1, 10.7, 1, roofY);
+
+  // ---- 옥상: 파라펫 + 벤치 + 조각 + 계단 캐노피 ----
+  const parapetMat = concreteMaterial(4, 0.5);
+  const pH = 1.1;
+  const pT = 0.25;
+  const pSegs = [
+    { w: W + 0.6, d: pT, x: 0, z: B.minZ - pT / 2 },
+    { w: W + 0.6, d: pT, x: 0, z: B.maxZ + pT / 2 },
+    { w: pT, d: D, x: B.minX - pT / 2, z: 0 },
+    { w: pT, d: D, x: B.maxX + pT / 2, z: 0 },
   ];
-  for (const s of curbSegs) {
-    const seg = new THREE.Mesh(new THREE.BoxGeometry(s.w, 1.0, s.d), curbMat);
-    seg.position.set(s.x, H + 0.35, s.z);
+  for (const s of pSegs) {
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(s.w, pH, s.d), parapetMat);
+    seg.position.set(s.x, roofY + pH / 2, s.z);
     seg.castShadow = true;
+    seg.receiveShadow = true;
     scene.add(seg);
   }
 
-  // 지붕 가장자리 파샤 — 콘크리트 톤
-  for (const z of [-(HALF + 0.3), HALF + 0.3]) {
-    const seg = new THREE.Mesh(new THREE.BoxGeometry(ROOM.size + 2.6, 0.5, 0.5), curbMat);
-    seg.position.set(0, H + 0.1, z);
-    seg.castShadow = true;
-    scene.add(seg);
+  // 벤치 2
+  const benchWood = new THREE.MeshStandardMaterial({
+    map: createParquetMaps().map,
+    color: 0xb99a6f,
+    roughness: 0.6,
+  });
+  for (const [bx, bz] of [[-4, 4], [2, -4]]) {
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.09, 0.55), benchWood);
+    seat.position.set(bx, roofY + 0.45, bz);
+    seat.castShadow = true;
+    scene.add(seat);
+    for (const lx of [-0.9, 0.9]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.42, 0.5), railSteelMat());
+      leg.position.set(bx + lx, roofY + 0.21, bz);
+      scene.add(leg);
+    }
   }
-  for (const x of [-(HALF + 0.3), HALF + 0.3]) {
-    const seg = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, ROOM.size + 2.6), curbMat);
-    seg.position.set(x, H + 0.1, 0);
-    seg.castShadow = true;
-    scene.add(seg);
+
+  // 브론즈 조각 (정원에서 옥상으로 이전)
+  const bronzeMat = new THREE.MeshStandardMaterial({ color: 0x4f4436, roughness: 0.45, metalness: 0.65 });
+  const sculpture = new THREE.Group();
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.42, 14, 28, Math.PI), bronzeMat);
+  arch.castShadow = true;
+  sculpture.add(arch);
+  const mass = new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 14), bronzeMat);
+  mass.scale.set(1.5, 0.75, 1.0);
+  mass.position.set(1.1, -0.95, 0.2);
+  mass.castShadow = true;
+  sculpture.add(mass);
+  sculpture.position.set(-2, roofY + 1.35, 0.5);
+  sculpture.rotation.y = -0.6;
+  scene.add(sculpture);
+  const pad = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.9, 1.9, 0.12, 24),
+    concreteMaterial(1, 1, 0xd8d3ca)
+  );
+  pad.position.set(-2, roofY + 0.06, 0.5);
+  pad.receiveShadow = true;
+  scene.add(pad);
+
+  // 계단 캐노피 (옥상 계단 개구부 위 소지붕)
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.18, 7.2), concreteMaterial(1, 2));
+  canopy.position.set(9.7, roofY + 2.6, 4);
+  canopy.castShadow = true;
+  scene.add(canopy);
+  for (const [px, pz] of [[8.85, 0.8], [10.55, 0.8], [8.85, 7.2], [10.55, 7.2]]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.6, 0.12), railSteelMat());
+    post.position.set(px, roofY + 1.3, pz);
+    scene.add(post);
   }
+
+  return { downlights: { lights, bulbMat } };
 }
 
-// ---------------------------------------------------------------------------
-// 노출 콘크리트 기둥 — 유리벽 모서리/중앙 구조 기둥 (칸 스타일)
-// ---------------------------------------------------------------------------
-function createConcreteColumns(scene) {
-  const H = ROOM.wallHeight;
-  const cm = createConcreteMaps();
-  const mat = new THREE.MeshStandardMaterial({
-    map: cm.map,
-    normalMap: cm.normalMap,
-    normalScale: new THREE.Vector2(0.6, 0.6),
-    roughness: 0.9,
-    metalness: 0.0,
-  });
-
-  const inset = HALF - 0.35;
-  const spots = [
-    [inset, inset], [-inset, inset], [inset, -inset], [-inset, -inset], // 코너
-    [inset, 0],   // 동쪽 유리벽 중앙 피어
-    [0, inset],   // 남쪽 유리벽 중앙 피어
-  ];
-  for (const [x, z] of spots) {
-    const col = new THREE.Mesh(new THREE.BoxGeometry(0.7, H, 0.7), mat);
-    col.position.set(x, H / 2, z);
-    col.castShadow = true;
-    col.receiveShadow = true;
-    scene.add(col);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // 디테일 나무 — 나무껍질 텍스처 + 재귀 가지 분기 + 알파 잎 클러스터
@@ -1589,109 +1636,19 @@ function buildDetailedTree(seed, opts) {
 // ---------------------------------------------------------------------------
 // 실내 중정 — 유리로 둘러싸인 정원, 큰 나무가 지붕을 뚫고 자란다
 // ---------------------------------------------------------------------------
-function createCourtyard(scene, theme) {
-  const H = ROOM.wallHeight;
-  const { cx, cz, half } = COURTYARD;
-  const size = half * 2;
-
-  // 유리 벽 4면
-  const glassMat = new THREE.MeshPhysicalMaterial({
-    color: 0xdcecf2,
-    transparent: true,
-    opacity: 0.08,
-    roughness: 0.05,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  });
-  const mullionMat = new THREE.MeshStandardMaterial({
-    color: 0x241f1a,
-    roughness: 0.5,
-    metalness: 0.6,
-  });
-
-  const faces = [
-    { x: cx, z: cz - half, rotY: 0 },
-    { x: cx, z: cz + half, rotY: Math.PI },
-    { x: cx - half, z: cz, rotY: Math.PI / 2 },
-    { x: cx + half, z: cz, rotY: -Math.PI / 2 },
-  ];
-  for (const f of faces) {
-    const pane = new THREE.Mesh(new THREE.PlaneGeometry(size, H), glassMat);
-    pane.position.set(f.x, H / 2, f.z);
-    pane.rotation.y = f.rotY;
-    scene.add(pane);
-  }
-
-  // 모서리 + 중간 멀리언
-  const postOffsets = [-half, -half / 2, 0, half / 2, half];
-  for (const o of postOffsets) {
-    for (const [px, pz] of [
-      [cx + o, cz - half], [cx + o, cz + half],
-      [cx - half, cz + o], [cx + half, cz + o],
-    ]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, H, 0.12), mullionMat);
-      post.position.set(px, H / 2, pz);
-      post.castShadow = true;
-      scene.add(post);
-    }
-  }
-  // 상하 레일
-  for (const y of [0.06, H - 0.06]) {
-    for (const f of faces) {
-      const rail = new THREE.Mesh(
-        f.rotY === 0 || f.rotY === Math.PI
-          ? new THREE.BoxGeometry(size, 0.12, 0.14)
-          : new THREE.BoxGeometry(0.14, 0.12, size),
-        mullionMat
-      );
-      rail.position.set(f.x, y, f.z);
-      scene.add(rail);
-    }
-  }
-
-  // 중정 바닥: 잔디 패치 + 스톤 보더
-  const grassMaps = createGrassMaps();
-  const grassTex = grassMaps.map.clone();
-  grassTex.needsUpdate = true;
-  grassTex.repeat.set(6, 6);
-  const grassNormal = grassMaps.normalMap.clone();
-  grassNormal.needsUpdate = true;
-  grassNormal.repeat.set(6, 6);
-  const patch = new THREE.Mesh(
-    new THREE.PlaneGeometry(size - 0.3, size - 0.3),
-    new THREE.MeshStandardMaterial({ map: grassTex, normalMap: grassNormal, normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.95 })
-  );
-  patch.rotation.x = -Math.PI / 2;
-  patch.position.set(cx, 0.02, cz);
-  patch.receiveShadow = true;
-  scene.add(patch);
-
-  const borderMat = new THREE.MeshStandardMaterial({ color: 0xa8a29a, roughness: 0.85 });
-  for (const s of [
-    { w: size, d: 0.16, x: cx, z: cz - half + 0.08 },
-    { w: size, d: 0.16, x: cx, z: cz + half - 0.08 },
-    { w: 0.16, d: size, x: cx - half + 0.08, z: cz },
-    { w: 0.16, d: size, x: cx + half - 0.08, z: cz },
-  ]) {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(s.w, 0.07, s.d), borderMat);
-    b.position.set(s.x, 0.035, s.z);
-    scene.add(b);
-  }
-
-  // ---- 큰 나무 (지붕 개구부 관통) — 재귀 분기 + 잎 텍스처 디테일 트리 ----
-  const rand = makeRand(31415);
+function createGardenTree(scene, theme) {
+  // 남측 정원의 큰 나무 — 1F 커튼월 너머로 보이는 주인공 조경
   const tree = buildDetailedTree(31415, {
-    trunkLen: 5.4,     // 첫 줄기 — 재귀 합산으로 총 높이 약 11m
-    trunkRad: 0.5,
+    trunkLen: 4.6,
+    trunkRad: 0.42,
     maxLevel: 3,
-    leafScale: 1.5,
+    leafScale: 1.4,
   });
-  tree.position.set(cx, 0, cz);
+  tree.position.set(7, 0, 14);
   scene.add(tree);
 
-  // 뿌리 발치 (둥치 벌어짐)
   const rootFlare = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.5, 0.85, 0.5, 9),
+    new THREE.CylinderGeometry(0.42, 0.72, 0.45, 9),
     new THREE.MeshStandardMaterial({
       map: createBarkTexture(),
       normalMap: createBarkNormal(),
@@ -1699,40 +1656,21 @@ function createCourtyard(scene, theme) {
       roughness: 0.95,
     })
   );
-  rootFlare.position.set(cx, 0.25, cz);
+  rootFlare.position.set(7, 0.22, 14);
   rootFlare.castShadow = true;
   scene.add(rootFlare);
 
-  // 바위 몇 개
-  const rockMat = new THREE.MeshStandardMaterial({ color: 0x8d887f, roughness: 0.95 });
-  for (let i = 0; i < 4; i++) {
-    const r = 0.2 + rand() * 0.35;
-    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), rockMat);
-    const ang = rand() * Math.PI * 2;
-    const dist = 1.2 + rand() * 2.2;
-    rock.position.set(cx + Math.cos(ang) * dist, r * 0.55, cz + Math.sin(ang) * dist);
-    rock.rotation.set(rand() * Math.PI, rand() * Math.PI, 0);
-    rock.castShadow = true;
-    rock.receiveShadow = true;
-    scene.add(rock);
-  }
-
-  // ---- night 테마 / cycle: 중정 큰 나무 밑 업라이트 2개 (위로 조준, 웜 스팟) ----
-  // cycle은 항상 픽스처를 만들어 두고 sceneTick에서 night 가중치로 밝기만 페이드한다
+  // night/cycle: 나무 밑 웜 업라이트 2개
   const treeUplights = [];
   if (theme.treeUplights) {
-    const uplightSpots = [
-      [cx - 1.6, cz - 1.1],
-      [cx + 1.8, cz + 1.4],
-    ];
-    for (const [ux, uz] of uplightSpots) {
+    for (const [ux, uz] of [[5.6, 13], [8.4, 15]]) {
       const spot = new THREE.SpotLight(0xffb066, 150, 15, Math.PI / 5, 0.9, 1.8);
       spot.position.set(ux, 0.35, uz);
       const target = new THREE.Object3D();
-      target.position.set(cx, 8.5, cz);
+      target.position.set(7, 7, 14);
       scene.add(target);
       spot.target = target;
-      spot.castShadow = false; // 업라이트는 강조용 — 별도 그림자 부담 없이 가볍게
+      spot.castShadow = false;
       scene.add(spot);
       treeUplights.push(spot);
     }
@@ -1824,11 +1762,11 @@ function createCreatures(scene) {
   const rand = makeRand(86420);
   const butterflyColors = [0xe8923a, 0xf3d34a, 0xe8e4da, 0xc76fb8, 0x7fb2e0];
 
-  // 중정 나비 5마리 (나무 주위)
+  // 정원 큰 나무 주위 나비 5마리
   for (let i = 0; i < 5; i++) {
     makeButterfly(scene, {
-      cx: COURTYARD.cx,
-      cz: COURTYARD.cz,
+      cx: 7,
+      cz: 14,
       cy: 1.4 + rand() * 3.0,
       rx: 1.0 + rand() * 2.2,
       rz: 1.0 + rand() * 2.2,
@@ -1887,53 +1825,6 @@ export function sceneTick(delta) {
   }
 }
 
-function createDownlights(scene, theme) {
-  // 와플 천장에 매입된 캔 조명 3x3 (예일대 코퍼 스팟)
-  const canMat = new THREE.MeshStandardMaterial({
-    color: 0x1c1a18,
-    roughness: 0.5,
-    metalness: 0.6,
-  });
-  const bulbMat = new THREE.MeshStandardMaterial({
-    color: 0xfff6e0,
-    emissive: theme.downlight.emissive,
-    emissiveIntensity: 2.5 * (theme.downlight.intensity / 22),
-    roughness: 1.0,
-  });
-
-  const H = ROOM.wallHeight;
-  const coords = [-14, 0, 14];
-  const lights = [];
-
-  for (const x of coords) {
-    for (const z of coords) {
-      // 매입 캔 (천장에서 살짝 내려온 원통)
-      const can = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.085, 0.1, 0.2, 16),
-        canMat
-      );
-      can.position.set(x, H - 0.1, z);
-      scene.add(can);
-
-      // 발광 디스크
-      const bulb = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.07, 0.07, 0.02, 16),
-        bulbMat
-      );
-      bulb.position.set(x, H - 0.21, z);
-      scene.add(bulb);
-
-      // 실내 다운라이트 — 테마별 광량 (night는 스포트라이트와 함께 주광 역할)
-      const light = new THREE.PointLight(theme.downlight.color, theme.downlight.intensity, 18, 2);
-      light.position.set(x, H - 0.4, z);
-      scene.add(light);
-      lights.push(light);
-    }
-  }
-
-  return { lights, bulbMat };
-}
-
 function createGlobalLights(scene, theme) {
   // 하늘빛 반구광 (하늘색 + 지면 반사광) — 테마별 색/광량
   const hemi = new THREE.HemisphereLight(theme.hemi.sky, theme.hemi.ground, theme.hemi.intensity);
@@ -1985,15 +1876,9 @@ export function createMuseum(scene, themeName = 'daylight') {
   const skyRefs = createSky(scene, theme, isCycle);
   const outdoorRefs = createOutdoors(scene, theme);
 
-  createFloor(scene);
-  createSolidWalls(scene);
-  createGlassWalls(scene);
-  createConcreteColumns(scene);
-  createPartitions(scene);
-  const courtyardRefs = createCourtyard(scene, theme);
-  createBaseboards(scene);
-  createCeiling(scene);
-  const downlightRefs = createDownlights(scene, theme);
+  const buildingRefs = createBuilding(scene, theme);
+  const gardenRefs = createGardenTree(scene, theme);
+  const downlightRefs = buildingRefs.downlights;
   const lightRefs = createGlobalLights(scene, theme);
   createCreatures(scene);
 
@@ -2013,7 +1898,7 @@ export function createMuseum(scene, themeName = 'daylight') {
       moonLight: moon,
       seaMat: outdoorRefs.seaMat,
       downlights: downlightRefs,
-      treeUplights: courtyardRefs.treeUplights,
+      treeUplights: gardenRefs.treeUplights,
       skyDomes: skyRefs,
     };
     // 태양이 움직이므로 넉넉한 합집합 프러스텀을 실제로 반영 (새 라이트에만 영향 — 정적 테마 불변)
@@ -2025,10 +1910,10 @@ export function createMuseum(scene, themeName = 'daylight') {
 
   return {
     bounds: {
-      minX: -ROOM.bound,
-      maxX: ROOM.bound,
-      minZ: -ROOM.bound,
-      maxZ: ROOM.bound,
+      minX: BUILDING.minX + 0.6,
+      maxX: BUILDING.maxX - 0.6,
+      minZ: BUILDING.minZ + 0.6,
+      maxZ: BUILDING.maxZ - 0.6,
     },
   };
 }
