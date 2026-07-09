@@ -18,6 +18,16 @@ let entered = false;         // 로비 통과 여부 (입장 후에만 채팅 �
 let currentArtworkId = null; // 작품 패널 재렌더 생략용
 let initialized = false;
 
+// 라이트박스 상태
+let lightboxOpen = false;
+let onLightboxClose = null;
+let lightboxCloseTimer = null;
+
+// initUI() 호출 이전에 setGalleryTitle / initGalleryPicker가 먼저 불려도
+// 값을 잃지 않도록 대기시켜 두었다가 DOM 생성 직후 적용한다.
+let pendingGalleryTitle = null;
+let pendingPicker = null; // { galleries, currentId, onPick }
+
 // ---------------------------------------------------------------------------
 // CSS 주입
 // ---------------------------------------------------------------------------
@@ -144,6 +154,42 @@ function injectStyles() {
 }
 #lu-enter-btn:hover { background: var(--lu-gold); border-color: var(--lu-gold); color: #111; }
 
+/* ------------------------------ 전시 선택 ------------------------------ */
+.lu-picker-note {
+  text-align: left;
+  font-size: 11px; letter-spacing: 0.04em;
+  color: var(--lu-gold);
+  margin: 0 0 10px 2px;
+}
+.lu-picker-list {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.lu-picker-item {
+  display: block; width: 100%; text-align: left;
+  font-family: var(--lu-font); font-weight: 300;
+  background: #fafafa; border: 1px solid #eee; border-left: 2px solid transparent;
+  padding: 10px 14px; cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.lu-picker-item:hover:not(:disabled) { background: #f2f2f0; border-left-color: var(--lu-gold); }
+.lu-picker-item:disabled { cursor: default; }
+.lu-picker-item.lu-picker-current {
+  background: #f6f3ea; border-left-color: var(--lu-gold);
+}
+.lu-picker-name { font-size: 13px; color: #111; }
+.lu-picker-meta { font-size: 10px; letter-spacing: 0.06em; color: #999; margin-top: 3px; }
+
+.lu-lobby-divider { width: 100%; height: 1px; background: #eee; margin: 26px 0 18px; }
+.lu-studio-link {
+  display: inline-block;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 11px; letter-spacing: 0.1em; color: #999;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.lu-studio-link:hover { color: var(--lu-gold); border-bottom-color: var(--lu-gold); }
+
 /* --------------------------------- HUD --------------------------------- */
 .lu-hud {
   position: fixed; z-index: 500;
@@ -187,6 +233,18 @@ function injectStyles() {
   color: rgba(255,255,255,0.85);
 }
 #lu-topright .lu-stat b { font-weight: 400; color: var(--lu-gold); }
+
+#lu-gallery-title {
+  top: 18px; left: 50%;
+  transform: translateX(-50%);
+  max-width: min(70vw, 520px);
+  font-size: 11px; letter-spacing: 0.42em; text-indent: 0.42em;
+  color: rgba(255,255,255,0.5);
+  text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+}
+#lu-gallery-title:empty { opacity: 0 !important; }
 
 #lu-status {
   bottom: 22px; left: 50%;
@@ -283,6 +341,89 @@ function injectStyles() {
   font-size: 13px; line-height: 1.8; color: #444;
   max-height: 40vh; overflow-y: auto;
 }
+#lu-artwork .lu-art-hint {
+  margin-top: 16px;
+  font-size: 11px; letter-spacing: 0.04em; color: #999;
+}
+#lu-artwork .lu-art-hint .lu-key {
+  display: inline-block;
+  min-width: 16px; text-align: center;
+  margin-right: 7px;
+  padding: 1px 6px;
+  border: 1px solid var(--lu-gold);
+  color: var(--lu-gold);
+  font-size: 10px; letter-spacing: 0.04em;
+}
+
+/* -------------------------------- 라이트박스 -------------------------------- */
+#lu-lightbox {
+  position: fixed; inset: 0; z-index: 950;
+  background: rgba(4,4,5,0.96);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 64px 32px 40px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.32s ease;
+}
+#lu-lightbox.lu-open {
+  opacity: 1; pointer-events: auto;
+}
+#lu-lightbox-close {
+  position: fixed; top: 22px; right: 26px; z-index: 951;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 50%;
+  color: rgba(255,255,255,0.75);
+  font-size: 18px; font-weight: 300; line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+#lu-lightbox-close:hover {
+  border-color: var(--lu-gold); color: var(--lu-gold);
+  transform: rotate(90deg);
+}
+.lu-lightbox-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex; align-items: center; justify-content: center;
+  transform: scale(0.97); opacity: 0;
+  transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.36s ease;
+}
+#lu-lightbox.lu-open .lu-lightbox-stage { transform: scale(1); opacity: 1; }
+.lu-lightbox-media {
+  /* 스테이지(flex 잔여 공간)를 기준으로 맞춰 캡션을 침범하지 않는다 */
+  max-width: 100%; max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 30px 90px rgba(0,0,0,0.6);
+}
+.lu-lightbox-caption {
+  flex: 0 0 auto;
+  width: 100%; max-width: 640px;
+  margin-top: 26px;
+  text-align: center;
+}
+.lu-lightbox-title {
+  font-size: 24px; font-weight: 300; line-height: 1.35;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+.lu-lightbox-meta {
+  margin-top: 8px;
+  font-size: 12px; letter-spacing: 0.12em;
+  color: var(--lu-gold);
+}
+.lu-lightbox-rule {
+  width: 28px; height: 1px; background: rgba(255,255,255,0.2);
+  margin: 18px auto;
+}
+.lu-lightbox-desc {
+  font-size: 13px; line-height: 1.85;
+  color: rgba(255,255,255,0.55);
+  max-height: 16vh; overflow-y: auto;
+}
+.lu-lightbox-desc:empty { display: none; }
 
 /* ------------------------------- 모바일 ------------------------------- */
 @media (max-width: 640px) {
@@ -295,6 +436,12 @@ function injectStyles() {
   #lu-status { bottom: 76px; font-size: 11px; padding: 6px 14px; }
   #lu-artwork { padding: 22px 18px; }
   #lu-artwork .lu-art-title { font-size: 17px; }
+  #lu-gallery-title { font-size: 10px; letter-spacing: 0.28em; text-indent: 0.28em; max-width: 60vw; }
+  #lu-lightbox { padding: 56px 18px 28px; }
+  #lu-lightbox-close { top: 14px; right: 14px; width: 36px; height: 36px; font-size: 16px; }
+  .lu-lightbox-media { max-width: 100%; max-height: 100%; }
+  .lu-lightbox-title { font-size: 19px; }
+  .lu-lightbox-caption { margin-top: 18px; }
 }
 `;
   const style = document.createElement('style');
@@ -367,11 +514,26 @@ function buildLobby() {
 
   const enterBtn = el('button', { id: 'lu-enter-btn', type: 'button', text: '입장하기' });
 
+  // 전시 선택 섹션 — initGalleryPicker() 호출 전에는 빈 컨테이너
+  const pickerBox = el('div', { id: 'lu-picker' });
+
+  // 하단 스튜디오 링크
+  const divider = el('div', { className: 'lu-lobby-divider' });
+  const studioLink = el('a', {
+    className: 'lu-studio-link',
+    href: './studio.html',
+    target: '_blank',
+    rel: 'noopener noreferrer',
+    text: '작가 스튜디오에서 나만의 전시 만들기 →',
+  });
+
   const card = el('div', { className: 'lu-lobby-card' }, [
     title, sub, rule,
     nickLabel, nickInput, nickHint,
     swatchLabel, swatches,
     enterBtn,
+    pickerBox,
+    divider, studioLink,
   ]);
   const overlay = el('div', { id: 'lu-lobby', className: 'lu' }, [card]);
   document.body.appendChild(overlay);
@@ -390,7 +552,7 @@ function buildLobby() {
   });
   nickInput.addEventListener('keyup', (e) => e.stopPropagation());
 
-  return { overlay, nickInput };
+  return { overlay, nickInput, pickerBox };
 }
 
 function buildControls() {
@@ -474,9 +636,44 @@ function buildArtworkPanel() {
   const meta = el('div', { className: 'lu-art-meta' });
   const rule = el('div', { className: 'lu-art-rule' });
   const desc = el('div', { className: 'lu-art-desc' });
-  const panel = el('div', { id: 'lu-artwork', className: 'lu' }, [eyebrow, title, meta, rule, desc]);
+  const hint = el('div', { className: 'lu-art-hint' }, [
+    el('span', { className: 'lu-key', text: 'E' }),
+    document.createTextNode(' — 크게 보기'),
+  ]);
+  const panel = el('div', { id: 'lu-artwork', className: 'lu' }, [eyebrow, title, meta, rule, desc, hint]);
   document.body.appendChild(panel);
   return { panel, title, meta, desc };
+}
+
+function buildGalleryTitle() {
+  const bar = el('div', { id: 'lu-gallery-title', className: 'lu lu-hud' });
+  document.body.appendChild(bar);
+  return bar;
+}
+
+function buildLightbox() {
+  const closeBtn = el('button', {
+    id: 'lu-lightbox-close', type: 'button', 'aria-label': '닫기', text: '×',
+  });
+
+  const stage = el('div', { className: 'lu-lightbox-stage' });
+
+  const titleEl = el('div', { className: 'lu-lightbox-title' });
+  const metaEl = el('div', { className: 'lu-lightbox-meta' });
+  const ruleEl = el('div', { className: 'lu-lightbox-rule' });
+  const descEl = el('div', { className: 'lu-lightbox-desc' });
+  const caption = el('div', { className: 'lu-lightbox-caption' }, [titleEl, metaEl, ruleEl, descEl]);
+
+  const overlay = el('div', { id: 'lu-lightbox', className: 'lu' }, [closeBtn, stage, caption]);
+  document.body.appendChild(overlay);
+
+  closeBtn.addEventListener('click', () => hideLightbox());
+  // 배경(스테이지의 여백) 클릭 시 닫힘 — 이미지/영상 자체 클릭은 통과
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay || e.target === stage) hideLightbox();
+  });
+
+  return { overlay, closeBtn, stage, title: titleEl, meta: metaEl, rule: ruleEl, desc: descEl };
 }
 
 // ---------------------------------------------------------------------------
@@ -484,6 +681,15 @@ function buildArtworkPanel() {
 // ---------------------------------------------------------------------------
 function bindGlobalKeys() {
   window.addEventListener('keydown', (e) => {
+    // 라이트박스가 열려 있으면 ESC로 닫는다 (입력창 포커스 여부와 무관)
+    if (lightboxOpen && e.key === 'Escape') {
+      e.preventDefault();
+      hideLightbox();
+      return;
+    }
+    // 라이트박스가 열려 있는 동안에는 Enter(채팅 포커스) 등 다른 전역 키를 막는다
+    // — 오버레이에 가려진 채팅 입력창이 포커스되는 혼란을 방지.
+    if (lightboxOpen) return;
     if (!entered) return;
     const active = document.activeElement;
     const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
@@ -520,9 +726,15 @@ export function initUI({ onEnter, onChatSend } = {}) {
     status: buildStatus(),
     chat: buildChat(),
     artwork: buildArtworkPanel(),
+    galleryTitle: buildGalleryTitle(),
+    lightbox: buildLightbox(),
   };
 
   bindGlobalKeys();
+
+  // initUI() 호출 이전에 대기 중이던 값이 있으면 지금 적용한다.
+  if (pendingGalleryTitle !== null) applyGalleryTitle(pendingGalleryTitle);
+  if (pendingPicker) applyGalleryPicker(pendingPicker.galleries, pendingPicker.currentId, pendingPicker.onPick);
 }
 
 export function showLoading(show) {
@@ -539,6 +751,7 @@ export function hideLobby() {
   els.topRight.wrap.classList.add('lu-visible');
   els.status.classList.add('lu-visible');
   els.chat.wrap.classList.add('lu-visible');
+  els.galleryTitle.classList.add('lu-visible');
 }
 
 export function showArtworkInfo(art) {
@@ -584,4 +797,144 @@ export function setStatus(text) {
 export function setFPS(n) {
   if (!els) return;
   els.topRight.fps.textContent = String(Math.round(n));
+}
+
+// ---------------------------------------------------------------------------
+// 전시 제목
+// ---------------------------------------------------------------------------
+
+function applyGalleryTitle(name) {
+  els.galleryTitle.textContent = name || '';
+}
+
+export function setGalleryTitle(name) {
+  pendingGalleryTitle = name || '';
+  if (!els) return; // initUI() 호출 시 pendingGalleryTitle이 적용됨
+  applyGalleryTitle(pendingGalleryTitle);
+}
+
+// ---------------------------------------------------------------------------
+// 전시 디렉터리 (로비 내 전시 선택)
+// ---------------------------------------------------------------------------
+
+function applyGalleryPicker(galleries, currentId, onPick) {
+  const box = els.lobby.pickerBox;
+  box.innerHTML = '';
+  if (!Array.isArray(galleries) || galleries.length === 0) return;
+
+  const label = el('div', {
+    className: 'lu-field-label',
+    text: '전시 선택',
+    style: 'margin-top:26px;',
+  });
+  box.appendChild(label);
+
+  if (currentId === null || currentId === undefined) {
+    box.appendChild(el('div', { className: 'lu-picker-note', text: '공유된 전시 관람 중' }));
+  }
+
+  const list = el('div', { className: 'lu-picker-list' });
+  galleries.forEach((g) => {
+    const isCurrent = g.id === currentId;
+    const item = el('button', {
+      type: 'button',
+      className: 'lu-picker-item' + (isCurrent ? ' lu-picker-current' : ''),
+    }, [
+      el('div', { className: 'lu-picker-name', text: g.name || g.id }),
+      el('div', {
+        className: 'lu-picker-meta',
+        text: [g.artist, typeof g.count === 'number' ? `${g.count}점` : null]
+          .filter(Boolean).join(' · '),
+      }),
+    ]);
+    if (isCurrent) item.disabled = true;
+    item.addEventListener('click', () => {
+      if (isCurrent) return;
+      if (typeof onPick === 'function') onPick(g.id);
+    });
+    list.appendChild(item);
+  });
+  box.appendChild(list);
+}
+
+export function initGalleryPicker(galleries, currentId, onPick) {
+  pendingPicker = { galleries, currentId: currentId ?? null, onPick };
+  if (!els) return; // initUI() 호출 시 pendingPicker가 적용됨
+  applyGalleryPicker(pendingPicker.galleries, pendingPicker.currentId, pendingPicker.onPick);
+}
+
+// ---------------------------------------------------------------------------
+// 라이트박스 — 작품 확대 감상
+// ---------------------------------------------------------------------------
+
+function clearLightboxMedia() {
+  const stage = els.lightbox.stage;
+  const media = stage.firstChild;
+  if (media && media.tagName === 'VIDEO') {
+    media.pause();
+    media.removeAttribute('src');
+    media.load();
+  }
+  stage.innerHTML = '';
+}
+
+export function showLightbox(art) {
+  if (!els || !art) return;
+  if (lightboxCloseTimer) {
+    clearTimeout(lightboxCloseTimer);
+    lightboxCloseTimer = null;
+  }
+
+  clearLightboxMedia();
+
+  let media;
+  if (art.videoUrl) {
+    media = el('video', {
+      className: 'lu-lightbox-media',
+      src: art.videoUrl,
+      controls: 'controls',
+      autoplay: 'autoplay',
+      loop: 'loop',
+      muted: 'muted',
+      playsinline: 'playsinline',
+    });
+    media.muted = true; // 일부 브라우저는 속성만으로 부족
+  } else {
+    media = el('img', {
+      className: 'lu-lightbox-media',
+      src: art.imageUrl || '',
+      alt: art.title || '',
+    });
+  }
+  els.lightbox.stage.appendChild(media);
+
+  els.lightbox.title.textContent = art.title || '';
+  els.lightbox.meta.textContent = [art.artist, art.year].filter(Boolean).join(' · ');
+  els.lightbox.desc.textContent = art.desc || '';
+
+  lightboxOpen = true;
+  els.lightbox.overlay.classList.add('lu-open');
+}
+
+export function hideLightbox() {
+  if (!els || !lightboxOpen) return;
+  lightboxOpen = false;
+  els.lightbox.overlay.classList.remove('lu-open');
+
+  // 페이드 아웃(0.32s)이 끝난 뒤 미디어를 정리해 영상 재생/오디오 로드를 멈춘다.
+  if (lightboxCloseTimer) clearTimeout(lightboxCloseTimer);
+  lightboxCloseTimer = setTimeout(() => {
+    clearLightboxMedia();
+    lightboxCloseTimer = null;
+  }, 340);
+
+  if (typeof onLightboxClose === 'function') onLightboxClose();
+}
+
+export function isLightboxOpen() {
+  return lightboxOpen;
+}
+
+export function setOnLightboxClose(cb) {
+  onLightboxClose = typeof cb === 'function' ? cb : null;
 }

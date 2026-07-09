@@ -360,6 +360,18 @@
   .action-status.error { color: var(--danger); }
   .action-status.ok { color: var(--gold); }
 
+  .share-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .share-row input[type="text"] {
+    flex: 1;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+
   .instructions {
     border: 1px solid var(--border);
     background: var(--bg-panel);
@@ -429,6 +441,8 @@
     .block-title .hint { margin-left: 0; width: 100%; }
     .action-row { flex-direction: column; align-items: stretch; }
     .action-row .btn, .action-row .btn-gold { width: 100%; text-align: center; }
+    .share-row { flex-direction: column; align-items: stretch; }
+    .share-row .btn { width: 100%; text-align: center; }
     .save-indicator { left: 14px; right: 14px; text-align: center; }
   }
 </style>
@@ -496,6 +510,28 @@
   <section class="block">
     <div class="block-title">
       <span class="num">04</span>
+      <h2>공유 링크</h2>
+      <span class="hint">파일 업로드 없이 URL 하나로 전시를 공유합니다</span>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-gold" id="shareLinkBtn" type="button">공유 링크 만들기</button>
+      <span class="action-status" id="shareStatus"></span>
+    </div>
+
+    <div class="field" id="shareResultWrap" style="display:none; margin-top:18px;">
+      <label class="field-label" for="shareUrlInput">전시 공유 URL</label>
+      <div class="share-row">
+        <input type="text" id="shareUrlInput" readonly spellcheck="false">
+        <button class="btn btn-sm" id="copyShareBtn" type="button">복사</button>
+      </div>
+      <div class="field-msg" id="shareLenMsg"></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-title">
+      <span class="num">05</span>
       <h2>안내</h2>
     </div>
     <div class="instructions">
@@ -506,6 +542,7 @@
         <li>브라우저에서 아래 주소로 접속하면 전시장이 열립니다.</li>
       </ol>
       <div id="exhibitUrlPreview">예시 주소: <span id="urlPreviewFull">./index.html?g=id</span></div>
+      <div style="margin-top:14px;">파일 업로드가 번거롭다면 <b>공유 링크</b>를 사용하세요. 전시 데이터가 주소 안에 담기므로 링크만 전달해도 바로 관람할 수 있습니다.</div>
     </div>
   </section>
 
@@ -547,6 +584,14 @@
   var $downloadStatus = document.getElementById('downloadStatus');
   var $urlPreviewFull = document.getElementById('urlPreviewFull');
   var $saveIndicator = document.getElementById('saveIndicator');
+  var $shareLinkBtn = document.getElementById('shareLinkBtn');
+  var $shareStatus = document.getElementById('shareStatus');
+  var $shareResultWrap = document.getElementById('shareResultWrap');
+  var $shareUrlInput = document.getElementById('shareUrlInput');
+  var $shareLenMsg = document.getElementById('shareLenMsg');
+  var $copyShareBtn = document.getElementById('copyShareBtn');
+
+  var SHARE_URL_WARN_LEN = 6000;
 
   var ID_RE = /^[a-z0-9-]+$/;
 
@@ -895,30 +940,44 @@
     scheduleSave();
   });
 
-  $downloadBtn.addEventListener('click', function () {
+  function validateForExport() {
     var idValid = validateId(true);
     if (!idValid) {
       $downloadStatus.textContent = '전시장 ID를 올바르게 입력해주세요.';
       $downloadStatus.className = 'action-status error';
       $id.focus();
-      return;
+      return false;
     }
     if (state.name.trim().length === 0) {
       $downloadStatus.textContent = '전시 제목을 입력해주세요.';
       $downloadStatus.className = 'action-status error';
       $name.focus();
-      return;
+      return false;
     }
     if (state.artworks.length === 0) {
       $downloadStatus.textContent = '작품을 1개 이상 추가해주세요.';
       $downloadStatus.className = 'action-status error';
-      return;
+      return false;
     }
     if (featuredCount() > MAX_FEATURED) {
       $downloadStatus.textContent = '대표작은 최대 ' + MAX_FEATURED + '점까지만 지정할 수 있습니다.';
       $downloadStatus.className = 'action-status error';
-      return;
+      return false;
     }
+    return true;
+  }
+
+  // base64url-encode a gallery JSON object for the #gd= share link
+  function encodeGalleryData(obj) {
+    var json = JSON.stringify(obj);
+    var bytes = new TextEncoder().encode(json);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  $downloadBtn.addEventListener('click', function () {
+    if (!validateForExport()) return;
 
     var json = buildGalleryJson();
     var blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
@@ -936,14 +995,86 @@
   });
 
   $previewBtn.addEventListener('click', function () {
-    var idVal = state.id.trim();
-    if (!validateId(true)) {
-      $downloadStatus.textContent = '미리보기 전에 전시장 ID를 올바르게 입력해주세요.';
+    if (!validateForExport()) return;
+
+    var json = buildGalleryJson();
+    var encoded;
+    try {
+      encoded = encodeGalleryData(json);
+    } catch (e) {
+      $downloadStatus.textContent = '미리보기 링크 생성에 실패했습니다.';
       $downloadStatus.className = 'action-status error';
-      $id.focus();
       return;
     }
-    window.open('./index.html?g=' + encodeURIComponent(idVal), '_blank');
+    window.open('./index.html#gd=' + encoded, '_blank');
+  });
+
+  $shareLinkBtn.addEventListener('click', function () {
+    if (!validateForExport()) return;
+
+    var json = buildGalleryJson();
+    var encoded;
+    try {
+      encoded = encodeGalleryData(json);
+    } catch (e) {
+      $shareStatus.textContent = '공유 링크 생성에 실패했습니다.';
+      $shareStatus.className = 'action-status error';
+      return;
+    }
+
+    var fullUrl;
+    try {
+      fullUrl = new URL('./index.html#gd=' + encoded, window.location.href).href;
+    } catch (e) {
+      fullUrl = './index.html#gd=' + encoded;
+    }
+
+    $shareUrlInput.value = fullUrl;
+    $shareResultWrap.style.display = '';
+
+    if (fullUrl.length > SHARE_URL_WARN_LEN) {
+      $shareLenMsg.textContent = '주소 길이 ' + fullUrl.length + '자 — 작품 설명을 줄이거나 JSON 다운로드 방식을 사용하세요.';
+      $shareLenMsg.className = 'field-msg error';
+    } else {
+      $shareLenMsg.textContent = '주소 길이 ' + fullUrl.length + '자';
+      $shareLenMsg.className = 'field-msg';
+    }
+
+    $shareStatus.textContent = '공유 링크를 생성했습니다.';
+    $shareStatus.className = 'action-status ok';
+  });
+
+  $copyShareBtn.addEventListener('click', function () {
+    var text = $shareUrlInput.value;
+    if (!text) return;
+
+    function showCopyFail() {
+      $shareStatus.textContent = '복사에 실패했습니다. 주소를 직접 선택해 복사해주세요.';
+      $shareStatus.className = 'action-status error';
+    }
+    function showCopyOk() {
+      $shareStatus.textContent = '링크를 복사했습니다.';
+      $shareStatus.className = 'action-status ok';
+    }
+    function fallbackCopy() {
+      $shareUrlInput.focus();
+      $shareUrlInput.select();
+      try {
+        if (document.execCommand('copy')) {
+          showCopyOk();
+        } else {
+          showCopyFail();
+        }
+      } catch (e) {
+        showCopyFail();
+      }
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(showCopyOk, fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
   });
 
   function buildGalleryJson() {

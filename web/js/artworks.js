@@ -253,7 +253,10 @@ function assignSlots(artworks) {
 }
 
 // ---------------------------------------------------------------------------
-// 갤러리 로드 (URL ?g=<id> → ./galleries/<id>.json → 실패 시 폴백)
+// 갤러리 로드
+// 우선순위: location.hash의 #gd=<base64url> (공유 링크, 디코딩 실패 시 다음 소스로)
+//         → ?g=<id> → ./galleries/<id>.json (fetch 실패 시 다음 소스로)
+//         → FALLBACK_GALLERY (내장 폴백)
 // ---------------------------------------------------------------------------
 
 const GALLERY_ID_RE = /^[a-z0-9-]+$/;
@@ -269,7 +272,53 @@ function getGalleryIdFromUrl() {
   return 'syhongart';
 }
 
+// #gd= 해시에 base64url로 내장된 갤러리 JSON을 디코딩한다.
+// 인코딩 규약: JSON.stringify → UTF-8 bytes → base64 → base64url(+/→-_, '=' 제거)
+function decodeGalleryFromHash() {
+  try {
+    const hash = window.location.hash;
+    if (!hash) return null;
+    const match = hash.match(/[#&]gd=([^&]+)/);
+    if (!match) return null;
+
+    const b64url = match[1];
+    const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const bin = atob(padded);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const json = new TextDecoder().decode(bytes);
+    const data = JSON.parse(json);
+
+    if (!data || !Array.isArray(data.artworks)) {
+      throw new Error('#gd= 데이터에 artworks 배열이 없습니다');
+    }
+    return data;
+  } catch (err) {
+    console.warn(
+      '[artworks] #gd= 공유 링크 디코딩 실패, 다음 소스로 진행합니다:',
+      err
+    );
+    return null;
+  }
+}
+
 async function loadGallery() {
+  // 1순위: #gd= 공유 링크 (파일 업로드 없이 URL에 내장된 갤러리 데이터)
+  const shared = decodeGalleryFromHash();
+  if (shared) {
+    // 공유 링크는 디렉터리에 없는 임시 전시다. 스튜디오가 내장한 id가 있어도
+    // 무시하고 id=null로 두어, 전시 디렉터리 picker가 '공유된 전시 관람 중'으로
+    // 처리하도록 한다(계약: #gd= 접속 시 getGalleryInfo().id === null).
+    GALLERY_INFO = {
+      id: null,
+      name: shared.name ?? '공유된 전시',
+      description: shared.description ?? '',
+    };
+    return shared.artworks;
+  }
+
+  // 2순위: ?g=<id> → ./galleries/<id>.json
   const id = getGalleryIdFromUrl();
   try {
     const res = await fetch(`./galleries/${id}.json`);
@@ -278,18 +327,32 @@ async function loadGallery() {
     if (!data || !Array.isArray(data.artworks)) {
       throw new Error('gallery JSON에 artworks 배열이 없습니다');
     }
+    GALLERY_INFO = {
+      id: data.id ?? id,
+      name: data.name ?? id,
+      description: data.description ?? '',
+    };
     return data.artworks;
   } catch (err) {
     console.warn(
       `[artworks] 갤러리 "${id}" 로드 실패, 내장 폴백 데이터를 사용합니다:`,
       err
     );
+    // 3순위: 내장 폴백
+    GALLERY_INFO = {
+      id: FALLBACK_GALLERY.id,
+      name: FALLBACK_GALLERY.name,
+      description: FALLBACK_GALLERY.description,
+    };
     return FALLBACK_GALLERY.artworks;
   }
 }
 
 // 현재 로드된 작품 목록 (createArtworks가 채우고 getNearbyArtwork가 참조)
 let ARTWORKS = [];
+
+// 현재 로드된 갤러리 메타정보 (createArtworks 완료 후 유효, getGalleryInfo가 참조)
+let GALLERY_INFO = null;
 
 // ---------------------------------------------------------------------------
 // 캔버스 텍스처 유틸
@@ -603,6 +666,11 @@ export async function createArtworks(scene) {
     buildSpotlight(art, scene);
   }
   // 이미지는 백그라운드에서 계속 로드됨 (placeholder → 실이미지 교체)
+}
+
+// createArtworks 완료 후 유효. 그 전에는 null.
+export function getGalleryInfo() {
+  return GALLERY_INFO;
 }
 
 export function getNearbyArtwork(position) {
