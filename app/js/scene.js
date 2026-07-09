@@ -325,10 +325,58 @@ function makeRand(seedInit) {
 }
 
 // ---------------------------------------------------------------------------
-// 절차적 텍스처: 오크 파케 바닥 (1024x1024)
+// 노말맵 생성 유틸 — 알베도 밝기를 높이로 해석해 Sobel 기울기로 노말을 만든다.
+// 타일 경계는 랩(wrap) 샘플링으로 계산하므로 심리스가 유지된다.
+// 노말맵은 색 데이터가 아니므로 SRGB 지정 금지(Linear 기본값 사용).
 // ---------------------------------------------------------------------------
-function createParquetTexture() {
+function canvasToNormalTexture(canvas, strength) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const src = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+
+  const lum = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    lum[i] = (src[i * 4] * 0.299 + src[i * 4 + 1] * 0.587 + src[i * 4 + 2] * 0.114) / 255;
+  }
+  const at = (x, y) => lum[((y + h) % h) * w + ((x + w) % w)];
+
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext('2d');
+  const img = octx.createImageData(w, h);
+  const d = img.data;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const gx = (at(x + 1, y) - at(x - 1, y)) * strength;
+      const gy = (at(x, y + 1) - at(x, y - 1)) * strength;
+      const inv = 1 / Math.sqrt(gx * gx + gy * gy + 1);
+      const i = (y * w + x) * 4;
+      d[i] = Math.round((-gx * inv * 0.5 + 0.5) * 255);
+      d[i + 1] = Math.round((gy * inv * 0.5 + 0.5) * 255);
+      d[i + 2] = Math.round((inv * 0.5 + 0.5) * 255);
+      d[i + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0);
+
+  const tex = new THREE.CanvasTexture(out);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// ---------------------------------------------------------------------------
+// 절차적 텍스처: 오크 파케 바닥 (1024x1024, 심리스)
+// 플랭크의 톤/결/옹이를 (행, 열 mod N) 시드로 결정 → 오른쪽 경계를 넘는 플랭크가
+// 왼쪽 첫 플랭크와 완전히 동일해져 타일 경계가 보이지 않는다.
+// ---------------------------------------------------------------------------
+function createParquetMaps() {
   const size = 1024;
+  const plankW = 256; // 4 plank/행 (N=4)
+  const plankH = 64;  // 16행 정확히 — 상하 경계도 심리스
+  const N = size / plankW;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -337,73 +385,87 @@ function createParquetTexture() {
   ctx.fillStyle = '#b98d5f';
   ctx.fillRect(0, 0, size, size);
 
-  // 실측 비율: 텍스처 한 장 = 3.57m (repeat 14) → 플랭크 폭 ≈17cm, 길이 ≈1.8m
-  const plankW = 512;
-  const plankH = 48;
   const oakTones = ['#b98d5f', '#c49a6c', '#ad8153', '#bf9265', '#b28758', '#c79f73', '#a97d4f'];
-  const rand = makeRand(12345);
+
+  // 한 장의 플랭크를 자기 영역에 클리핑해 그린다 — 결/옹이가 이웃 플랭크나
+  // 캔버스 경계를 침범하지 않으므로 상하좌우 랩이 항상 맞아떨어진다.
+  function drawPlank(x, y, seed) {
+    const rand = makeRand(seed);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, plankW, plankH);
+    ctx.clip();
+
+    ctx.fillStyle = oakTones[Math.floor(rand() * oakTones.length)];
+    ctx.fillRect(x, y, plankW, plankH);
+
+    const grainCount = 10 + Math.floor(rand() * 8);
+    for (let g = 0; g < grainCount; g++) {
+      const gy = y + rand() * plankH;
+      const dark = rand() > 0.5;
+      const alpha = 0.05 + rand() * 0.10;
+      ctx.strokeStyle = dark
+        ? `rgba(90, 60, 30, ${alpha})`
+        : `rgba(235, 210, 175, ${alpha})`;
+      ctx.lineWidth = 0.6 + rand() * 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x, gy);
+      const seg = 4;
+      for (let s = 1; s <= seg; s++) {
+        const sx = x + (plankW / seg) * s;
+        const sy = gy + (rand() - 0.5) * 7;
+        ctx.quadraticCurveTo(
+          x + (plankW / seg) * (s - 0.5),
+          gy + (rand() - 0.5) * 10,
+          sx, sy
+        );
+      }
+      ctx.stroke();
+    }
+
+    if (rand() > 0.82) {
+      const kx = x + plankW * (0.2 + rand() * 0.6);
+      const ky = y + plankH * (0.25 + rand() * 0.5);
+      const kr = 2 + rand() * 4;
+      const grad = ctx.createRadialGradient(kx, ky, 0.5, kx, ky, kr);
+      grad.addColorStop(0, 'rgba(70, 45, 22, 0.55)');
+      grad.addColorStop(0.6, 'rgba(100, 68, 36, 0.28)');
+      grad.addColorStop(1, 'rgba(100, 68, 36, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(kx, ky, kr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 플랭크 경계 홈(어두움) + 상단 베벨 하이라이트 — 노말맵의 주요 높이 신호
+    ctx.strokeStyle = 'rgba(60, 38, 18, 0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + 0.75, y + 0.75, plankW - 1.5, plankH - 1.5);
+    ctx.strokeStyle = 'rgba(255, 240, 215, 0.10)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + 1, y + plankH - 1);
+    ctx.lineTo(x + 1, y + 1);
+    ctx.lineTo(x + plankW - 1, y + 1);
+    ctx.stroke();
+
+    ctx.restore();
+  }
 
   for (let row = 0; row * plankH < size; row++) {
     const offset = (row % 4) * (plankW / 4);
-    for (let col = -1; col * plankW < size + plankW; col++) {
+    const y = row * plankH;
+    // col=N은 오른쪽 경계를 덮는 랩 사본 — (col mod N) 시드가 col=0과 동일
+    for (let col = 0; col <= N; col++) {
       const x = col * plankW - offset;
-      const y = row * plankH;
-
-      const tone = oakTones[Math.floor(rand() * oakTones.length)];
-      ctx.fillStyle = tone;
-      ctx.fillRect(x, y, plankW, plankH);
-
-      const grainCount = 10 + Math.floor(rand() * 8);
-      for (let g = 0; g < grainCount; g++) {
-        const gy = y + rand() * plankH;
-        const dark = rand() > 0.5;
-        const alpha = 0.05 + rand() * 0.10;
-        ctx.strokeStyle = dark
-          ? `rgba(90, 60, 30, ${alpha})`
-          : `rgba(235, 210, 175, ${alpha})`;
-        ctx.lineWidth = 0.6 + rand() * 1.6;
-        ctx.beginPath();
-        ctx.moveTo(x, gy);
-        const seg = 4;
-        for (let s = 1; s <= seg; s++) {
-          const sx = x + (plankW / seg) * s;
-          const sy = gy + (rand() - 0.5) * 7;
-          ctx.quadraticCurveTo(
-            x + (plankW / seg) * (s - 0.5),
-            gy + (rand() - 0.5) * 10,
-            sx, sy
-          );
-        }
-        ctx.stroke();
-      }
-
-      if (rand() > 0.82) {
-        const kx = x + plankW * (0.2 + rand() * 0.6);
-        const ky = y + plankH * (0.25 + rand() * 0.5);
-        const kr = 2 + rand() * 4;
-        const grad = ctx.createRadialGradient(kx, ky, 0.5, kx, ky, kr);
-        grad.addColorStop(0, 'rgba(70, 45, 22, 0.55)');
-        grad.addColorStop(0.6, 'rgba(100, 68, 36, 0.28)');
-        grad.addColorStop(1, 'rgba(100, 68, 36, 0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(kx, ky, kr, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.strokeStyle = 'rgba(60, 38, 18, 0.35)';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(x + 0.75, y + 0.75, plankW - 1.5, plankH - 1.5);
-      ctx.strokeStyle = 'rgba(255, 240, 215, 0.10)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x + 1, y + plankH - 1);
-      ctx.lineTo(x + 1, y + 1);
-      ctx.lineTo(x + plankW - 1, y + 1);
-      ctx.stroke();
+      if (x >= size) continue;
+      const k = ((col % N) + N) % N;
+      drawPlank(x, y, 12345 + row * 977 + k * 131);
     }
   }
 
+  // 미세 노이즈 (픽셀 단위 무상관 노이즈 — 경계 무관)
+  const rand = makeRand(24601);
   const noise = ctx.getImageData(0, 0, size, size);
   const d = noise.data;
   for (let i = 0; i < d.length; i += 4) {
@@ -412,19 +474,27 @@ function createParquetTexture() {
   }
   ctx.putImageData(noise, 0, 0);
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(14, 14); // 50m ÷ 14 = 3.57m 주기 → 실제 원목마루 스케일
-  tex.anisotropy = 16;
-  return tex;
+  // 실측 비율: repeat 16 → 타일 3.125m, 플랭크 폭 ≈19.5cm × 길이 ≈78cm (파케 블록)
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = THREE.RepeatWrapping;
+  map.wrapT = THREE.RepeatWrapping;
+  map.repeat.set(16, 16);
+  map.anisotropy = 16;
+
+  const normalMap = canvasToNormalTexture(canvas, 1.6);
+  normalMap.repeat.set(16, 16);
+  normalMap.anisotropy = 16;
+
+  return { map, normalMap };
 }
 
 // ---------------------------------------------------------------------------
 // 절차적 텍스처: 뮤지엄 화이트 벽 (미세 회반죽 노이즈)
 // ---------------------------------------------------------------------------
-function createPlasterTexture() {
+let plasterMapsCache = null;
+function createPlasterMaps() {
+  if (plasterMapsCache) return plasterMapsCache;
   const size = 512;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -458,19 +528,24 @@ function createPlasterTexture() {
     ctx.fill();
   }
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(4, 1.5);
-  tex.anisotropy = 4;
-  return tex;
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = THREE.RepeatWrapping;
+  map.wrapT = THREE.RepeatWrapping;
+  map.repeat.set(4, 1.5);
+  map.anisotropy = 4;
+
+  const normalMap = canvasToNormalTexture(canvas, 0.9);
+  normalMap.repeat.set(4, 1.5);
+
+  plasterMapsCache = { map, normalMap };
+  return plasterMapsCache;
 }
 
 // ---------------------------------------------------------------------------
 // 절차적 텍스처: 우드 슬랫 천장 (루이지애나 회랑 천장)
 // ---------------------------------------------------------------------------
-function createWoodSlatTexture() {
+function createWoodSlatMaps() {
   const size = 1024;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -481,47 +556,61 @@ function createWoodSlatTexture() {
   ctx.fillRect(0, 0, size, size);
 
   const rand = makeRand(55555);
-  const slatH = 42; // 슬랫 폭 (px)
+  const slatH = 64; // 1024/64 = 16줄 정확히 → 상하 심리스
   const tones = ['#8a5f3c', '#946a45', '#7d5434', '#9c724c', '#835a38'];
 
   for (let y = 0; y < size; y += slatH) {
     const tone = tones[Math.floor(rand() * tones.length)];
     ctx.fillStyle = tone;
-    ctx.fillRect(0, y, size, slatH - 3);
+    ctx.fillRect(0, y, size, slatH - 4);
 
-    // 나뭇결 (길게 흐르는 선)
+    // 나뭇결 — 끝점을 시작 y로 되돌려 좌우 랩이 이어지게 한다
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, y, size, slatH - 4);
+    ctx.clip();
     for (let g = 0; g < 14; g++) {
-      const gy = y + rand() * (slatH - 3);
+      const gy = y + rand() * (slatH - 4);
       ctx.strokeStyle = rand() > 0.5
         ? `rgba(60, 38, 20, ${0.06 + rand() * 0.1})`
         : `rgba(220, 185, 150, ${0.05 + rand() * 0.08})`;
       ctx.lineWidth = 0.5 + rand() * 1.2;
       ctx.beginPath();
       ctx.moveTo(0, gy);
-      for (let x = 0; x <= size; x += size / 6) {
-        ctx.lineTo(x, gy + (rand() - 0.5) * 4);
+      const segs = 6;
+      for (let s = 1; s < segs; s++) {
+        ctx.lineTo((size / segs) * s, gy + (rand() - 0.5) * 4);
       }
+      ctx.lineTo(size, gy); // 시작점과 동일한 y로 마감 → 심리스
       ctx.stroke();
     }
+    ctx.restore();
 
-    // 슬랫 사이 그림자 홈
+    // 슬랫 사이 그림자 홈 — 노말맵의 주요 높이 신호
     ctx.fillStyle = 'rgba(25, 15, 8, 0.85)';
-    ctx.fillRect(0, y + slatH - 3, size, 3);
+    ctx.fillRect(0, y + slatH - 4, size, 4);
   }
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2, 5); // 슬랫이 x 방향으로 길게 흐르도록
-  tex.anisotropy = 8;
-  return tex;
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = THREE.RepeatWrapping;
+  map.wrapT = THREE.RepeatWrapping;
+  map.repeat.set(2, 20); // 슬랫 폭 ≈16cm 실측 (64px/1024 × 50m/20)
+  map.anisotropy = 8;
+
+  const normalMap = canvasToNormalTexture(canvas, 1.3);
+  normalMap.repeat.set(2, 20);
+  normalMap.anisotropy = 8;
+
+  return { map, normalMap };
 }
 
 // ---------------------------------------------------------------------------
 // 절차적 텍스처: 잔디
 // ---------------------------------------------------------------------------
-function createGrassTexture() {
+let grassMapsCache = null;
+function createGrassMaps() {
+  if (grassMapsCache) return grassMapsCache;
   const size = 512;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -561,13 +650,18 @@ function createGrassTexture() {
     ctx.stroke();
   }
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(60, 60);
-  tex.anisotropy = 4;
-  return tex;
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = THREE.RepeatWrapping;
+  map.wrapT = THREE.RepeatWrapping;
+  map.repeat.set(60, 60);
+  map.anisotropy = 4;
+
+  const normalMap = canvasToNormalTexture(canvas, 0.8);
+  normalMap.repeat.set(60, 60);
+
+  grassMapsCache = { map, normalMap };
+  return grassMapsCache;
 }
 
 // ---------------------------------------------------------------------------
@@ -683,7 +777,9 @@ function createOutdoors(scene, theme) {
   const grass = new THREE.Mesh(
     new THREE.PlaneGeometry(800, 800),
     new THREE.MeshStandardMaterial({
-      map: createGrassTexture(),
+      map: createGrassMaps().map,
+      normalMap: createGrassMaps().normalMap,
+      normalScale: new THREE.Vector2(0.6, 0.6),
       color: theme.grassTint,
       roughness: 0.95,
       metalness: 0.0,
@@ -844,9 +940,11 @@ function createOutdoors(scene, theme) {
 // 건축 요소
 // ---------------------------------------------------------------------------
 function createFloor(scene) {
-  const tex = createParquetTexture();
+  const maps = createParquetMaps();
   const mat = new THREE.MeshStandardMaterial({
-    map: tex,
+    map: maps.map,
+    normalMap: maps.normalMap,
+    normalScale: new THREE.Vector2(0.7, 0.7),
     roughness: 0.35,
     metalness: 0.0,
   });
@@ -863,6 +961,8 @@ function createSolidWalls(scene) {
   // 북쪽 벽: 차콜 전시벽 (루이지애나 사진 전시실 스타일)
   const charcoalMat = new THREE.MeshStandardMaterial({
     color: 0x322e2b,
+    normalMap: createPlasterMaps().normalMap,
+    normalScale: new THREE.Vector2(0.3, 0.3),
     roughness: 0.95,
     metalness: 0.0,
   });
@@ -877,7 +977,9 @@ function createSolidWalls(scene) {
 
   // 서쪽 벽: 화이트 회반죽 전시벽
   const plasterMat = new THREE.MeshStandardMaterial({
-    map: createPlasterTexture(),
+    map: createPlasterMaps().map,
+    normalMap: createPlasterMaps().normalMap,
+    normalScale: new THREE.Vector2(0.35, 0.35),
     color: 0xffffff,
     roughness: 0.92,
     metalness: 0.0,
@@ -976,7 +1078,9 @@ function createGlassWalls(scene) {
 function createPartitions(scene) {
   // 중앙 가벽 2개 — 화이트, artworks.js가 앞뒷면에 작품을 건다
   const mat = new THREE.MeshStandardMaterial({
-    map: createPlasterTexture(),
+    map: createPlasterMaps().map,
+    normalMap: createPlasterMaps().normalMap,
+    normalScale: new THREE.Vector2(0.35, 0.35),
     color: 0xffffff,
     roughness: 0.92,
     metalness: 0.0,
@@ -1038,7 +1142,7 @@ function createCeiling(scene) {
   // - 중정(x 5~13, z 5~13) 위는 완전히 뚫림 — 큰 나무 관통
   // - 글루램 아치 리브 + 아치형 박공(동쪽 유리 / 서쪽 회반죽)
   const H = ROOM.wallHeight;
-  const woodTexBase = createWoodSlatTexture();
+  const woodMapsBase = createWoodSlatMaps();
   const roofMat = new THREE.MeshStandardMaterial({
     color: 0x3b3733,
     roughness: 0.9,
@@ -1092,10 +1196,18 @@ function createCeiling(scene) {
       if (isRidge) {
         mat = skyGlassMat;
       } else {
-        const tex = woodTexBase.clone();
+        const tex = woodMapsBase.map.clone();
         tex.needsUpdate = true;
-        tex.repeat.set((2 * w) / ROOM.size, (5 * ds) / ROOM.size);
-        mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+        tex.repeat.set((2 * w) / ROOM.size, (20 * ds) / ROOM.size);
+        const nrm = woodMapsBase.normalMap.clone();
+        nrm.needsUpdate = true;
+        nrm.repeat.set((2 * w) / ROOM.size, (20 * ds) / ROOM.size);
+        mat = new THREE.MeshStandardMaterial({
+          map: tex,
+          normalMap: nrm,
+          normalScale: new THREE.Vector2(0.55, 0.55),
+          roughness: 0.8,
+        });
       }
 
       const strip = new THREE.Mesh(new THREE.PlaneGeometry(w, ds), mat);
@@ -1183,7 +1295,9 @@ function createCeiling(scene) {
 
   // 서쪽: 회반죽 박공 (양면)
   const westGableMat = new THREE.MeshStandardMaterial({
-    map: createPlasterTexture(),
+    map: createPlasterMaps().map,
+    normalMap: createPlasterMaps().normalMap,
+    normalScale: new THREE.Vector2(0.35, 0.35),
     color: 0xffffff,
     roughness: 0.92,
     side: THREE.DoubleSide,
@@ -1237,6 +1351,11 @@ function createCeiling(scene) {
 // 디테일 나무 — 나무껍질 텍스처 + 재귀 가지 분기 + 알파 잎 클러스터
 // ---------------------------------------------------------------------------
 let barkTexCache = null;
+let barkNormalCache = null;
+function createBarkNormal() {
+  createBarkTexture(); // 캔버스 생성 보장
+  return barkNormalCache;
+}
 function createBarkTexture() {
   if (barkTexCache) return barkTexCache;
   const w = 256, h = 512;
@@ -1298,6 +1417,8 @@ function createBarkTexture() {
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(1.5, 2);
   barkTexCache = tex;
+  barkNormalCache = canvasToNormalTexture(canvas, 1.2);
+  barkNormalCache.repeat.copy(tex.repeat);
   return tex;
 }
 
@@ -1367,6 +1488,8 @@ function buildDetailedTree(seed, opts) {
   const rand = makeRand(seed);
   const barkMat = new THREE.MeshStandardMaterial({
     map: createBarkTexture(),
+    normalMap: createBarkNormal(),
+    normalScale: new THREE.Vector2(0.9, 0.9),
     roughness: 0.95,
     metalness: 0.0,
   });
@@ -1499,12 +1622,16 @@ function createCourtyard(scene, theme) {
   }
 
   // 중정 바닥: 잔디 패치 + 스톤 보더
-  const grassTex = createGrassTexture().clone();
+  const grassMaps = createGrassMaps();
+  const grassTex = grassMaps.map.clone();
   grassTex.needsUpdate = true;
   grassTex.repeat.set(6, 6);
+  const grassNormal = grassMaps.normalMap.clone();
+  grassNormal.needsUpdate = true;
+  grassNormal.repeat.set(6, 6);
   const patch = new THREE.Mesh(
     new THREE.PlaneGeometry(size - 0.3, size - 0.3),
-    new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.95 })
+    new THREE.MeshStandardMaterial({ map: grassTex, normalMap: grassNormal, normalScale: new THREE.Vector2(0.6, 0.6), roughness: 0.95 })
   );
   patch.rotation.x = -Math.PI / 2;
   patch.position.set(cx, 0.02, cz);
@@ -1539,6 +1666,8 @@ function createCourtyard(scene, theme) {
     new THREE.CylinderGeometry(0.5, 0.85, 0.5, 9),
     new THREE.MeshStandardMaterial({
       map: createBarkTexture(),
+      normalMap: createBarkNormal(),
+      normalScale: new THREE.Vector2(0.9, 0.9),
       roughness: 0.95,
     })
   );
