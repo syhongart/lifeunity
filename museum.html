@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LifeUnity Museum - MoMA Quality Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #info {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.92);
+            padding: 22px 28px;
+            border-radius: 12px;
+            font-size: 13px;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            max-width: 320px;
+        }
+
+        #info h3 {
+            margin-bottom: 14px;
+            color: #ffffff;
+            font-size: 17px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        #info p {
+            margin: 5px 0;
+            line-height: 1.7;
+            font-weight: 300;
+        }
+
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 20px;
+            z-index: 200;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 50px 80px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.15);
+            border-top: 4px solid #ffffff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.92);
+            padding: 18px 32px;
+            border-radius: 12px;
+            color: white;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            text-align: center;
+            font-size: 14px;
+            font-weight: 300;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #fps {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: #ffffff;
+            background: rgba(0, 0, 0, 0.92);
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            z-index: 100;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-weight: 300;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <p style="font-weight: 300; letter-spacing: 2px;">MUSEUM LOADING...</p>
+    </div>
+
+    <div id="info">
+        <h3>🏛️ LIFEUNITY MUSEUM</h3>
+        <p style="background: linear-gradient(135deg, #d4af37, #b8941e); padding: 8px; border-radius: 5px; margin-bottom: 10px; font-weight: bold; text-align: center;">✨ MoMA Quality v2.0</p>
+        <p><strong>Controls:</strong></p>
+        <p>🖱️ Mouse Drag: Look Around</p>
+        <p>⌨️ W/A/S/D: Move</p>
+        <p>⌨️ Shift: Sprint</p>
+        <p>⌨️ Space: Up</p>
+        <p>⌨️ C: Down</p>
+        <p style="margin-top: 14px; font-size: 11px; opacity: 0.8;">Professional Museum Rendering</p>
+    </div>
+
+    <div id="fps">FPS: --</div>
+
+    <div id="controls">
+        <p style="font-weight: 300; letter-spacing: 1px;">Click to enter the museum</p>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let moveUp = false, moveDown = false, sprint = false;
+        let velocity = new THREE.Vector3();
+        let direction = new THREE.Vector3();
+        let rotation = new THREE.Euler(0, 0, 0, 'YXZ');
+        let isPointerLocked = false;
+        let lastTime = performance.now();
+        let fps = 0;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xfafaf8);
+            scene.fog = new THREE.Fog(0xfafaf8, 1, 120);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.7, 12);
+
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                powerPreference: "high-performance",
+                alpha: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.1;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.physicallyCorrectLights = true;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            setupLights();
+            createMuseum();
+            createArtworks();
+            setupControls();
+
+            document.getElementById('loading').classList.add('hidden');
+            animate();
+        }
+
+        function setupLights() {
+            // 부드러운 환경광
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+
+            // 자연광 시뮬레이션 (천장에서 오는 빛)
+            const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xf0f0f0, 0.5);
+            hemisphereLight.position.set(0, 8, 0);
+            scene.add(hemisphereLight);
+
+            // 메인 키 라이트 (자연광 시뮬레이션)
+            const keyLight = new THREE.DirectionalLight(0xfff5e6, 0.8);
+            keyLight.position.set(15, 20, 15);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 4096;
+            keyLight.shadow.mapSize.height = 4096;
+            keyLight.shadow.camera.near = 1;
+            keyLight.shadow.camera.far = 60;
+            keyLight.shadow.camera.left = -30;
+            keyLight.shadow.camera.right = 30;
+            keyLight.shadow.camera.top = 30;
+            keyLight.shadow.camera.bottom = -30;
+            keyLight.shadow.bias = -0.0005;
+            keyLight.shadow.radius = 2;
+            scene.add(keyLight);
+
+            // 필 라이트 (부드러운 보조광)
+            const fillLight = new THREE.DirectionalLight(0xe6f2ff, 0.35);
+            fillLight.position.set(-12, 10, -8);
+            scene.add(fillLight);
+
+            // 림 라이트 (깊이감)
+            const rimLight = new THREE.DirectionalLight(0xffffff, 0.25);
+            rimLight.position.set(0, 5, -20);
+            scene.add(rimLight);
+        }
+
+        function createMuseum() {
+            // === 바닥: 고급 오크 우드 파케 ===
+            const floorGeometry = new THREE.PlaneGeometry(50, 50, 100, 100);
+
+            // 사실적인 나무 바닥 텍스처 생성
+            const floorCanvas = document.createElement('canvas');
+            floorCanvas.width = 1024;
+            floorCanvas.height = 1024;
+            const fctx = floorCanvas.getContext('2d');
+
+            // 베이스 우드 컬러
+            const baseColor = '#c4a574';
+            fctx.fillStyle = baseColor;
+            fctx.fillRect(0, 0, 1024, 1024);
+
+            // 나무 플랭크 패턴 (파케)
+            const plankWidth = 128;
+            const plankHeight = 512;
+
+            for(let y = 0; y < 1024; y += plankHeight) {
+                for(let x = 0; x < 1024; x += plankWidth) {
+                    // 개별 플랭크
+                    const variation = Math.random() * 30 - 15;
+                    const r = 196 + variation;
+                    const g = 165 + variation;
+                    const b = 116 + variation;
+                    fctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    fctx.fillRect(x, y, plankWidth - 2, plankHeight - 2);
+
+                    // 나무 결 시뮬레이션
+                    for(let i = 0; i < 50; i++) {
+                        const grainY = y + Math.random() * plankHeight;
+                        fctx.strokeStyle = `rgba(${r - 20}, ${g - 20}, ${b - 20}, ${0.05 + Math.random() * 0.1})`;
+                        fctx.lineWidth = Math.random() * 2;
+                        fctx.beginPath();
+                        fctx.moveTo(x, grainY);
+                        fctx.lineTo(x + plankWidth, grainY + (Math.random() - 0.5) * 10);
+                        fctx.stroke();
+                    }
+
+                    // 플랭크 경계선
+                    fctx.strokeStyle = 'rgba(100, 80, 60, 0.4)';
+                    fctx.lineWidth = 2;
+                    fctx.strokeRect(x, y, plankWidth - 2, plankHeight - 2);
+                }
+            }
+
+            const floorTexture = new THREE.CanvasTexture(floorCanvas);
+            floorTexture.wrapS = THREE.RepeatWrapping;
+            floorTexture.wrapT = THREE.RepeatWrapping;
+            floorTexture.repeat.set(6, 6);
+
+            const floorMaterial = new THREE.MeshStandardMaterial({
+                map: floorTexture,
+                roughness: 0.35,
+                metalness: 0.0,
+                envMapIntensity: 0.3
+            });
+
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // === 벽: 뮤지엄 화이트 ===
+            const wallMaterial = createMuseumWallMaterial();
+
+            // 벽 두께
+            const wallThickness = 0.3;
+            const wallHeight = 7;
+            const roomSize = 50;
+
+            // 북쪽 벽
+            const wallNorth = new THREE.Mesh(
+                new THREE.BoxGeometry(roomSize, wallHeight, wallThickness),
+                wallMaterial
+            );
+            wallNorth.position.set(0, wallHeight/2, -roomSize/2);
+            wallNorth.castShadow = true;
+            wallNorth.receiveShadow = true;
+            scene.add(wallNorth);
+
+            // 남쪽 벽
+            const wallSouth = new THREE.Mesh(
+                new THREE.BoxGeometry(roomSize, wallHeight, wallThickness),
+                wallMaterial
+            );
+            wallSouth.position.set(0, wallHeight/2, roomSize/2);
+            wallSouth.castShadow = true;
+            wallSouth.receiveShadow = true;
+            scene.add(wallSouth);
+
+            // 동쪽 벽
+            const wallEast = new THREE.Mesh(
+                new THREE.BoxGeometry(wallThickness, wallHeight, roomSize),
+                wallMaterial
+            );
+            wallEast.position.set(roomSize/2, wallHeight/2, 0);
+            wallEast.castShadow = true;
+            wallEast.receiveShadow = true;
+            scene.add(wallEast);
+
+            // 서쪽 벽
+            const wallWest = new THREE.Mesh(
+                new THREE.BoxGeometry(wallThickness, wallHeight, roomSize),
+                wallMaterial
+            );
+            wallWest.position.set(-roomSize/2, wallHeight/2, 0);
+            wallWest.castShadow = true;
+            wallWest.receiveShadow = true;
+            scene.add(wallWest);
+
+            // === 베이스보드 (걸레받이) ===
+            const baseboardMaterial = new THREE.MeshStandardMaterial({
+                color: 0xf5f5f5,
+                roughness: 0.6,
+                metalness: 0
+            });
+
+            const baseboardHeight = 0.15;
+            const baseboardDepth = 0.05;
+
+            // 베이스보드 추가 (4면)
+            [
+                {pos: [0, baseboardHeight/2, -roomSize/2 + wallThickness/2], size: [roomSize, baseboardHeight, baseboardDepth]},
+                {pos: [0, baseboardHeight/2, roomSize/2 - wallThickness/2], size: [roomSize, baseboardHeight, baseboardDepth]},
+                {pos: [roomSize/2 - wallThickness/2, baseboardHeight/2, 0], size: [baseboardDepth, baseboardHeight, roomSize]},
+                {pos: [-roomSize/2 + wallThickness/2, baseboardHeight/2, 0], size: [baseboardDepth, baseboardHeight, roomSize]}
+            ].forEach(({pos, size}) => {
+                const baseboard = new THREE.Mesh(
+                    new THREE.BoxGeometry(...size),
+                    baseboardMaterial
+                );
+                baseboard.position.set(...pos);
+                baseboard.receiveShadow = true;
+                scene.add(baseboard);
+            });
+
+            // === 천장 ===
+            const ceilingMaterial = new THREE.MeshStandardMaterial({
+                color: 0xfcfcfc,
+                roughness: 0.9,
+                metalness: 0
+            });
+
+            const ceiling = new THREE.Mesh(
+                new THREE.PlaneGeometry(roomSize, roomSize),
+                ceilingMaterial
+            );
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.y = wallHeight;
+            ceiling.receiveShadow = true;
+            scene.add(ceiling);
+
+            // === 천장 조명 트랙 시스템 ===
+            createLightingTracks();
+
+            // === 천장 매입 조명 (다운라이트) ===
+            const downlightPositions = [
+                [-15, -15], [-15, 0], [-15, 15],
+                [0, -15], [0, 0], [0, 15],
+                [15, -15], [15, 0], [15, 15]
+            ];
+
+            downlightPositions.forEach(([x, z]) => {
+                // 포인트 라이트
+                const downlight = new THREE.PointLight(0xfff8f0, 0.6, 20, 2);
+                downlight.position.set(x, wallHeight - 0.3, z);
+                downlight.castShadow = false;
+                scene.add(downlight);
+
+                // 조명 기구 (매입형)
+                const fixture = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.12, 0.15, 0.1, 16),
+                    new THREE.MeshStandardMaterial({
+                        color: 0xeeeeee,
+                        roughness: 0.4,
+                        metalness: 0.1
+                    })
+                );
+                fixture.position.set(x, wallHeight - 0.05, z);
+                scene.add(fixture);
+
+                // 전구
+                const bulb = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.08, 16, 16),
+                    new THREE.MeshBasicMaterial({
+                        color: 0xfffff0,
+                        transparent: true,
+                        opacity: 0.9
+                    })
+                );
+                bulb.position.set(x, wallHeight - 0.15, z);
+                scene.add(bulb);
+            });
+        }
+
+        function createMuseumWallMaterial() {
+            // 미세한 벽 텍스처 (회반죽 질감)
+            const wallCanvas = document.createElement('canvas');
+            wallCanvas.width = 512;
+            wallCanvas.height = 512;
+            const wctx = wallCanvas.getContext('2d');
+
+            // 베이스 화이트
+            wctx.fillStyle = '#fafafa';
+            wctx.fillRect(0, 0, 512, 512);
+
+            // 미세한 노이즈 (회반죽 질감)
+            for(let i = 0; i < 8000; i++) {
+                const brightness = 245 + Math.random() * 10;
+                wctx.fillStyle = `rgb(${brightness}, ${brightness}, ${brightness})`;
+                wctx.fillRect(
+                    Math.random() * 512,
+                    Math.random() * 512,
+                    Math.random() * 2,
+                    Math.random() * 2
+                );
+            }
+
+            // 부드러운 변화
+            for(let i = 0; i < 30; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const gradient = wctx.createRadialGradient(x, y, 0, x, y, 50);
+                gradient.addColorStop(0, 'rgba(250, 250, 250, 0.05)');
+                gradient.addColorStop(1, 'rgba(245, 245, 245, 0.05)');
+                wctx.fillStyle = gradient;
+                wctx.fillRect(0, 0, 512, 512);
+            }
+
+            const wallTexture = new THREE.CanvasTexture(wallCanvas);
+            wallTexture.wrapS = THREE.RepeatWrapping;
+            wallTexture.wrapT = THREE.RepeatWrapping;
+            wallTexture.repeat.set(3, 2);
+
+            return new THREE.MeshStandardMaterial({
+                map: wallTexture,
+                color: 0xfafafa,
+                roughness: 0.95,
+                metalness: 0
+            });
+        }
+
+        function createLightingTracks() {
+            // 천장 조명 트랙 레일
+            const trackMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2a2a2a,
+                roughness: 0.3,
+                metalness: 0.7
+            });
+
+            // 세로 트랙 3개
+            for(let x = -18; x <= 18; x += 18) {
+                const track = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.08, 0.06, 45),
+                    trackMaterial
+                );
+                track.position.set(x, 6.95, 0);
+                scene.add(track);
+            }
+        }
+
+        function createArtworks() {
+            const artworks = [
+                // 북쪽 벽 (정면)
+                {
+                    title: "Chromatic Convergence",
+                    artist: "Digital Abstract Series",
+                    year: "2026",
+                    x: -12, z: -24.5,
+                    type: 'abstract1'
+                },
+                {
+                    title: "Urban Nocturne",
+                    artist: "Contemporary Collection",
+                    year: "2025",
+                    x: 0, z: -24.5,
+                    type: 'cityscape'
+                },
+                {
+                    title: "Ethereal Landscape",
+                    artist: "Nature Series",
+                    year: "2026",
+                    x: 12, z: -24.5,
+                    type: 'landscape1'
+                },
+
+                // 서쪽 벽 (왼쪽)
+                {
+                    title: "Geometric Harmony",
+                    artist: "Minimalist Collection",
+                    year: "2025",
+                    x: -24.5, z: -12,
+                    rotation: Math.PI / 2,
+                    type: 'geometric'
+                },
+                {
+                    title: "Ocean Depths",
+                    artist: "Marine Series",
+                    year: "2026",
+                    x: -24.5, z: 0,
+                    rotation: Math.PI / 2,
+                    type: 'ocean'
+                },
+                {
+                    title: "Sunset Meditation",
+                    artist: "Color Field Studies",
+                    year: "2025",
+                    x: -24.5, z: 12,
+                    rotation: Math.PI / 2,
+                    type: 'sunset'
+                },
+
+                // 동쪽 벽 (오른쪽)
+                {
+                    title: "Cosmic Journey",
+                    artist: "Space Collection",
+                    year: "2026",
+                    x: 24.5, z: -12,
+                    rotation: -Math.PI / 2,
+                    type: 'cosmic'
+                },
+                {
+                    title: "Forest Canopy",
+                    artist: "Nature Series",
+                    year: "2025",
+                    x: 24.5, z: 0,
+                    rotation: -Math.PI / 2,
+                    type: 'forest'
+                },
+                {
+                    title: "Abstract Motion",
+                    artist: "Dynamic Series",
+                    year: "2026",
+                    x: 24.5, z: 12,
+                    rotation: -Math.PI / 2,
+                    type: 'abstract2'
+                }
+            ];
+
+            artworks.forEach(art => {
+                createMuseumArtwork(art);
+            });
+        }
+
+        function createMuseumArtwork(art) {
+            const group = new THREE.Group();
+
+            const frameWidth = 2.8;
+            const frameHeight = 2.0;
+            const frameDepth = 0.12;
+            const frameThickness = 0.1;
+
+            // === 프레임: 블랙 매트 프레임 (현대 미술관 스타일) ===
+            const frameMaterial = new THREE.MeshStandardMaterial({
+                color: 0x1a1a1a,
+                roughness: 0.4,
+                metalness: 0.1
+            });
+
+            // 프레임 상하좌우
+            const frameTop = new THREE.Mesh(
+                new THREE.BoxGeometry(frameWidth + frameThickness * 2, frameThickness, frameDepth),
+                frameMaterial
+            );
+            frameTop.position.y = frameHeight / 2 + frameThickness / 2;
+            frameTop.castShadow = true;
+            group.add(frameTop);
+
+            const frameBottom = new THREE.Mesh(
+                new THREE.BoxGeometry(frameWidth + frameThickness * 2, frameThickness, frameDepth),
+                frameMaterial
+            );
+            frameBottom.position.y = -frameHeight / 2 - frameThickness / 2;
+            frameBottom.castShadow = true;
+            group.add(frameBottom);
+
+            const frameLeft = new THREE.Mesh(
+                new THREE.BoxGeometry(frameThickness, frameHeight + frameThickness * 2, frameDepth),
+                frameMaterial
+            );
+            frameLeft.position.x = -frameWidth / 2 - frameThickness / 2;
+            frameLeft.castShadow = true;
+            group.add(frameLeft);
+
+            const frameRight = new THREE.Mesh(
+                new THREE.BoxGeometry(frameThickness, frameHeight + frameThickness * 2, frameDepth),
+                frameMaterial
+            );
+            frameRight.position.x = frameWidth / 2 + frameThickness / 2;
+            frameRight.castShadow = true;
+            group.add(frameRight);
+
+            // === 작품 생성 ===
+            const artworkCanvas = createMuseumQualityArt(art.type);
+            const artTexture = new THREE.CanvasTexture(artworkCanvas);
+            artTexture.encoding = THREE.sRGBEncoding;
+
+            const artMaterial = new THREE.MeshStandardMaterial({
+                map: artTexture,
+                roughness: 0.8,
+                metalness: 0
+            });
+
+            const artwork = new THREE.Mesh(
+                new THREE.PlaneGeometry(frameWidth - 0.1, frameHeight - 0.1),
+                artMaterial
+            );
+            artwork.position.z = -0.02;
+            artwork.castShadow = true;
+            artwork.receiveShadow = true;
+            group.add(artwork);
+
+            // 배경 (캔버스)
+            const backing = new THREE.Mesh(
+                new THREE.PlaneGeometry(frameWidth, frameHeight),
+                new THREE.MeshStandardMaterial({
+                    color: 0xf8f8f8,
+                    roughness: 0.95
+                })
+            );
+            backing.position.z = -0.05;
+            backing.receiveShadow = true;
+            group.add(backing);
+
+            // === 정보 플라크 (Museum Label) ===
+            createArtworkPlaque(group, art, frameWidth, frameHeight);
+
+            group.position.set(art.x, 2.8, art.z);
+            if (art.rotation) {
+                group.rotation.y = art.rotation;
+            }
+
+            scene.add(group);
+
+            // === 작품 조명 (Museum Track Light) ===
+            createArtworkSpotlight(art, artwork);
+        }
+
+        function createArtworkPlaque(group, art, frameWidth, frameHeight) {
+            // 플라크 크기
+            const plaqueWidth = frameWidth * 0.8;
+            const plaqueHeight = 0.25;
+
+            // 플라크 배경
+            const plaqueBg = new THREE.Mesh(
+                new THREE.PlaneGeometry(plaqueWidth, plaqueHeight),
+                new THREE.MeshStandardMaterial({
+                    color: 0xffffff,
+                    roughness: 0.7,
+                    metalness: 0
+                })
+            );
+            plaqueBg.position.set(0, -frameHeight/2 - frameHeight * 0.2, 0.01);
+            plaqueBg.receiveShadow = true;
+            group.add(plaqueBg);
+
+            // 플라크 테두리
+            const plaqueBorder = new THREE.Mesh(
+                new THREE.PlaneGeometry(plaqueWidth + 0.02, plaqueHeight + 0.02),
+                new THREE.MeshStandardMaterial({
+                    color: 0xe0e0e0,
+                    roughness: 0.8
+                })
+            );
+            plaqueBorder.position.set(0, -frameHeight/2 - frameHeight * 0.2, 0.005);
+            group.add(plaqueBorder);
+
+            // 텍스트를 캔버스로 생성
+            const plaqueCanvas = document.createElement('canvas');
+            plaqueCanvas.width = 512;
+            plaqueCanvas.height = 128;
+            const ctx = plaqueCanvas.getContext('2d');
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, 512, 128);
+
+            ctx.fillStyle = '#1a1a1a';
+            ctx.font = 'bold 24px Helvetica';
+            ctx.textAlign = 'center';
+            ctx.fillText(art.title, 256, 40);
+
+            ctx.font = '18px Helvetica';
+            ctx.fillText(art.artist, 256, 68);
+
+            ctx.font = '16px Helvetica';
+            ctx.fillStyle = '#666666';
+            ctx.fillText(art.year, 256, 92);
+
+            const plaqueTexture = new THREE.CanvasTexture(plaqueCanvas);
+            const plaqueText = new THREE.Mesh(
+                new THREE.PlaneGeometry(plaqueWidth - 0.05, plaqueHeight - 0.05),
+                new THREE.MeshBasicMaterial({
+                    map: plaqueTexture,
+                    transparent: true
+                })
+            );
+            plaqueText.position.set(0, -frameHeight/2 - frameHeight * 0.2, 0.015);
+            group.add(plaqueText);
+        }
+
+        function createArtworkSpotlight(art, artwork) {
+            // 박물관 트랙 조명
+            const spotlight = new THREE.SpotLight(0xfff8f0, 3.5);
+
+            const offset = art.rotation ?
+                new THREE.Vector3(Math.sin(art.rotation) * 2.5, 0, -Math.cos(art.rotation) * 2.5) :
+                new THREE.Vector3(0, 0, 2.5);
+
+            spotlight.position.set(art.x + offset.x, 5.8, art.z + offset.z);
+            spotlight.target.position.set(art.x, 2.8, art.z);
+            spotlight.target.updateMatrixWorld();
+
+            spotlight.angle = Math.PI / 8;
+            spotlight.penumbra = 0.5;
+            spotlight.distance = 12;
+            spotlight.decay = 2;
+            spotlight.castShadow = true;
+            spotlight.shadow.mapSize.width = 2048;
+            spotlight.shadow.mapSize.height = 2048;
+            spotlight.shadow.bias = -0.0001;
+
+            scene.add(spotlight);
+            scene.add(spotlight.target);
+
+            // 조명 기구 (트랙라이트 헤드)
+            const lightHead = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.08, 0.12, 0.25, 16),
+                new THREE.MeshStandardMaterial({
+                    color: 0x2a2a2a,
+                    roughness: 0.3,
+                    metalness: 0.7
+                })
+            );
+            lightHead.position.copy(spotlight.position);
+            lightHead.rotation.x = Math.PI / 4;
+            scene.add(lightHead);
+        }
+
+        function createMuseumQualityArt(type) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 768;
+            const ctx = canvas.getContext('2d');
+
+            switch(type) {
+                case 'abstract1':
+                    return createAbstractArt1(ctx);
+                case 'cityscape':
+                    return createCityscape(ctx);
+                case 'landscape1':
+                    return createLandscape(ctx);
+                case 'geometric':
+                    return createGeometric(ctx);
+                case 'ocean':
+                    return createOcean(ctx);
+                case 'sunset':
+                    return createSunset(ctx);
+                case 'cosmic':
+                    return createCosmic(ctx);
+                case 'forest':
+                    return createForest(ctx);
+                case 'abstract2':
+                    return createAbstractArt2(ctx);
+                default:
+                    return createAbstractArt1(ctx);
+            }
+        }
+
+        function createAbstractArt1(ctx) {
+            const canvas = ctx.canvas;
+
+            // 다층 그라디언트
+            const grad1 = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            grad1.addColorStop(0, '#667eea');
+            grad1.addColorStop(0.5, '#764ba2');
+            grad1.addColorStop(1, '#f093fb');
+            ctx.fillStyle = grad1;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 복잡한 형태들
+            for(let i = 0; i < 40; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = 50 + Math.random() * 200;
+                const grad = ctx.createRadialGradient(x, y, 0, x, y, size);
+                grad.addColorStop(0, `rgba(255, 255, 255, ${0.1 + Math.random() * 0.3})`);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.fillRect(x - size, y - size, size * 2, size * 2);
+            }
+
+            // 기하학 요소
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 3;
+            for(let i = 0; i < 20; i++) {
+                ctx.beginPath();
+                ctx.arc(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height,
+                    20 + Math.random() * 100,
+                    0, Math.PI * 2
+                );
+                ctx.stroke();
+            }
+
+            return canvas;
+        }
+
+        function createCityscape(ctx) {
+            const canvas = ctx.canvas;
+
+            // 밤하늘
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGrad.addColorStop(0, '#0a0e27');
+            skyGrad.addColorStop(1, '#1a1f3a');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 별
+            for(let i = 0; i < 100; i++) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.random()})`;
+                ctx.fillRect(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height * 0.5,
+                    2, 2
+                );
+            }
+
+            // 빌딩 실루엣
+            const buildingCount = 15;
+            for(let i = 0; i < buildingCount; i++) {
+                const x = (canvas.width / buildingCount) * i;
+                const height = 200 + Math.random() * 400;
+                const width = canvas.width / buildingCount + 20;
+
+                ctx.fillStyle = '#0d1128';
+                ctx.fillRect(x, canvas.height - height, width - 5, height);
+
+                // 창문
+                const windowRows = Math.floor(height / 30);
+                const windowCols = Math.floor(width / 25);
+                for(let r = 0; r < windowRows; r++) {
+                    for(let c = 0; c < windowCols; c++) {
+                        if(Math.random() > 0.4) {
+                            ctx.fillStyle = `rgba(255, ${200 + Math.random() * 55}, 100, ${0.7 + Math.random() * 0.3})`;
+                            ctx.fillRect(
+                                x + c * 25 + 8,
+                                canvas.height - height + r * 30 + 10,
+                                12, 18
+                            );
+                        }
+                    }
+                }
+            }
+
+            return canvas;
+        }
+
+        function createLandscape(ctx) {
+            const canvas = ctx.canvas;
+
+            // 하늘
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.6);
+            skyGrad.addColorStop(0, '#87CEEB');
+            skyGrad.addColorStop(1, '#E0F6FF');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 산
+            ctx.fillStyle = '#5a7a8f';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height * 0.7);
+            for(let i = 0; i <= canvas.width; i += 100) {
+                ctx.lineTo(i, canvas.height * 0.4 + Math.random() * 150);
+            }
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.lineTo(0, canvas.height);
+            ctx.fill();
+
+            // 나무들
+            for(let i = 0; i < 30; i++) {
+                const x = Math.random() * canvas.width;
+                const y = canvas.height * 0.7 + Math.random() * 100;
+                const size = 20 + Math.random() * 40;
+
+                ctx.fillStyle = `rgba(34, 139, 34, ${0.5 + Math.random() * 0.5})`;
+                ctx.beginPath();
+                ctx.arc(x, y - size, size, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#654321';
+                ctx.fillRect(x - size/8, y - size, size/4, size * 1.5);
+            }
+
+            return canvas;
+        }
+
+        function createGeometric(ctx) {
+            const canvas = ctx.canvas;
+
+            // 그라디언트 배경
+            const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            grad.addColorStop(0, '#f5f7fa');
+            grad.addColorStop(1, '#c3cfe2');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 정교한 기하학 패턴
+            const colors = ['#e74c3c', '#3498db', '#f39c12', '#2ecc71', '#9b59b6'];
+
+            for(let i = 0; i < 25; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = 50 + Math.random() * 150;
+                const color = colors[Math.floor(Math.random() * colors.length)];
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.globalAlpha = 0.4;
+
+                if(Math.random() > 0.5) {
+                    ctx.strokeRect(x - size/2, y - size/2, size, size);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(x, y, size/2, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+
+            ctx.globalAlpha = 1.0;
+            return canvas;
+        }
+
+        function createOcean(ctx) {
+            const canvas = ctx.canvas;
+
+            // 해양 그라디언트
+            const oceanGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            oceanGrad.addColorStop(0, '#006994');
+            oceanGrad.addColorStop(0.5, '#1a7fa0');
+            oceanGrad.addColorStop(1, '#48a9c5');
+            ctx.fillStyle = oceanGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 파도와 물결
+            for(let layer = 0; layer < 8; layer++) {
+                ctx.strokeStyle = `rgba(255, 255, 255, ${0.1 + layer * 0.05})`;
+                ctx.lineWidth = 2 + layer;
+                ctx.beginPath();
+
+                for(let x = 0; x <= canvas.width; x += 5) {
+                    const y = canvas.height * 0.3 + layer * 60 +
+                             Math.sin((x + layer * 100) * 0.015) * 30 +
+                             Math.sin((x + layer * 50) * 0.03) * 15;
+                    if(x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+
+            // 거품
+            for(let i = 0; i < 50; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = 5 + Math.random() * 15;
+
+                const bubbleGrad = ctx.createRadialGradient(x, y, 0, x, y, size);
+                bubbleGrad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+                bubbleGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = bubbleGrad;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            return canvas;
+        }
+
+        function createSunset(ctx) {
+            const canvas = ctx.canvas;
+
+            // 일몰 그라디언트
+            const sunsetGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            sunsetGrad.addColorStop(0, '#ff6b6b');
+            sunsetGrad.addColorStop(0.3, '#feca57');
+            sunsetGrad.addColorStop(0.6, '#ff9ff3');
+            sunsetGrad.addColorStop(1, '#54a0ff');
+            ctx.fillStyle = sunsetGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 태양
+            const sunGrad = ctx.createRadialGradient(
+                canvas.width * 0.5, canvas.height * 0.4, 0,
+                canvas.width * 0.5, canvas.height * 0.4, 150
+            );
+            sunGrad.addColorStop(0, '#ffe66d');
+            sunGrad.addColorStop(0.5, '#ffbe30');
+            sunGrad.addColorStop(1, 'transparent');
+            ctx.fillStyle = sunGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 구름
+            for(let i = 0; i < 15; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height * 0.6;
+
+                ctx.fillStyle = `rgba(255, 200, 150, ${0.2 + Math.random() * 0.3})`;
+                ctx.beginPath();
+                ctx.ellipse(x, y, 60 + Math.random() * 80, 20 + Math.random() * 30, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            return canvas;
+        }
+
+        function createCosmic(ctx) {
+            const canvas = ctx.canvas;
+
+            // 우주 배경
+            const spaceGrad = ctx.createRadialGradient(
+                canvas.width * 0.5, canvas.height * 0.5, 0,
+                canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.7
+            );
+            spaceGrad.addColorStop(0, '#1e0342');
+            spaceGrad.addColorStop(0.5, '#0a0015');
+            spaceGrad.addColorStop(1, '#000000');
+            ctx.fillStyle = spaceGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 별들
+            for(let i = 0; i < 300; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = Math.random() * 3;
+                const brightness = Math.random();
+
+                ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+
+                if(brightness > 0.8) {
+                    const glowGrad = ctx.createRadialGradient(x, y, 0, x, y, size * 5);
+                    glowGrad.addColorStop(0, `rgba(255, 255, 255, 0.5)`);
+                    glowGrad.addColorStop(1, 'transparent');
+                    ctx.fillStyle = glowGrad;
+                    ctx.fillRect(x - size * 5, y - size * 5, size * 10, size * 10);
+                }
+            }
+
+            // 성운
+            for(let i = 0; i < 5; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = 100 + Math.random() * 200;
+                const hue = Math.random() * 60 + 250; // 파랑-보라 범위
+
+                const nebulaGrad = ctx.createRadialGradient(x, y, 0, x, y, size);
+                nebulaGrad.addColorStop(0, `hsla(${hue}, 80%, 60%, 0.4)`);
+                nebulaGrad.addColorStop(0.5, `hsla(${hue}, 70%, 50%, 0.2)`);
+                nebulaGrad.addColorStop(1, 'transparent');
+                ctx.fillStyle = nebulaGrad;
+                ctx.fillRect(x - size, y - size, size * 2, size * 2);
+            }
+
+            return canvas;
+        }
+
+        function createForest(ctx) {
+            const canvas = ctx.canvas;
+
+            // 숲 배경 그라디언트
+            const forestGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            forestGrad.addColorStop(0, '#2d5016');
+            forestGrad.addColorStop(0.5, '#1a3a0f');
+            forestGrad.addColorStop(1, '#0f2409');
+            ctx.fillStyle = forestGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 햇빛 광선
+            for(let i = 0; i < 8; i++) {
+                const x = 200 + i * 100;
+                const lightGrad = ctx.createLinearGradient(x, 0, x + 50, canvas.height);
+                lightGrad.addColorStop(0, 'rgba(255, 255, 200, 0.15)');
+                lightGrad.addColorStop(1, 'rgba(255, 255, 200, 0)');
+                ctx.fillStyle = lightGrad;
+                ctx.fillRect(x, 0, 50, canvas.height);
+            }
+
+            // 나무 줄기들
+            for(let i = 0; i < 25; i++) {
+                const x = Math.random() * canvas.width;
+                const width = 15 + Math.random() * 35;
+                const darkness = Math.random() * 0.5;
+
+                ctx.fillStyle = `rgba(${50 - darkness * 30}, ${30 - darkness * 20}, ${15 - darkness * 10}, ${0.7 + Math.random() * 0.3})`;
+                ctx.fillRect(x - width/2, 0, width, canvas.height);
+
+                // 나무 결
+                ctx.strokeStyle = `rgba(0, 0, 0, ${0.2 + Math.random() * 0.2})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x + (Math.random() - 0.5) * 20, canvas.height);
+                ctx.stroke();
+            }
+
+            // 나뭇잎
+            for(let i = 0; i < 100; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = 10 + Math.random() * 25;
+                const greenShade = 100 + Math.random() * 100;
+
+                ctx.fillStyle = `rgba(34, ${greenShade}, 34, ${0.3 + Math.random() * 0.4})`;
+                ctx.beginPath();
+                ctx.ellipse(x, y, size, size * 0.6, Math.random() * Math.PI, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            return canvas;
+        }
+
+        function createAbstractArt2(ctx) {
+            const canvas = ctx.canvas;
+
+            // 동적 배경
+            const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            grad.addColorStop(0, '#fa709a');
+            grad.addColorStop(0.5, '#fee140');
+            grad.addColorStop(1, '#30cfd0');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 유동적인 형태들
+            for(let i = 0; i < 50; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+
+                ctx.beginPath();
+                const points = 5 + Math.floor(Math.random() * 5);
+                for(let p = 0; p < points; p++) {
+                    const angle = (p / points) * Math.PI * 2;
+                    const radius = 30 + Math.random() * 100;
+                    const px = x + Math.cos(angle) * radius;
+                    const py = y + Math.sin(angle) * radius;
+                    if(p === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+
+                ctx.fillStyle = `rgba(255, 255, 255, ${0.1 + Math.random() * 0.2})`;
+                ctx.fill();
+
+                ctx.strokeStyle = `rgba(0, 0, 0, ${0.1 + Math.random() * 0.2})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            return canvas;
+        }
+
+        function setupControls() {
+            document.addEventListener('keydown', (e) => {
+                switch(e.code) {
+                    case 'KeyW': moveForward = true; break;
+                    case 'KeyS': moveBackward = true; break;
+                    case 'KeyA': moveLeft = true; break;
+                    case 'KeyD': moveRight = true; break;
+                    case 'Space': moveUp = true; e.preventDefault(); break;
+                    case 'KeyC': moveDown = true; break;
+                    case 'ShiftLeft': sprint = true; break;
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                switch(e.code) {
+                    case 'KeyW': moveForward = false; break;
+                    case 'KeyS': moveBackward = false; break;
+                    case 'KeyA': moveLeft = false; break;
+                    case 'KeyD': moveRight = false; break;
+                    case 'Space': moveUp = false; break;
+                    case 'KeyC': moveDown = false; break;
+                    case 'ShiftLeft': sprint = false; break;
+                }
+            });
+
+            renderer.domElement.addEventListener('click', () => {
+                renderer.domElement.requestPointerLock();
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                isPointerLocked = document.pointerLockElement === renderer.domElement;
+                document.getElementById('controls').classList.toggle('hidden', isPointerLocked);
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isPointerLocked) return;
+
+                const movementX = e.movementX || 0;
+                const movementY = e.movementY || 0;
+
+                rotation.y -= movementX * 0.002;
+                rotation.x -= movementY * 0.002;
+                rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotation.x));
+
+                camera.rotation.copy(rotation);
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const currentTime = performance.now();
+            const delta = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            fps = Math.round(1 / delta);
+            document.getElementById('fps').textContent = `FPS: ${fps}`;
+
+            const moveSpeed = sprint ? 0.18 : 0.1;
+
+            direction.z = Number(moveForward) - Number(moveBackward);
+            direction.x = Number(moveRight) - Number(moveLeft);
+            direction.y = Number(moveUp) - Number(moveDown);
+            direction.normalize();
+
+            if (moveForward || moveBackward) {
+                velocity.z -= direction.z * moveSpeed;
+            }
+            if (moveLeft || moveRight) {
+                velocity.x -= direction.x * moveSpeed;
+            }
+            if (moveUp || moveDown) {
+                camera.position.y += direction.y * moveSpeed;
+            }
+
+            camera.translateX(velocity.x);
+            camera.translateZ(velocity.z);
+
+            velocity.multiplyScalar(0.88);
+
+            camera.position.x = Math.max(-24, Math.min(24, camera.position.x));
+            camera.position.z = Math.max(-24, Math.min(24, camera.position.z));
+            camera.position.y = Math.max(0.5, Math.min(6.5, camera.position.y));
+
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
