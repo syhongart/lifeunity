@@ -1490,7 +1490,9 @@ function buildLobby() {
     authBox, orDivider,
     nickLabel, nickInput, nickHint,
     charLabel, charsRow,
-    rpmToggle, rpmPanel,
+    // rpmToggle/rpmPanel 제외 — Ready Player Me 공개 서비스가 2026-01-31 종료되어
+    // (Netflix 인수) 커스텀 아바타 생성/URL 로드가 더 이상 동작하지 않는다.
+    // 자체 커스터마이저로 대체 예정. 관련 코드는 참조용으로만 잔존.
     swatchLabel, swatches,
     enterBtn,
     pickerBox,
@@ -1506,11 +1508,8 @@ function buildLobby() {
   function submit() {
     let nickname = nickInput.value.trim().slice(0, MAX_NICKNAME_LEN);
     if (!nickname) nickname = '게스트';
-    // 유효한 커스텀 RPM URL이 저장돼 있으면 캐릭터 선택보다 우선한다.
-    // 무효값(빈 값 포함)은 조용히 무시하고 선택된 캐릭터를 그대로 쓴다.
-    const rpmUrl = readStoredRpmUrl();
-    const char = isValidRpmUrl(rpmUrl) ? `rpm:${rpmUrl}` : selectedChar;
-    syncRpmValidity();
+    // RPM 서비스 종료로 커스텀 URL 경로는 비활성 — 항상 선택된 캐릭터를 사용한다.
+    const char = selectedChar;
     if (typeof callbacks.onEnter === 'function') {
       callbacks.onEnter({ nickname, color: selectedColor, char });
     }
