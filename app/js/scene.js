@@ -27,8 +27,17 @@ export const PARTITIONS = [
 // 실내 중정 (유리로 둘러싸인 정원 — 큰 나무가 지붕 개구부로 자람)
 const COURTYARD = { cx: 9, cz: 9, half: 4 }; // x 5..13, z 5..13
 
-// 스카이라이트 밴드 (북쪽 전시벽 앞 유리 천장 띠)
-const SKYBAND = { z0: -17.5, z1: -14.5 };
+// 아치형 배럴 볼트 천장 — 벽 상단(7m)에서 중앙 11m까지 솟는다 (킴벨 미술관 풍)
+// 정점을 따라 리지 스카이라이트(유리 띠)가 x 방향으로 흐른다
+const VAULT_TOP = 11;                 // 볼트 정점 높이
+const RIDGE_HALF = 1.8;               // 리지 스카이라이트 반폭 (z ±1.8)
+// 원호 기하: 현 50m, 상승 4m → 반지름/중심/반각
+const VAULT_RISE = VAULT_TOP - ROOM.wallHeight;
+const VAULT_R = (HALF * HALF + VAULT_RISE * VAULT_RISE) / (2 * VAULT_RISE);
+const VAULT_YC = VAULT_TOP - VAULT_R;
+const VAULT_THETA = Math.asin(HALF / VAULT_R);
+// z 위치에서의 볼트 천장 높이
+const vaultY = (z) => VAULT_YC + Math.sqrt(VAULT_R * VAULT_R - z * z);
 
 // 움직이는 생물(나비/새) — sceneTick(delta)이 매 프레임 갱신
 const creatures = [];
@@ -421,9 +430,26 @@ function createOutdoors(scene) {
     scene.add(tree);
   }
 
-  // 남쪽 정원 (유리벽 z=+25 너머) — 울창한 군락
+  // 유리벽 바로 너머의 가까운 나무 — 디테일 트리 (관람자가 자세히 보게 됨)
+  const nearDetailSpots = [
+    [-12, 30, 1.0], [4, 31, 1.15], [12, 34, 0.9],   // 남쪽 정원
+    [34, -18, 1.1], [36, 14, 0.95],                  // 동쪽 잔디
+  ];
+  nearDetailSpots.forEach(([x, z, s], i) => {
+    const dt = buildDetailedTree(60000 + i * 137, {
+      trunkLen: 3.2 * s,
+      trunkRad: 0.32 * s,
+      maxLevel: 2,
+      leafScale: 1.1 * s,
+    });
+    dt.position.set(x + (rand() - 0.5) * 2, 0, z + (rand() - 0.5) * 2);
+    dt.rotation.y = rand() * Math.PI * 2;
+    scene.add(dt);
+  });
+
+  // 남쪽 정원 (유리벽 z=+25 너머) — 배경 군락 (로우폴리)
   const southSpots = [
-    [-20, 33], [-12, 30], [-4, 35], [4, 31], [12, 34], [20, 30],
+    [-20, 33], [-4, 35], [20, 30],
     [-16, 42], [-6, 45], [6, 43], [16, 46], [0, 52], [-24, 50], [24, 48],
   ];
   for (const [x, z] of southSpots) {
@@ -432,7 +458,7 @@ function createOutdoors(scene) {
 
   // 동쪽 잔디 (유리벽 x=+25 너머) — 바다 조망을 남기고 드문드문
   const eastSpots = [
-    [34, -20], [40, -10], [36, 14], [44, 22], [52, -18], [60, 8], [48, -2],
+    [40, -10], [44, 22], [52, -18], [60, 8], [48, -2],
   ];
   for (const [x, z] of eastSpots) {
     makeTree(x + (rand() - 0.5) * 3, z + (rand() - 0.5) * 3, 0.9 + rand() * 0.8);
@@ -674,49 +700,18 @@ function createBaseboards(scene) {
 }
 
 function createCeiling(scene) {
-  // 분할 천장: 우드 슬랫 + 유리 스카이라이트 밴드 + 중정 개구부
-  // 개구부 1: SKYBAND (z -17.5~-14.5, 전폭) — 유리 천장, 북쪽 전시벽에 자연광
-  // 개구부 2: COURTYARD (x 5~13, z 5~13) — 완전히 뚫림, 큰 나무가 관통
+  // 아치형 배럴 볼트 천장 (z 방향으로 커브, x 방향으로 흐름)
+  // - 우드 슬랫 스트립이 원호를 따라 이어짐
+  // - 정점(|z| < RIDGE_HALF)은 리지 스카이라이트 유리
+  // - 중정(x 5~13, z 5~13) 위는 완전히 뚫림 — 큰 나무 관통
+  // - 글루램 아치 리브 + 아치형 박공(동쪽 유리 / 서쪽 회반죽)
   const H = ROOM.wallHeight;
   const woodTexBase = createWoodSlatTexture();
-  const roofMat = new THREE.MeshStandardMaterial({ color: 0x3b3733, roughness: 0.9 });
-
-  const c0 = COURTYARD.cx - COURTYARD.half; // 5
-  const c1 = COURTYARD.cx + COURTYARD.half; // 13
-  const cz0 = COURTYARD.cz - COURTYARD.half;
-  const cz1 = COURTYARD.cz + COURTYARD.half;
-
-  // 우드 천장 사각 세그먼트 (x0,x1,z0,z1)
-  const rects = [
-    [-HALF, HALF, -HALF, SKYBAND.z0],          // 북쪽 스트립
-    [-HALF, HALF, SKYBAND.z1, cz0],            // 중앙부
-    [-HALF, c0, cz0, cz1],                     // 중정 서쪽
-    [c1, HALF, cz0, cz1],                      // 중정 동쪽
-    [-HALF, HALF, cz1, HALF],                  // 남쪽 스트립
-  ];
-
-  for (const [x0, x1, z0, z1] of rects) {
-    const w = x1 - x0;
-    const d = z1 - z0;
-    if (w <= 0 || d <= 0) continue;
-    const tex = woodTexBase.clone();
-    tex.needsUpdate = true;
-    tex.repeat.set((2 * w) / ROOM.size, (5 * d) / ROOM.size); // 슬랫 스케일 일정 유지
-    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
-
-    const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
-    panel.rotation.x = Math.PI / 2;
-    panel.position.set((x0 + x1) / 2, H, (z0 + z1) / 2);
-    scene.add(panel);
-
-    // 위쪽 지붕 슬래브 (개구부와 정렬)
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(w, 0.35, d), roofMat);
-    roof.position.set((x0 + x1) / 2, H + 0.18, (z0 + z1) / 2);
-    roof.castShadow = true;
-    scene.add(roof);
-  }
-
-  // ---- 스카이라이트 밴드: 유리 + 리브 멀리언 ----
+  const roofMat = new THREE.MeshStandardMaterial({
+    color: 0x3b3733,
+    roughness: 0.9,
+    side: THREE.DoubleSide,
+  });
   const skyGlassMat = new THREE.MeshPhysicalMaterial({
     color: 0xe2f0f6,
     transparent: true,
@@ -731,60 +726,381 @@ function createCeiling(scene) {
     metalness: 0.6,
   });
 
-  const bandD = SKYBAND.z1 - SKYBAND.z0;
-  const bandZ = (SKYBAND.z0 + SKYBAND.z1) / 2;
-  const skyGlass = new THREE.Mesh(new THREE.PlaneGeometry(ROOM.size, bandD), skyGlassMat);
-  skyGlass.rotation.x = Math.PI / 2;
-  skyGlass.position.set(0, H + 0.02, bandZ);
-  scene.add(skyGlass);
+  const c0 = COURTYARD.cx - COURTYARD.half; // 5
+  const c1 = COURTYARD.cx + COURTYARD.half; // 13
+  const cz0 = COURTYARD.cz - COURTYARD.half;
+  const cz1 = COURTYARD.cz + COURTYARD.half;
 
-  // 리브 (x 방향 2.5m 간격, 밴드를 가로지름) — 벽에 스트라이프 빛
-  for (let x = -HALF; x <= HALF; x += MULLION_GAP) {
-    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, bandD), ribMat);
-    rib.position.set(x, H + 0.02, bandZ);
-    rib.castShadow = true;
-    scene.add(rib);
+  // ---- 볼트 스트립 (원호를 따라 30개) ----
+  const N = 30;
+  const dTheta = (2 * VAULT_THETA) / N;
+
+  for (let i = 0; i < N; i++) {
+    const th0 = -VAULT_THETA + i * dTheta;
+    const thm = th0 + dTheta / 2;
+    const zm = VAULT_R * Math.sin(thm);
+    const ym = VAULT_YC + VAULT_R * Math.cos(thm);
+    const ds = 2 * VAULT_R * Math.sin(dTheta / 2); // 스트립 현 길이
+
+    const zLo = VAULT_R * Math.sin(th0);
+    const zHi = VAULT_R * Math.sin(th0 + dTheta);
+    const isRidge = Math.abs(zm) < RIDGE_HALF;
+    const cutCourtyard = zHi > cz0 && zLo < cz1;
+
+    // x 커버 구간: 중정과 겹치면 좌/우로 분할
+    const spans = cutCourtyard
+      ? [[-HALF, c0], [c1, HALF]]
+      : [[-HALF, HALF]];
+
+    for (const [x0, x1] of spans) {
+      const w = x1 - x0;
+      if (w <= 0) continue;
+
+      let mat;
+      if (isRidge) {
+        mat = skyGlassMat;
+      } else {
+        const tex = woodTexBase.clone();
+        tex.needsUpdate = true;
+        tex.repeat.set((2 * w) / ROOM.size, (5 * ds) / ROOM.size);
+        mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+      }
+
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(w, ds), mat);
+      strip.rotation.x = Math.PI / 2 + thm; // 원호 접선 방향으로 기울임
+      strip.position.set((x0 + x1) / 2, ym, zm);
+      strip.receiveShadow = !isRidge;
+      scene.add(strip);
+
+      // 외피(지붕널) — 유리 리지 구간 제외, 태양광 차단용 castShadow
+      if (!isRidge) {
+        const shell = new THREE.Mesh(new THREE.PlaneGeometry(w, ds + 0.05), roofMat);
+        shell.rotation.x = Math.PI / 2 + thm;
+        shell.position.set(
+          (x0 + x1) / 2,
+          VAULT_YC + (VAULT_R + 0.16) * Math.cos(thm),
+          (VAULT_R + 0.16) * Math.sin(thm)
+        );
+        shell.castShadow = true;
+        scene.add(shell);
+      }
+    }
   }
-  // 밴드 가장자리 빔
-  for (const z of [SKYBAND.z0, SKYBAND.z1]) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(ROOM.size, 0.22, 0.16), ribMat);
-    beam.position.set(0, H + 0.02, z);
+
+  // ---- 글루램 아치 리브 (5m 간격 + 양끝) ----
+  const ribXs = [-24.9, -20, -15, -10, -5, 0, 5, 10, 15, 20, 24.9];
+  for (const rx of ribXs) {
+    const isGableRib = Math.abs(rx) > 24;
+    const rib = new THREE.Mesh(
+      new THREE.TorusGeometry(VAULT_R, isGableRib ? 0.1 : 0.14, 8, 72, 2 * VAULT_THETA),
+      ribMat
+    );
+    rib.rotation.z = Math.PI / 2 - VAULT_THETA; // 아치가 정점 중심에 오도록
+    const holder = new THREE.Group();
+    holder.rotation.y = Math.PI / 2;            // XY 평면 아치 → YZ 평면
+    holder.position.set(rx, VAULT_YC, 0);
+    holder.add(rib);
+    rib.castShadow = true;
+    scene.add(holder);
+  }
+
+  // ---- 리지 스카이라이트 프레임 ----
+  // 가장자리 빔 (x로 길게, z=±RIDGE_HALF)
+  for (const z of [-RIDGE_HALF, RIDGE_HALF]) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(ROOM.size, 0.2, 0.16), ribMat);
+    beam.position.set(0, vaultY(RIDGE_HALF) - 0.02, z);
     beam.castShadow = true;
     scene.add(beam);
   }
+  // 크로스 리브 (2.5m 간격) — 스트라이프 빛
+  for (let x = -HALF + MULLION_GAP; x < HALF; x += MULLION_GAP) {
+    const rib = new THREE.Mesh(
+      new THREE.BoxGeometry(0.09, 0.13, RIDGE_HALF * 2 + 0.1),
+      ribMat
+    );
+    rib.position.set(x, vaultY(0) - 0.03, 0);
+    rib.castShadow = true;
+    scene.add(rib);
+  }
 
-  // ---- 중정 개구부 우드 커브(테두리) ----
+  // ---- 아치형 박공 (동/서 끝의 벽 위 아치 안쪽 면) ----
+  const gableShape = new THREE.Shape();
+  gableShape.moveTo(-HALF, H);
+  const gSegs = 26;
+  for (let i = 1; i <= gSegs; i++) {
+    const z = -HALF + (ROOM.size / gSegs) * i;
+    gableShape.lineTo(z, vaultY(Math.min(Math.abs(z), HALF - 0.001) * Math.sign(z) || 0));
+  }
+  gableShape.lineTo(HALF, H);
+  gableShape.closePath();
+  const gableGeo = new THREE.ShapeGeometry(gableShape);
+
+  // 동쪽: 아치형 유리 박공 (빛이 쏟아짐) + 세로 포스트 팬
+  const eastGable = new THREE.Mesh(gableGeo, skyGlassMat);
+  eastGable.rotation.y = -Math.PI / 2;
+  eastGable.position.set(HALF - 0.02, 0, 0);
+  scene.add(eastGable);
+  for (let z = -20; z <= 20; z += 5) {
+    const h = vaultY(z) - H;
+    if (h < 0.15) continue;
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, h, 0.1), ribMat);
+    post.position.set(HALF - 0.02, H + h / 2, z);
+    post.castShadow = true;
+    scene.add(post);
+  }
+
+  // 서쪽: 회반죽 박공 (양면)
+  const westGableMat = new THREE.MeshStandardMaterial({
+    map: createPlasterTexture(),
+    color: 0xffffff,
+    roughness: 0.92,
+    side: THREE.DoubleSide,
+  });
+  const westGable = new THREE.Mesh(gableGeo.clone(), westGableMat);
+  westGable.rotation.y = Math.PI / 2;
+  westGable.position.set(-HALF + 0.02, 0, 0);
+  westGable.receiveShadow = true;
+  scene.add(westGable);
+
+  // ---- 중정 개구부 우드 커브 (볼트 표면 높이를 따라) ----
   const curbMat = new THREE.MeshStandardMaterial({ color: 0x7a5638, roughness: 0.75 });
   const curbT = 0.3;
-  const curbSegs = [
-    { w: c1 - c0 + curbT * 2, d: curbT, x: COURTYARD.cx, z: cz0 - curbT / 2 },
-    { w: c1 - c0 + curbT * 2, d: curbT, x: COURTYARD.cx, z: cz1 + curbT / 2 },
-    { w: curbT, d: cz1 - cz0, x: c0 - curbT / 2, z: COURTYARD.cz },
-    { w: curbT, d: cz1 - cz0, x: c1 + curbT / 2, z: COURTYARD.cz },
-  ];
-  for (const s of curbSegs) {
-    const seg = new THREE.Mesh(new THREE.BoxGeometry(s.w, 0.5, s.d), curbMat);
-    seg.position.set(s.x, H + 0.1, s.z);
+  // 북/남 가장자리 (z 고정 → 수평 배치)
+  for (const z of [cz0, cz1]) {
+    const seg = new THREE.Mesh(
+      new THREE.BoxGeometry(c1 - c0 + curbT * 2, 0.5, curbT),
+      curbMat
+    );
+    seg.position.set(COURTYARD.cx, vaultY(z) - 0.05, z + (z === cz0 ? -curbT / 2 : curbT / 2));
+    seg.castShadow = true;
+    scene.add(seg);
+  }
+  // 동/서 가장자리 (z를 따라 경사 — 중간 기울기로 근사)
+  const slopeTheta = Math.asin(COURTYARD.cz / VAULT_R);
+  for (const x of [c0 - curbT / 2, c1 + curbT / 2]) {
+    const seg = new THREE.Mesh(
+      new THREE.BoxGeometry(curbT, 0.5, cz1 - cz0 + curbT),
+      curbMat
+    );
+    seg.position.set(x, (vaultY(cz0) + vaultY(cz1)) / 2 - 0.05, COURTYARD.cz);
+    seg.rotation.x = slopeTheta;
     seg.castShadow = true;
     scene.add(seg);
   }
 
-  // 우드 처마 페시아 (지붕 외곽 테두리)
+  // ---- 우드 처마 페시아 (볼트가 벽과 만나는 북/남 모서리) ----
   const fasciaMat = new THREE.MeshStandardMaterial({ color: 0x7a5638, roughness: 0.75 });
-  const t = 0.5;
-  const L = ROOM.size + 2.6;
-  const segs = [
-    { w: L, d: t, x: 0, z: (L - t) / 2 },
-    { w: L, d: t, x: 0, z: -(L - t) / 2 },
-    { w: t, d: L - t * 2, x: (L - t) / 2, z: 0 },
-    { w: t, d: L - t * 2, x: -(L - t) / 2, z: 0 },
-  ];
-  for (const s of segs) {
-    const seg = new THREE.Mesh(new THREE.BoxGeometry(s.w, 0.42, s.d), fasciaMat);
-    seg.position.set(s.x, ROOM.wallHeight - 0.02, s.z);
+  for (const z of [-(HALF + 0.3), HALF + 0.3]) {
+    const seg = new THREE.Mesh(
+      new THREE.BoxGeometry(ROOM.size + 2.6, 0.42, 0.5),
+      fasciaMat
+    );
+    seg.position.set(0, H - 0.02, z);
     seg.castShadow = true;
     scene.add(seg);
   }
+}
+
+// ---------------------------------------------------------------------------
+// 디테일 나무 — 나무껍질 텍스처 + 재귀 가지 분기 + 알파 잎 클러스터
+// ---------------------------------------------------------------------------
+let barkTexCache = null;
+function createBarkTexture() {
+  if (barkTexCache) return barkTexCache;
+  const w = 256, h = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#6b5138';
+  ctx.fillRect(0, 0, w, h);
+
+  const rand = makeRand(77777);
+
+  // 세로 골 (수피 균열)
+  for (let i = 0; i < 46; i++) {
+    const x0 = rand() * w;
+    const dark = rand() > 0.35;
+    ctx.strokeStyle = dark
+      ? `rgba(38, 26, 15, ${0.25 + rand() * 0.4})`
+      : `rgba(150, 120, 88, ${0.15 + rand() * 0.3})`;
+    ctx.lineWidth = 1 + rand() * 4;
+    ctx.beginPath();
+    ctx.moveTo(x0, 0);
+    let x = x0;
+    for (let y = 0; y <= h; y += h / 10) {
+      x += (rand() - 0.5) * 14;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // 가로 마디/옹이
+  for (let i = 0; i < 8; i++) {
+    const x = rand() * w;
+    const y = rand() * h;
+    const r = 4 + rand() * 10;
+    const grad = ctx.createRadialGradient(x, y, 1, x, y, r);
+    grad.addColorStop(0, 'rgba(30, 20, 10, 0.6)');
+    grad.addColorStop(0.6, 'rgba(90, 66, 42, 0.3)');
+    grad.addColorStop(1, 'rgba(90, 66, 42, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r * 1.4, r, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 미세 노이즈
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (rand() - 0.5) * 18;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  ctx.putImageData(img, 0, 0);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1.5, 2);
+  barkTexCache = tex;
+  return tex;
+}
+
+const leafTexCache = {};
+function createLeafClusterTexture(variant) {
+  if (leafTexCache[variant]) return leafTexCache[variant];
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  // 투명 배경 위에 잎을 흩뿌림 — 알파로 실루엣이 뚫려 보임
+
+  const rand = makeRand(50505 + variant * 999);
+  const baseHue = 95 + variant * 14; // 녹색 계열 변주
+
+  for (let i = 0; i < 150; i++) {
+    // 중앙에 밀집, 가장자리로 갈수록 성김
+    const ang = rand() * Math.PI * 2;
+    const dist = Math.pow(rand(), 0.6) * size * 0.45;
+    const x = size / 2 + Math.cos(ang) * dist;
+    const y = size / 2 + Math.sin(ang) * dist;
+    const leafLen = 7 + rand() * 13;
+    const leafW = leafLen * (0.4 + rand() * 0.25);
+    const rot = rand() * Math.PI;
+
+    const light = 22 + rand() * 26;
+    const sat = 40 + rand() * 30;
+    ctx.fillStyle = `hsla(${baseHue + (rand() - 0.5) * 24}, ${sat}%, ${light}%, ${0.75 + rand() * 0.25})`;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, leafLen, leafW, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 잎맥 하이라이트
+    if (rand() > 0.6) {
+      ctx.strokeStyle = `hsla(${baseHue}, 45%, ${light + 18}%, 0.5)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-leafLen * 0.8, 0);
+      ctx.lineTo(leafLen * 0.8, 0);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  leafTexCache[variant] = tex;
+  return tex;
+}
+
+function makeLeafMaterials() {
+  return [0, 1, 2].map((v) => new THREE.MeshStandardMaterial({
+    map: createLeafClusterTexture(v),
+    transparent: true,
+    alphaTest: 0.35,
+    side: THREE.DoubleSide,
+    roughness: 0.9,
+    metalness: 0.0,
+  }));
+}
+
+// 재귀 분기 나무: level이 깊어질수록 가늘고 짧아지며, 말단에 잎 클러스터
+function buildDetailedTree(seed, opts) {
+  const rand = makeRand(seed);
+  const barkMat = new THREE.MeshStandardMaterial({
+    map: createBarkTexture(),
+    roughness: 0.95,
+    metalness: 0.0,
+  });
+  const leafMats = makeLeafMaterials();
+  const maxLevel = opts.maxLevel;
+  const leafScale = opts.leafScale;
+
+  function addLeafCluster(parent, y, s) {
+    const count = 3;
+    for (let i = 0; i < count; i++) {
+      const plane = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.3 * s, 1.8 * s),
+        leafMats[Math.floor(rand() * leafMats.length)]
+      );
+      plane.position.set(
+        (rand() - 0.5) * 0.7 * s,
+        y + (rand() - 0.5) * 0.6 * s,
+        (rand() - 0.5) * 0.7 * s
+      );
+      plane.rotation.set(
+        (rand() - 0.5) * 1.0,
+        rand() * Math.PI,
+        (rand() - 0.5) * 0.7
+      );
+      // 알파 잎은 그림자 생략 (투명 그림자 아티팩트 방지)
+      parent.add(plane);
+    }
+  }
+
+  function branch(level, len, rad) {
+    const g = new THREE.Group();
+
+    const geo = new THREE.CylinderGeometry(rad * 0.62, rad, len, 7);
+    geo.translate(0, len / 2, 0);
+    const limb = new THREE.Mesh(geo, barkMat);
+    limb.castShadow = true;
+    g.add(limb);
+
+    if (level < maxLevel) {
+      const kids = 2 + (rand() > 0.45 ? 1 : 0);
+      for (let k = 0; k < kids; k++) {
+        const child = branch(
+          level + 1,
+          len * (0.6 + rand() * 0.18),
+          rad * 0.6
+        );
+        child.position.y = len * (0.8 + rand() * 0.18);
+        // 첫 분기는 완만하게(수관이 개구부 안에 머물도록), 깊을수록 크게 벌어짐
+        const tiltBase = level === 0 ? 0.24 : 0.4 + level * 0.12;
+        child.rotation.z = tiltBase + rand() * 0.3;
+        child.rotation.y = (k / kids) * Math.PI * 2 + rand() * 0.9;
+        g.add(child);
+      }
+      // 중간 가지에도 드문드문 잎
+      if (level >= 1 && rand() > 0.45) {
+        addLeafCluster(g, len * 0.75, leafScale * 0.7);
+      }
+    } else {
+      addLeafCluster(g, len * 0.9, leafScale);
+      if (rand() > 0.5) addLeafCluster(g, len * 0.55, leafScale * 0.8);
+    }
+
+    return g;
+  }
+
+  return branch(0, opts.trunkLen, opts.trunkRad);
 }
 
 // ---------------------------------------------------------------------------
@@ -875,75 +1191,28 @@ function createCourtyard(scene) {
     scene.add(b);
   }
 
-  // ---- 큰 나무 (지붕 개구부 관통) ----
+  // ---- 큰 나무 (지붕 개구부 관통) — 재귀 분기 + 잎 텍스처 디테일 트리 ----
   const rand = makeRand(31415);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a452f, roughness: 0.9 });
-  const leafMats = [
-    new THREE.MeshStandardMaterial({ color: 0x47763a, roughness: 0.9 }),
-    new THREE.MeshStandardMaterial({ color: 0x548a3e, roughness: 0.9 }),
-    new THREE.MeshStandardMaterial({ color: 0x3c6630, roughness: 0.9 }),
-  ];
-
-  const tree = new THREE.Group();
-  const trunkH = 9.5;
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.28, 0.5, trunkH, 10),
-    trunkMat
-  );
-  trunk.position.y = trunkH / 2;
-  trunk.castShadow = true;
-  tree.add(trunk);
-
-  // 큰 가지 3개
-  for (let b = 0; b < 3; b++) {
-    const branchH = 3 + rand() * 1.5;
-    const branch = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08, 0.16, branchH, 7),
-      trunkMat
-    );
-    const ang = (b / 3) * Math.PI * 2 + rand();
-    branch.position.set(
-      Math.cos(ang) * 1.1,
-      5.5 + b * 1.1,
-      Math.sin(ang) * 1.1
-    );
-    branch.rotation.z = Math.cos(ang) * 0.7;
-    branch.rotation.x = -Math.sin(ang) * 0.7;
-    branch.castShadow = true;
-    tree.add(branch);
-  }
-
-  // 실내에서 보이는 낮은 잎덩어리
-  for (let i = 0; i < 3; i++) {
-    const r = 1.1 + rand() * 0.6;
-    const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), leafMats[i % 3]);
-    leaf.position.set(
-      (rand() - 0.5) * 2.6,
-      5.3 + rand() * 1.2,
-      (rand() - 0.5) * 2.6
-    );
-    leaf.castShadow = true;
-    tree.add(leaf);
-  }
-  // 지붕 위로 펼쳐지는 큰 수관
-  for (let i = 0; i < 6; i++) {
-    const r = 1.6 + rand() * 1.3;
-    const leaf = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(r, 1),
-      leafMats[Math.floor(rand() * 3)]
-    );
-    leaf.position.set(
-      (rand() - 0.5) * 5.5,
-      8.6 + rand() * 2.6,
-      (rand() - 0.5) * 5.5
-    );
-    leaf.rotation.set(rand() * Math.PI, rand() * Math.PI, 0);
-    leaf.castShadow = true;
-    tree.add(leaf);
-  }
-
+  const tree = buildDetailedTree(31415, {
+    trunkLen: 5.4,     // 첫 줄기 — 재귀 합산으로 총 높이 약 11m
+    trunkRad: 0.5,
+    maxLevel: 3,
+    leafScale: 1.5,
+  });
   tree.position.set(cx, 0, cz);
   scene.add(tree);
+
+  // 뿌리 발치 (둥치 벌어짐)
+  const rootFlare = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.5, 0.85, 0.5, 9),
+    new THREE.MeshStandardMaterial({
+      map: createBarkTexture(),
+      roughness: 0.95,
+    })
+  );
+  rootFlare.position.set(cx, 0.25, cz);
+  rootFlare.castShadow = true;
+  scene.add(rootFlare);
 
   // 바위 몇 개
   const rockMat = new THREE.MeshStandardMaterial({ color: 0x8d887f, roughness: 0.95 });
@@ -1121,10 +1390,24 @@ function createLightTracks(scene) {
     );
     groove.position.set(0, y - 0.045, z);
     scene.add(groove);
+
+    // 볼트 천장까지 올라가는 행어 로드 (서스펜션 구조)
+    for (let hx = -18; hx <= 18; hx += 9) {
+      const topY = vaultY(z) - 0.05;
+      const rodLen = topY - y;
+      if (rodLen <= 0.1) continue;
+      const rod = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.02, 0.02, rodLen, 6),
+        trackMat
+      );
+      rod.position.set(hx, y + rodLen / 2, z);
+      scene.add(rod);
+    }
   }
 }
 
 function createDownlights(scene) {
+  // 볼트 천장에서 내려오는 펜던트 조명 3x3
   const fixtureMat = new THREE.MeshStandardMaterial({
     color: 0x3a3a3c,
     roughness: 0.4,
@@ -1138,27 +1421,40 @@ function createDownlights(scene) {
   });
 
   const coords = [-14, 0, 14];
-  const y = ROOM.wallHeight;
+  const shadeY = 6.5; // 펜던트 갓 높이
 
   for (const x of coords) {
     for (const z of coords) {
-      const housing = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.16, 0.20, 0.12, 20),
+      // 볼트 표면에서 갓까지 내려오는 와이어
+      const topY = vaultY(z) - 0.04;
+      const wireLen = topY - shadeY;
+      const wire = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.015, 0.015, wireLen, 6),
         fixtureMat
       );
-      housing.position.set(x, y - 0.06, z);
-      scene.add(housing);
+      wire.position.set(x, shadeY + wireLen / 2, z);
+      scene.add(wire);
 
+      // 펜던트 갓 (원뿔형)
+      const shade = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.2, 0.26, 20),
+        fixtureMat
+      );
+      shade.position.set(x, shadeY, z);
+      shade.castShadow = true;
+      scene.add(shade);
+
+      // 발광 전구
       const bulb = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.11, 0.11, 0.025, 20),
+        new THREE.CylinderGeometry(0.12, 0.12, 0.025, 20),
         bulbMat
       );
-      bulb.position.set(x, y - 0.125, z);
+      bulb.position.set(x, shadeY - 0.14, z);
       scene.add(bulb);
 
-      // 낮의 미술관 — 다운라이트는 보조광 수준으로
+      // 낮의 미술관 — 보조광 수준
       const light = new THREE.PointLight(0xfff2dd, 22, 18, 2);
-      light.position.set(x, y - 0.35, z);
+      light.position.set(x, shadeY - 0.3, z);
       scene.add(light);
     }
   }
