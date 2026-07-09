@@ -3,6 +3,7 @@
 // MoMA 미니멀 미학: Helvetica, 화이트/블랙, 골드(#d4af37) 포인트
 
 import { AVATAR_COLORS } from './config.js';
+import { CHARACTERS } from './avatar.js';
 import {
   PROVIDERS as AUTH_PROVIDERS,
   MOCK_NAMES as AUTH_MOCK_PREFILL,
@@ -22,6 +23,16 @@ const MAX_NICKNAME_LEN = 12;
 let els = null;              // 생성된 DOM 요소 캐시
 let callbacks = { onEnter: null, onChatSend: null };
 let selectedColor = AVATAR_COLORS[0];
+const LU_CHAR_STORAGE_KEY = 'lu-char';
+function readStoredChar() {
+  try {
+    const saved = localStorage.getItem(LU_CHAR_STORAGE_KEY);
+    return CHARACTERS.some((c) => c.id === saved) ? saved : CHARACTERS[0].id;
+  } catch (_) {
+    return CHARACTERS[0].id; // 프라이빗 모드 등 localStorage 접근 불가 시 기본값
+  }
+}
+let selectedChar = readStoredChar();
 let entered = false;         // 로비 통과 여부 (입장 후에만 채팅 활성화)
 let currentArtworkId = null; // 작품 패널 재렌더 생략용
 let initialized = false;
@@ -177,6 +188,24 @@ function injectStyles() {
 .lu-swatch.lu-selected {
   outline-color: var(--lu-gold);
   transform: scale(1.12);
+}
+.lu-chars {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 8px; margin-top: 4px;
+}
+.lu-char-btn {
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 12px; letter-spacing: 0.04em;
+  color: #444; background: #fafafa;
+  border: 1px solid #eee; border-radius: 2px;
+  padding: 8px 14px; cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.lu-char-btn:hover { border-color: rgba(0,0,0,0.25); }
+.lu-char-btn.lu-selected {
+  border-color: var(--lu-gold);
+  color: #111;
+  background: #f6f3ea;
 }
 #lu-enter-btn {
   width: 100%; margin-top: 30px;
@@ -1050,8 +1079,27 @@ function buildLobby() {
   });
   const nickHint = el('div', { className: 'lu-field-hint', text: `최대 ${MAX_NICKNAME_LEN}자 · 비워두면 '게스트'로 입장합니다` });
 
+  // 캐릭터 선택 (KayKit Adventurers 4종) — 색상 스와치 위에 배치
+  const charLabel = el('div', { className: 'lu-field-label', text: '캐릭터', style: 'margin-top:26px;' });
+  const charsRow = el('div', { className: 'lu-chars' });
+  CHARACTERS.forEach((c) => {
+    const btn = el('button', {
+      className: 'lu-char-btn' + (c.id === selectedChar ? ' lu-selected' : ''),
+      type: 'button',
+      'aria-label': `캐릭터 ${c.name}`,
+      text: c.name,
+    });
+    btn.addEventListener('click', () => {
+      selectedChar = c.id;
+      try { localStorage.setItem(LU_CHAR_STORAGE_KEY, c.id); } catch (_) { /* 프라이빗 모드 등 무시 */ }
+      charsRow.querySelectorAll('.lu-char-btn').forEach((b) => b.classList.remove('lu-selected'));
+      btn.classList.add('lu-selected');
+    });
+    charsRow.appendChild(btn);
+  });
+
   // 색상 스와치
-  const swatchLabel = el('div', { className: 'lu-field-label', text: '아바타 색상', style: 'margin-top:26px;' });
+  const swatchLabel = el('div', { className: 'lu-field-label', text: '아바타 색상', style: 'margin-top:20px;' });
   const swatches = el('div', { className: 'lu-swatches' });
   AVATAR_COLORS.forEach((color, i) => {
     const btn = el('button', {
@@ -1088,6 +1136,7 @@ function buildLobby() {
     title, sub, rule,
     authBox, orDivider,
     nickLabel, nickInput, nickHint,
+    charLabel, charsRow,
     swatchLabel, swatches,
     enterBtn,
     pickerBox,
@@ -1104,7 +1153,7 @@ function buildLobby() {
     let nickname = nickInput.value.trim().slice(0, MAX_NICKNAME_LEN);
     if (!nickname) nickname = '게스트';
     if (typeof callbacks.onEnter === 'function') {
-      callbacks.onEnter({ nickname, color: selectedColor });
+      callbacks.onEnter({ nickname, color: selectedColor, char: selectedChar });
     }
   }
   enterBtn.addEventListener('click', submit);
