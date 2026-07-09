@@ -224,6 +224,21 @@ export class PlayerController {
     };
   }
 
+  // 위치·yaw 즉시 설정 (텔레포트/투어용). pitch=0 리셋, 속도 0 리셋, BOUNDS 클램프 유지.
+  // disable 상태에서도 동작해야 한다.
+  setPose({ x, z, ry }) {
+    const px = THREE.MathUtils.clamp(x, -ROOM.bound, ROOM.bound);
+    const pz = THREE.MathUtils.clamp(z, -ROOM.bound, ROOM.bound);
+    this.camera.position.set(px, EYE_HEIGHT, pz);
+
+    this.euler.set(0, ry, 0, 'YXZ');
+    this.camera.quaternion.setFromEuler(this.euler);
+
+    this.velocity.set(0, 0);
+    this.bobPhase = 0;
+    this.bobOffset = 0;
+  }
+
   enable() {
     this.enabled = true;
   }

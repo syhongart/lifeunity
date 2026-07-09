@@ -4,7 +4,13 @@
 import * as THREE from 'three';
 import { ROOM, EYE_HEIGHT } from './config.js';
 import { createMuseum, sceneTick } from './scene.js';
-import { createArtworks, getNearbyArtwork, getGalleryInfo } from './artworks.js';
+import {
+  createArtworks,
+  getNearbyArtwork,
+  getGalleryInfo,
+  getPlacedArtworks,
+  getViewingPose,
+} from './artworks.js';
 import { startAmbient } from './ambient.js';
 import { PlayerController } from './player.js';
 import { MultiplayerManager } from './multiplayer.js';
@@ -23,6 +29,13 @@ import {
   setOnLightboxClose,
   setGalleryTitle,
   initGalleryPicker,
+  initArtworkList,
+  toggleArtworkList,
+  hideArtworkList,
+  isArtworkListOpen,
+  showTourBar,
+  hideTourBar,
+  setTourHandlers,
 } from './ui.js';
 
 let renderer = null;
@@ -34,10 +47,87 @@ let clock = null;
 let myNickname = '게스트'; // 입장 시 갱신 — 채팅 isSelf 판별용
 let entered = false; // 로비 통과 여부 — 라이트박스 E키 게이트에 사용
 let galleryInfo = null; // getGalleryInfo() 결과 캐시 (전시 디렉터리 picker의 currentId로 사용)
+let placedArtworks = []; // getPlacedArtworks() 캐시 — 작품 목록/투어 공용
 
 // FPS 집계
 let fpsFrames = 0;
 let fpsElapsed = 0;
+
+// ---------------------------------------------------------------------------
+// 카메라 트윈 (텔레포트/투어 공용) — animate 루프 안에서 매 프레임 갱신된다.
+// ---------------------------------------------------------------------------
+let tween = null; // { fromX, fromZ, fromRy, toX, toZ, toRy, duration, elapsed, onDone }
+
+const TWEEN_MIN_DURATION = 0.8; // s
+const TWEEN_MAX_DURATION = 2.2; // s
+
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+// 최단 각도 보간 (라디안). yaw가 -PI..PI 경계를 도는 방향으로 자연스럽게 회전한다.
+function lerpAngle(a, b, t) {
+  let diff = (b - a) % (Math.PI * 2);
+  if (diff > Math.PI) diff -= Math.PI * 2;
+  if (diff < -Math.PI) diff += Math.PI * 2;
+  return a + diff * t;
+}
+
+// 현재 카메라 pose → 목표 pose로 부드럽게 이동을 시작한다. 이동 중에는
+// player.disable()을 유지하고, 완료 시 onDone(목표 pose)을 호출한다.
+function startTween(toPose, onDone) {
+  const cur = player.getState();
+  const dx = toPose.x - cur.x;
+  const dz = toPose.z - cur.z;
+  const dist = Math.hypot(dx, dz);
+  const duration = THREE.MathUtils.clamp(
+    TWEEN_MIN_DURATION + dist * 0.035,
+    TWEEN_MIN_DURATION,
+    TWEEN_MAX_DURATION
+  );
+  player.disable();
+  tween = {
+    fromX: cur.x,
+    fromZ: cur.z,
+    fromRy: cur.ry,
+    toX: toPose.x,
+    toZ: toPose.z,
+    toRy: toPose.ry,
+    duration,
+    elapsed: 0,
+    onDone: onDone || null,
+  };
+}
+
+const tweenEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+
+function updateTween(delta) {
+  if (!tween) return;
+  tween.elapsed += delta;
+  const t = Math.min(1, tween.elapsed / tween.duration);
+  const e = easeInOutCubic(t);
+  const x = tween.fromX + (tween.toX - tween.fromX) * e;
+  const z = tween.fromZ + (tween.toZ - tween.fromZ) * e;
+  const ry = lerpAngle(tween.fromRy, tween.toRy, e);
+  camera.position.set(x, EYE_HEIGHT, z);
+  tweenEuler.set(0, ry, 0, 'YXZ');
+  camera.quaternion.setFromEuler(tweenEuler);
+  if (t >= 1) {
+    const done = tween.onDone;
+    tween = null;
+    if (done) done();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 도슨트 투어 상태
+// ---------------------------------------------------------------------------
+let touring = false;
+let tourIndex = 0;
+let tourAutoOn = true;
+let tourWaiting = false; // 목적지 도착 후 머무름 카운트 중인지
+let tourStayElapsed = 0;
+const TOUR_STAY_SECONDS = 6;
 
 async function init() {
   showLoading(true);
@@ -72,6 +162,16 @@ async function init() {
   if (galleryInfo) setGalleryTitle(galleryInfo.name);
   loadGalleryDirectory();
 
+  // 작품 목록 패널 + 도슨트 투어 배선 (createArtworks 완료 후에만 유효)
+  placedArtworks = getPlacedArtworks();
+  initArtworkList(placedArtworks, handleArtworkSelect);
+  setTourHandlers({
+    onPrev: tourPrev,
+    onNext: tourNext,
+    onExit: exitTour,
+    onToggleAuto: tourToggleAuto,
+  });
+
   // 3. 플레이어 컨트롤러 (로비 동안 비활성)
   // 생성자가 스폰 위치를 z=8로 재설정하므로, 의도한 스폰(z=12)은 생성 후 지정
   player = new PlayerController(camera, renderer.domElement);
@@ -85,9 +185,10 @@ async function init() {
   });
   showLoading(false);
 
-  // 라이트박스가 닫히면(ESC/X/배경 클릭 모두) 플레이어 이동을 재활성화
+  // 라이트박스가 닫히면(ESC/X/배경 클릭 모두) 플레이어 이동을 재활성화.
+  // 단, 투어 진행 중에는 카메라를 투어가 계속 통제해야 하므로 재활성화하지 않는다.
   setOnLightboxClose(() => {
-    if (entered) player.enable();
+    if (entered && !touring) player.enable();
   });
 
   // 리사이즈 대응
@@ -120,15 +221,143 @@ function loadGalleryDirectory() {
     });
 }
 
-// 근접 작품이 있을 때 E 키로 라이트박스를 연다. 채팅 입력창 포커스 중에는
-// ui.js의 입력 핸들러가 keydown을 stopPropagation하므로 여기까지 도달하지 않는다.
+// 전역 키 입력 — E(라이트박스) / M(작품 목록) / T(투어) / ←→(투어 이전·다음) / ESC(투어 종료).
+// 채팅 입력창 포커스 중에는 ui.js의 입력 핸들러가 keydown을 stopPropagation하므로
+// 여기까지 도달하지 않는다.
 function onKeyDown(e) {
-  if (e.code !== 'KeyE') return;
-  if (!entered || isLightboxOpen()) return;
-  const nearby = getNearbyArtwork(camera.position);
-  if (!nearby) return;
-  showLightbox(nearby);
+  if (e.code === 'KeyE') {
+    if (!entered || isLightboxOpen()) return;
+    // 투어 중에는 정차 중인 작품을 그대로 대상으로 삼는다 (감상 포즈는 근접 판정
+    // 거리보다 살짝 멀어 getNearbyArtwork가 못 잡을 수 있어 직접 지정).
+    const art = touring ? placedArtworks[tourIndex] : getNearbyArtwork(camera.position);
+    if (!art) return;
+    showLightbox(art);
+    player.disable();
+    return;
+  }
+
+  if (e.code === 'KeyM') {
+    if (!entered || isLightboxOpen()) return;
+    toggleArtworkList();
+    return;
+  }
+
+  if (e.code === 'KeyT') {
+    if (!entered) return;
+    toggleTour();
+    return;
+  }
+
+  if (touring && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
+    if (isLightboxOpen()) return;
+    e.preventDefault();
+    if (e.code === 'ArrowLeft') tourPrev();
+    else tourNext();
+    return;
+  }
+
+  if (e.code === 'Escape') {
+    // 라이트박스/작품목록은 ui.js가 자체 ESC 핸들러로 닫는다. 둘 다 닫혀 있을 때만
+    // 투어 종료를 담당한다 (ui.js ESC 우선순위 규약과 합치).
+    if (touring && !isLightboxOpen() && !isArtworkListOpen()) {
+      exitTour();
+    }
+  }
+}
+
+// 작품 목록 카드 클릭 → 트윈 텔레포트. 도착 후 player.setPose로 확정하고,
+// 투어 중이 아니면 이동을 재활성화한다. 투어 중이면 투어 인덱스를 선택한
+// 작품에 맞춰 갱신하고 머무름 카운트를 새로 시작한다.
+function handleArtworkSelect(art) {
+  if (!art || !entered) return;
+  const pose = getViewingPose(art);
+  const wasTouring = touring;
+  if (wasTouring) {
+    const idx = placedArtworks.indexOf(art);
+    if (idx !== -1) tourIndex = idx;
+    tourWaiting = false;
+  }
+  startTween(pose, () => {
+    player.setPose(pose);
+    if (wasTouring) {
+      updateTourBar(art);
+      tourWaiting = true;
+      tourStayElapsed = 0;
+    } else if (entered && !isLightboxOpen()) {
+      player.enable();
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 도슨트 투어 오케스트레이션
+// ---------------------------------------------------------------------------
+
+function updateTourBar(art) {
+  showTourBar({
+    index: tourIndex, // ui.js가 0-based를 받아 +1하여 표시한다 (계약)
+    total: placedArtworks.length,
+    title: art ? art.title || '' : '',
+    autoOn: tourAutoOn,
+  });
+}
+
+function goToTourIndex(index) {
+  const art = placedArtworks[index];
+  if (!art) return;
+  tourIndex = index;
+  tourWaiting = false;
+  tourStayElapsed = 0;
+  updateTourBar(art);
+  const pose = getViewingPose(art);
+  startTween(pose, () => {
+    player.setPose(pose);
+    tourWaiting = true;
+    tourStayElapsed = 0;
+  });
+}
+
+function startTour() {
+  if (!entered || isLightboxOpen() || touring) return;
+  if (!placedArtworks || placedArtworks.length === 0) return;
+  if (isArtworkListOpen()) hideArtworkList();
+  touring = true;
+  tourAutoOn = true;
   player.disable();
+  goToTourIndex(0);
+}
+
+function exitTour() {
+  if (!touring) return;
+  touring = false;
+  tourWaiting = false;
+  tween = null; // 이동 중이었다면 현재 카메라 위치에서 즉시 정지
+  hideTourBar();
+  const state = player.getState();
+  player.setPose({ x: state.x, z: state.z, ry: state.ry });
+  if (entered && !isLightboxOpen()) player.enable();
+}
+
+function toggleTour() {
+  if (touring) exitTour();
+  else startTour();
+}
+
+function tourNext() {
+  if (!touring || placedArtworks.length === 0) return;
+  goToTourIndex((tourIndex + 1) % placedArtworks.length);
+}
+
+function tourPrev() {
+  if (!touring || placedArtworks.length === 0) return;
+  goToTourIndex((tourIndex - 1 + placedArtworks.length) % placedArtworks.length);
+}
+
+function tourToggleAuto() {
+  if (!touring) return;
+  tourAutoOn = !tourAutoOn;
+  tourStayElapsed = 0;
+  updateTourBar(placedArtworks[tourIndex]);
 }
 
 function handleEnter({ nickname, color }) {
@@ -173,13 +402,25 @@ function animate() {
   const delta = clock.getDelta();
 
   try {
-    // 이동/회전
+    // 이동/회전 (트윈/투어 중에는 player.disable 상태이므로 update는 사실상 no-op)
     player.update(delta);
+
+    // 카메라 트윈(텔레포트/투어) 갱신 — 별도 루프 없이 기존 animate 루프에 포함
+    updateTween(delta);
+
+    // 도슨트 투어 자동진행 — 목적지 도착 후 머무름 중 && 라이트박스가 닫혀 있고
+    // 새 트윈이 진행 중이 아닐 때만 카운트한다 (라이트박스 여는 동안 일시정지)
+    if (touring && tourWaiting && tourAutoOn && !tween && !isLightboxOpen()) {
+      tourStayElapsed += delta;
+      if (tourStayElapsed >= TOUR_STAY_SECONDS) {
+        tourNext();
+      }
+    }
 
     // 나비·새 애니메이션
     sceneTick(delta);
 
-    // 멀티플레이어 (입장 후에만)
+    // 멀티플레이어 (입장 후에만) — 트윈/투어 중에도 카메라 기준으로 계속 전송
     if (mp) {
       mp.sendState(player.getState());
       mp.update(delta);
