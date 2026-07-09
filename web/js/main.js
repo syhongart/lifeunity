@@ -3,8 +3,9 @@
 
 import * as THREE from 'three';
 import { ROOM, EYE_HEIGHT } from './config.js';
-import { createMuseum } from './scene.js';
+import { createMuseum, sceneTick } from './scene.js';
 import { createArtworks, getNearbyArtwork } from './artworks.js';
+import { startAmbient } from './ambient.js';
 import { PlayerController } from './player.js';
 import { MultiplayerManager } from './multiplayer.js';
 import {
@@ -85,6 +86,9 @@ function handleEnter({ nickname, color }) {
   hideLobby();
   player.enable();
 
+  // 새소리·바람 앰비언트 (사용자 제스처 안에서 시작해야 autoplay 허용됨)
+  startAmbient();
+
   try {
     mp = new MultiplayerManager(scene, { nickname, color });
     // onChat은 원격 메시지 전용 (자기 메시지는 handleChatSend가 로컬 표시,
@@ -120,6 +124,9 @@ function animate() {
   try {
     // 이동/회전
     player.update(delta);
+
+    // 나비·새 애니메이션
+    sceneTick(delta);
 
     // 멀티플레이어 (입장 후에만)
     if (mp) {

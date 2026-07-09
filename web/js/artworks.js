@@ -5,17 +5,20 @@
 import * as THREE from 'three';
 
 // ---------------------------------------------------------------------------
-// 작품 데이터
-// 배치: 북쪽 벽(z=-25 실내면, rotY=0) x = -18,-6,6,18
-//       서쪽 벽(x=-25 실내면, rotY=+PI/2) z = -18,-6,6,18
-//       동쪽 벽(x=+25 실내면, rotY=-PI/2) z = -18,-6,6,18
-// pos는 벽 실내면 좌표 — createArtworks가 프레임 절반+0.01m만큼 실내로 띄움
+// 작품 데이터 — 루이지애나 스타일 레이아웃
+// 동쪽·남쪽 벽은 통유리(전시 불가)이므로:
+//   북쪽 차콜 벽(z=-25, rotY=0): 5점, x = -20,-10,0,10,20
+//   서쪽 화이트 벽(x=-25, rotY=+PI/2): 5점, z = -18,-9,0,9,18
+//   중앙 가벽 2개(scene.js PARTITIONS, x=∓8 z=-5, 두께 0.25):
+//     +z 면(입구를 향함, rotY=0, z=-4.875): 작가 대표작 2점
+//     -z 면(rotY=PI, z=-5.125): 큐레이션 2점
+// pos는 벽/가벽 면 좌표 — createArtworks가 프레임 절반+0.01m만큼 법선 방향으로 띄움
 // ---------------------------------------------------------------------------
 
 const PICSUM = (id) => `https://picsum.photos/id/${id}/1200/900`;
 
 export const ARTWORKS = [
-  // ---- 북쪽 벽 ----
+  // ---- 북쪽 차콜 벽 (5점) ----
   {
     id: 'aw-01',
     title: 'Alpine Silence',
@@ -23,7 +26,7 @@ export const ARTWORKS = [
     year: 2024,
     desc: '고요한 산악 풍경 속에서 인간의 부재가 만들어내는 긴장을 포착한 작품입니다. 차가운 공기와 빛의 결을 통해 자연의 숭고함을 응시하게 합니다.',
     imageUrl: PICSUM(1018),
-    pos: { x: -18, z: -25 },
+    pos: { x: -20, z: -25 },
     rotY: 0,
   },
   {
@@ -33,7 +36,7 @@ export const ARTWORKS = [
     year: 2025,
     desc: '대지를 가로지르는 강줄기를 생명의 혈관으로 해석한 항공 시점의 풍경입니다. 물과 땅의 경계에서 시간의 흐름을 읽어냅니다.',
     imageUrl: PICSUM(1015),
-    pos: { x: -6, z: -25 },
+    pos: { x: -10, z: -25 },
     rotY: 0,
   },
   {
@@ -43,7 +46,7 @@ export const ARTWORKS = [
     year: 2026,
     desc: '안개가 삼킨 수평선 위로 떠오르는 미묘한 빛의 층위를 기록했습니다. 보이는 것과 보이지 않는 것 사이의 경계를 질문하는 작품입니다.',
     imageUrl: PICSUM(1025),
-    pos: { x: 6, z: -25 },
+    pos: { x: 0, z: -25 },
     rotY: 0,
   },
   {
@@ -53,11 +56,10 @@ export const ARTWORKS = [
     year: 2024,
     desc: '항구 도시의 일상적 풍경을 절제된 구도로 담아낸 연작의 일곱 번째 작품입니다. 정박과 출항 사이, 머무름의 미학을 탐구합니다.',
     imageUrl: PICSUM(1039),
-    pos: { x: 18, z: -25 },
+    pos: { x: 10, z: -25 },
     rotY: 0,
   },
 
-  // ---- 서쪽 벽 ----
   {
     id: 'aw-05',
     title: 'Quiet Arrival',
@@ -65,8 +67,8 @@ export const ARTWORKS = [
     year: 2025,
     desc: '도착이라는 순간이 지닌 낯섦과 안도감을 동시에 그려낸 작품입니다. 화면의 여백은 관객 각자의 여정을 투영하는 거울이 됩니다.',
     imageUrl: PICSUM(1043),
-    pos: { x: -25, z: -18 },
-    rotY: Math.PI / 2,
+    pos: { x: 20, z: -25 },
+    rotY: 0,
   },
   {
     id: 'aw-06',
@@ -75,7 +77,7 @@ export const ARTWORKS = [
     year: 2024,
     desc: '초원의 바람을 시각적 주파수로 번역하려는 시도에서 출발한 작품입니다. 반복되는 결의 리듬이 화면 전체에 잔잔한 진동을 남깁니다.',
     imageUrl: PICSUM(1050),
-    pos: { x: -25, z: -6 },
+    pos: { x: -25, z: -18 },
     rotY: Math.PI / 2,
   },
   {
@@ -85,7 +87,7 @@ export const ARTWORKS = [
     year: 2026,
     desc: '바다와 육지가 만나는 지점에서 거리감이라는 감각을 해부합니다. 소금기 어린 공기의 질감이 화면 너머로 전해지는 듯한 작품입니다.',
     imageUrl: PICSUM(1062),
-    pos: { x: -25, z: 6 },
+    pos: { x: -25, z: -9 },
     rotY: Math.PI / 2,
   },
   {
@@ -95,11 +97,11 @@ export const ARTWORKS = [
     year: 2025,
     desc: '하루의 시간이 층층이 쌓이는 계단식 풍경을 은유적으로 담았습니다. 빛의 각도가 만들어내는 그림자의 계보를 따라가는 작품입니다.',
     imageUrl: PICSUM(1074),
-    pos: { x: -25, z: 18 },
+    pos: { x: -25, z: 0 },
     rotY: Math.PI / 2,
   },
 
-  // ---- 동쪽 벽 ----
+  // ---- 서쪽 화이트 벽 (5점) ----
   {
     id: 'aw-09',
     title: 'Northern Interval',
@@ -107,8 +109,8 @@ export const ARTWORKS = [
     year: 2024,
     desc: '북구의 짧은 낮과 긴 밤 사이의 간극을 색채의 온도로 표현했습니다. 침묵에 가까운 화면이 오히려 강한 서사를 품고 있는 작품입니다.',
     imageUrl: PICSUM(1080),
-    pos: { x: 25, z: -18 },
-    rotY: -Math.PI / 2,
+    pos: { x: -25, z: 9 },
+    rotY: Math.PI / 2,
   },
   {
     id: 'aw-10',
@@ -117,9 +119,10 @@ export const ARTWORKS = [
     year: 2026,
     desc: '도시의 콘크리트 표면 위에서 피어나는 우연한 아름다움을 채집한 작품입니다. 인공과 자연의 경계가 흐려지는 순간을 포착합니다.',
     imageUrl: PICSUM(110),
-    pos: { x: 25, z: -6 },
-    rotY: -Math.PI / 2,
+    pos: { x: -25, z: 18 },
+    rotY: Math.PI / 2,
   },
+  // ---- 중앙 가벽 뒷면 (-z, 2점) ----
   {
     id: 'aw-11',
     title: 'Vanishing Grid',
@@ -127,8 +130,8 @@ export const ARTWORKS = [
     year: 2025,
     desc: '소실점을 향해 수렴하는 구조물의 격자를 통해 질서와 무한을 사유합니다. 기하학적 반복 속에 숨은 미세한 불규칙이 작품의 핵심입니다.',
     imageUrl: PICSUM(164),
-    pos: { x: 25, z: 6 },
-    rotY: -Math.PI / 2,
+    pos: { x: -8, z: -5.125 },
+    rotY: Math.PI,
   },
   {
     id: 'aw-12',
@@ -137,11 +140,11 @@ export const ARTWORKS = [
     year: 2024,
     desc: '해가 진 직후 잔광이 사물에 남기는 마지막 색을 연속적으로 기록했습니다. 사라지는 것들에 대한 애도이자 기억의 방식에 관한 작품입니다.',
     imageUrl: PICSUM(219),
-    pos: { x: 25, z: 18 },
-    rotY: -Math.PI / 2,
+    pos: { x: 8, z: -5.125 },
+    rotY: Math.PI,
   },
 
-  // ---- 남쪽 벽: 작가 특별전 (syhongart) ----
+  // ---- 중앙 가벽 앞면 (+z, 입구를 향함): 작가 특별전 (syhongart) ----
   {
     id: 'aw-featured-01',
     title: 'Neon Vanitas',
@@ -149,8 +152,8 @@ export const ARTWORKS = [
     year: 2026,
     desc: '네온 프레임 속 크롬 핑크 스컬을 통해 디지털 시대의 바니타스(vanitas)를 재해석한 작품입니다. 화려한 빛의 입자들 사이에서 소멸과 영원이 교차합니다.',
     imageUrl: './assets/neon-vanitas.png',
-    pos: { x: -6, z: 25 },
-    rotY: Math.PI,
+    pos: { x: -8, z: -4.875 },
+    rotY: 0,
     size: { w: 2.2, h: 2.2 },
   },
   {
@@ -160,8 +163,8 @@ export const ARTWORKS = [
     year: 2026,
     desc: '움직이는 빛으로 그린 싱글 채널 비디오 작품입니다. 정지된 회화가 담을 수 없는 시간의 층위를 네온의 리듬으로 풀어냅니다.',
     videoUrl: './assets/neon-motion.mp4',
-    pos: { x: 6, z: 25 },
-    rotY: Math.PI,
+    pos: { x: 8, z: -4.875 },
+    rotY: 0,
     size: { w: 2.2, h: 2.2 },
   },
 ];
