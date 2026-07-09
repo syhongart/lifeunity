@@ -14,6 +14,7 @@ import {
 import { startAmbient } from './ambient.js';
 import { PlayerController } from './player.js';
 import { MultiplayerManager } from './multiplayer.js';
+import { loadNotes, saveNotes, mergeNotes, makeNote } from './guestbook.js';
 import {
   initUI,
   showLoading,
@@ -37,6 +38,10 @@ import {
   hideTourBar,
   setTourHandlers,
   setActionHandlers,
+  initGuestbook,
+  toggleGuestbook,
+  isGuestbookOpen,
+  setGuestbookNotes,
 } from './ui.js';
 
 let renderer = null;
@@ -49,6 +54,11 @@ let myNickname = '게스트'; // 입장 시 갱신 — 채팅 isSelf 판별용
 let entered = false; // 로비 통과 여부 — 라이트박스 E키 게이트에 사용
 let galleryInfo = null; // ensureGalleryLoaded() 결과 캐시 (전시 디렉터리 picker의 currentId로 사용)
 let placedArtworks = []; // getPlacedArtworks() 캐시 — 작품 목록/투어 공용
+
+// 방명록 상태 — 갤러리별 localStorage 키(gbKey) + 현재 렌더 중인 병합본(guestbookNotes) 캐시
+let gbKey = 'shared';
+let guestbookNotes = [];
+let guestbookSentOnce = false; // mp 연결 성공 직후 로컬 노트를 1회만 전송하기 위한 플래그
 
 // FPS 집계
 let fpsFrames = 0;
@@ -165,6 +175,12 @@ async function init() {
   setGalleryTitle(galleryInfo.name);
   loadGalleryDirectory();
 
+  // 방명록 — 갤러리별 로컬 노트 로드 (공유 링크 등 id가 없으면 'shared' 키 사용)
+  gbKey = ginfo.id ?? 'shared';
+  guestbookNotes = loadNotes(gbKey);
+  setGuestbookNotes(guestbookNotes);
+  initGuestbook({ onSubmit: handleGuestbookSubmit });
+
   // 작품 목록 패널 + 도슨트 투어 배선 (createArtworks 완료 후에만 유효)
   placedArtworks = getPlacedArtworks();
   initArtworkList(placedArtworks, handleArtworkSelect);
@@ -174,10 +190,11 @@ async function init() {
     onExit: exitTour,
     onToggleAuto: tourToggleAuto,
   });
-  // 터치 기기 액션 독(투어)·작품 패널 '크게 보기' 버튼 — 키보드 T/E의 대체 진입점
+  // 터치 기기 액션 독(투어/방명록)·작품 패널 '크게 보기' 버튼 — 키보드 T/E/G의 대체 진입점
   setActionHandlers({
     onTour: () => { if (entered) toggleTour(); },
     onViewArtwork: viewCurrentArtwork,
+    onGuestbook: () => { if (entered && !isLightboxOpen()) toggleGuestbook(); },
   });
 
   // 3. 플레이어 컨트롤러 (로비 동안 비활성)
@@ -271,6 +288,12 @@ function onKeyDown(e) {
     return;
   }
 
+  if (e.code === 'KeyG') {
+    if (!entered || isLightboxOpen()) return;
+    toggleGuestbook();
+    return;
+  }
+
   if (touring && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
     if (isLightboxOpen()) return;
     e.preventDefault();
@@ -280,9 +303,9 @@ function onKeyDown(e) {
   }
 
   if (e.code === 'Escape') {
-    // 라이트박스/작품목록은 ui.js가 자체 ESC 핸들러로 닫는다. 둘 다 닫혀 있을 때만
+    // 라이트박스/작품목록/방명록은 ui.js가 자체 ESC 핸들러로 닫는다. 셋 다 닫혀 있을 때만
     // 투어 종료를 담당한다 (ui.js ESC 우선순위 규약과 합치).
-    if (touring && !isLightboxOpen() && !isArtworkListOpen()) {
+    if (touring && !isLightboxOpen() && !isArtworkListOpen() && !isGuestbookOpen()) {
       exitTour();
     }
   }
@@ -398,13 +421,53 @@ function handleEnter({ nickname, color }) {
     // 에코는 senderId 필터로 차단됨) — 닉네임이 겹쳐도 안전
     mp.onChat = (name, text) => addChatMessage(name, text, false);
     mp.onPlayerCount = (n) => setPlayerCount(n);
-    mp.onStatus = (statusText) => setStatus(statusText);
+    mp.onStatus = handleMultiplayerStatus;
+    mp.onGuestbook = handleRemoteGuestbook;
     mp.connect();
   } catch (err) {
     console.error('멀티플레이어 초기화 실패:', err);
     mp = null;
     setStatus('멀티플레이어 연결에 실패했습니다. 혼자 관람 모드로 진행합니다.');
   }
+}
+
+// mp.onStatus 래퍼 — 상태 표시는 그대로 위임하되, 연결이 처음 성립되는 시점
+// ('호스트로 개설됨' 또는 '접속됨(게스트)')에 로컬 방명록 전체를 1회만 전송한다.
+function handleMultiplayerStatus(statusText) {
+  setStatus(statusText);
+  if (guestbookSentOnce || !mp) return;
+  if (statusText === '호스트로 개설됨' || statusText.startsWith('접속됨')) {
+    guestbookSentOnce = true;
+    try {
+      mp.sendGuestbook(guestbookNotes);
+    } catch (err) {
+      console.error('방명록 동기화 전송 실패:', err);
+    }
+  }
+}
+
+// 방명록 입력창 제출(ui.js initGuestbook의 onSubmit) — 노트 생성 → 로컬 병합/저장/렌더 →
+// 연결돼 있으면 상대에게도 전파.
+function handleGuestbookSubmit(text) {
+  if (!text) return;
+  const note = makeNote(myNickname, text);
+  guestbookNotes = mergeNotes(guestbookNotes, [note]);
+  saveNotes(gbKey, guestbookNotes);
+  setGuestbookNotes(guestbookNotes);
+  if (mp) {
+    try {
+      mp.sendGuestbook([note]);
+    } catch (err) {
+      console.error('방명록 전송 실패:', err);
+    }
+  }
+}
+
+// mp.onGuestbook — 원격(다른 접속자)에서 전파된 노트를 로컬과 병합해 저장/렌더한다.
+function handleRemoteGuestbook(notes) {
+  guestbookNotes = mergeNotes(guestbookNotes, notes);
+  saveNotes(gbKey, guestbookNotes);
+  setGuestbookNotes(guestbookNotes);
 }
 
 function handleChatSend(text) {

@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { PEER_ROOM_ID, EYE_HEIGHT } from './config.js';
 import { createAvatarMesh } from './avatar.js';
+import { mergeNotes } from './guestbook.js';
 
 const HOST_ID = PEER_ROOM_ID + '-host';
 const SEND_INTERVAL = 1 / 10; // 10Hz
@@ -23,6 +24,7 @@ export class MultiplayerManager {
     this.onChat = (name, text) => {};
     this.onPlayerCount = (n) => {};
     this.onStatus = (statusText) => {};
+    this.onGuestbook = (notes) => {};
 
     this.peer = null;
     this.isHost = false;
@@ -36,6 +38,9 @@ export class MultiplayerManager {
     this._lastState = { x: 0, y: EYE_HEIGHT, z: 0, ry: 0 };
     this._sendAccum = 0;
     this._hostBroadcastAccum = 0;
+
+    // 호스트일 때: 지금까지 병합된 방명록 노트 (게스트들에게 전파할 기준본)
+    this._guestbookNotes = [];
 
     this._disposed = false;
     this._reconnectTimer = null;
@@ -65,6 +70,21 @@ export class MultiplayerManager {
       this._broadcast(msg);
     } else if (this.hostConn && this.hostConn.open) {
       this.hostConn.send(msg);
+    }
+  }
+
+  /**
+   * 방명록 노트를 전파한다. 게스트는 호스트로 전송, 호스트는 직접 병합 후 전원에게 브로드캐스트.
+   * @param {Array<{id:string,name:string,text:string,ts:number}>} notes
+   */
+  sendGuestbook(notes) {
+    if (!Array.isArray(notes) || notes.length === 0) return;
+    if (this.isHost) {
+      this._guestbookNotes = mergeNotes(this._guestbookNotes, notes);
+      this._broadcast({ type: 'gbook', notes: this._guestbookNotes });
+      this.onGuestbook(this._guestbookNotes); // 호스트 자신도 수신 개념으로 콜백
+    } else if (this.hostConn && this.hostConn.open) {
+      this.hostConn.send({ type: 'gbook', notes });
     }
   }
 
@@ -181,6 +201,11 @@ export class MultiplayerManager {
         };
         this._broadcast(msg, conn.peer); // 발신자 제외 릴레이 (발신자는 자기 화면에 이미 표시함)
         this.onChat(msg.name, msg.text); // 호스트 자신도 표시
+      } else if (data.type === 'gbook') {
+        const incoming = Array.isArray(data.notes) ? data.notes : [];
+        this._guestbookNotes = mergeNotes(this._guestbookNotes, incoming);
+        this._broadcast({ type: 'gbook', notes: this._guestbookNotes });
+        this.onGuestbook(this._guestbookNotes); // 호스트 자신도 수신 개념으로 콜백
       }
     });
 
@@ -299,6 +324,8 @@ export class MultiplayerManager {
     } else if (data.type === 'chat') {
       if (data.senderId && data.senderId === selfId) return; // 자기 메시지 에코 무시
       this.onChat(String(data.name || '게스트'), String(data.text || ''));
+    } else if (data.type === 'gbook') {
+      this.onGuestbook(Array.isArray(data.notes) ? data.notes : []);
     }
   }
 
