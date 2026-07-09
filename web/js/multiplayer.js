@@ -3,7 +3,7 @@
 
 import * as THREE from 'three';
 import { PEER_ROOM_ID, EYE_HEIGHT } from './config.js';
-import { createAvatarMesh } from './avatar.js';
+import { createAvatarInstance } from './avatar.js';
 import { mergeNotes } from './guestbook.js';
 
 const HOST_ID = PEER_ROOM_ID + '-host';
@@ -32,7 +32,7 @@ export class MultiplayerManager {
     this.connections = new Map(); // 호스트일 때: peerId → DataConnection
     this.playerInfo = new Map();  // 호스트일 때: peerId → {nickname,color,x,y,z,ry}
 
-    // 원격 아바타: peerId → { group, targetPos: Vector3, targetRy, nickname, color }
+    // 원격 아바타: peerId → { inst, group, targetPos: Vector3, targetRy, prevPos, smoothedSpeed }
     this.remoteAvatars = new Map();
 
     this._lastState = { x: 0, y: EYE_HEIGHT, z: 0, ry: 0 };
@@ -104,14 +104,22 @@ export class MultiplayerManager {
       }
     }
 
-    // ---- 원격 아바타 보간 ----
+    // ---- 원격 아바타 보간 + 애니메이션 ----
     const t = Math.min(1, LERP_RATE * delta);
+    const speedSmoothT = Math.min(1, 10 * delta);
     for (const av of this.remoteAvatars.values()) {
       av.group.position.lerp(av.targetPos, t);
       // yaw 최단경로 보간
       let diff = av.targetRy - av.group.rotation.y;
       diff = ((diff + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
       av.group.rotation.y += diff * t;
+
+      // 프레임 이동거리/delta → 지수 평활 (10Hz 네트워크 틱의 순간값 튐 방지)
+      const rawSpeed = delta > 0 ? av.group.position.distanceTo(av.prevPos) / delta : 0;
+      av.smoothedSpeed += (rawSpeed - av.smoothedSpeed) * speedSmoothT;
+      av.prevPos.copy(av.group.position);
+
+      av.inst.update(delta, av.smoothedSpeed);
     }
   }
 
@@ -361,15 +369,19 @@ export class MultiplayerManager {
     let av = this.remoteAvatars.get(id);
 
     if (!av) {
-      const group = createAvatarMesh(info.color || '#3498db', info.nickname || '게스트');
+      const inst = createAvatarInstance(info.color || '#3498db', info.nickname || '게스트');
+      const group = inst.group;
       const y = (info.y != null ? info.y : EYE_HEIGHT) - EYE_HEIGHT;
       group.position.set(info.x || 0, y, info.z || 0);
       group.rotation.y = info.ry || 0;
       this.scene.add(group);
       av = {
+        inst,
         group,
         targetPos: group.position.clone(),
         targetRy: group.rotation.y,
+        prevPos: group.position.clone(),
+        smoothedSpeed: 0,
       };
       this.remoteAvatars.set(id, av);
       if (this.isHost) this._updateCount();
@@ -387,13 +399,7 @@ export class MultiplayerManager {
     const av = this.remoteAvatars.get(id);
     if (!av) return;
     this.scene.remove(av.group);
-    av.group.traverse((obj) => {
-      if (obj.geometry) obj.geometry.dispose();
-      if (obj.material) {
-        if (obj.material.map) obj.material.map.dispose();
-        obj.material.dispose();
-      }
-    });
+    av.inst.dispose();
     this.remoteAvatars.delete(id);
   }
 

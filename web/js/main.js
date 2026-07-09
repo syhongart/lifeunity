@@ -14,6 +14,7 @@ import {
 import { startAmbient } from './ambient.js';
 import { PlayerController } from './player.js';
 import { MultiplayerManager } from './multiplayer.js';
+import { preloadAvatarTemplate } from './avatar.js';
 import { loadNotes, saveNotes, mergeNotes, makeNote } from './guestbook.js';
 import {
   initUI,
@@ -177,6 +178,11 @@ async function init() {
   const ginfo = await ensureGalleryLoaded();
   createMuseum(scene, resolveAutoTheme(ginfo.theme));
   await createArtworks(scene);
+
+  // 리깅 아바타(GLB) 백그라운드 프리로드 — await하지 않는다. 로비에서 닉네임/색을
+  // 고르는 동안 네트워크로 로드가 끝나길 노려, 입장(handleEnter) 시점에 이미 캐시돼
+  // 있도록 하기 위함. 실패해도 avatar.js가 내부적으로 캡슐 폴백으로 처리한다.
+  preloadAvatarTemplate();
 
   // 전시 제목 표시 + 전시 디렉터리 picker 배선 (ginfo 재사용)
   galleryInfo = ginfo;
