@@ -136,6 +136,81 @@
     gap: 18px;
   }
 
+  /* Theme picker */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .theme-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-field);
+    border-radius: 3px;
+    padding: 14px;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s ease;
+  }
+  .theme-card:hover { border-color: #3a3a3a; }
+  .theme-card input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+  .theme-card.selected {
+    border-color: var(--gold);
+  }
+  .theme-card.selected .theme-card-title {
+    color: var(--gold);
+  }
+  .theme-swatch {
+    display: block;
+    width: 100%;
+    height: 44px;
+    border-radius: 2px;
+    border: 1px solid var(--border-soft);
+  }
+  .theme-swatch-daylight {
+    background: linear-gradient(180deg, #8fcdf0 0%, #d8f0ff 55%, #f5f9fb 100%);
+  }
+  .theme-swatch-sunset {
+    background: linear-gradient(180deg, #ffb26b 0%, #e8654f 45%, #5b3b82 100%);
+  }
+  .theme-swatch-night {
+    background:
+      radial-gradient(circle at 22% 28%, rgba(255,255,255,0.85) 1px, transparent 1.6px),
+      radial-gradient(circle at 68% 55%, rgba(255,255,255,0.6) 1px, transparent 1.6px),
+      radial-gradient(circle at 45% 75%, rgba(255,255,255,0.7) 1px, transparent 1.6px),
+      radial-gradient(circle at 85% 20%, rgba(255,255,255,0.5) 1px, transparent 1.6px),
+      linear-gradient(180deg, #0a0e28 0%, #171d42 55%, #232a52 100%);
+  }
+  .theme-swatch-auto {
+    background: linear-gradient(90deg,
+      #8fcdf0 0%, #d8f0ff 30%,
+      #ffb26b 38%, #e8654f 62%,
+      #171d42 72%, #0a0e28 100%);
+  }
+  .theme-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .theme-card-title {
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    color: var(--text);
+  }
+  .theme-card-desc {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    line-height: 1.5;
+  }
+
   .field {
     margin-bottom: 18px;
   }
@@ -434,6 +509,7 @@
     header h1 { font-size: 13px; letter-spacing: 0.22em; }
     main { padding: 28px 14px 90px; }
     .grid-2 { grid-template-columns: 1fr; gap: 0; }
+    .theme-grid { grid-template-columns: 1fr; }
     .aw-row-body { grid-template-columns: 1fr; }
     .aw-row-body .image-cell { grid-template-columns: 1fr; }
     .thumb-wrap { width: 100%; height: 140px; }
@@ -476,6 +552,44 @@
     <div class="field">
       <label class="field-label" for="exhibitDesc">전시 소개</label>
       <textarea id="exhibitDesc" placeholder="전시에 대한 소개 문구를 입력하세요." rows="4"></textarea>
+    </div>
+
+    <div class="field">
+      <label class="field-label">전시 분위기 (테마)</label>
+      <div class="theme-grid" id="themeGrid">
+        <label class="theme-card" data-theme="daylight">
+          <input type="radio" name="theme" value="daylight" checked>
+          <span class="theme-swatch theme-swatch-daylight"></span>
+          <span class="theme-card-body">
+            <span class="theme-card-title">맑은 오후</span>
+            <span class="theme-card-desc">파란 하늘, 자연광이 가득한 기본 전시장</span>
+          </span>
+        </label>
+        <label class="theme-card" data-theme="sunset">
+          <input type="radio" name="theme" value="sunset">
+          <span class="theme-swatch theme-swatch-sunset"></span>
+          <span class="theme-card-body">
+            <span class="theme-card-title">황혼</span>
+            <span class="theme-card-desc">노을빛 감도는 웜톤 분위기의 전시장</span>
+          </span>
+        </label>
+        <label class="theme-card" data-theme="night">
+          <input type="radio" name="theme" value="night">
+          <span class="theme-swatch theme-swatch-night"></span>
+          <span class="theme-card-body">
+            <span class="theme-card-title">야간 개장</span>
+            <span class="theme-card-desc">별빛 하늘 아래 스포트라이트가 작품을 비추는 밤</span>
+          </span>
+        </label>
+        <label class="theme-card" data-theme="auto">
+          <input type="radio" name="theme" value="auto">
+          <span class="theme-swatch theme-swatch-auto"></span>
+          <span class="theme-card-body">
+            <span class="theme-card-title">시간대별 자동</span>
+            <span class="theme-card-desc">관람객의 현지 시각에 따라 낮·황혼·밤이 자동 적용</span>
+          </span>
+        </label>
+      </div>
     </div>
   </section>
 
@@ -559,11 +673,13 @@
   var STORAGE_KEY = 'lifeunity-studio-draft-v1';
   var MAX_ARTWORKS = 14;
   var MAX_FEATURED = 2;
+  var THEMES = ['daylight', 'sunset', 'night', 'auto'];
 
   var state = {
     id: '',
     name: '',
     description: '',
+    theme: 'daylight',
     artworks: []
   };
 
@@ -576,6 +692,8 @@
   var $idPreviewInline = document.getElementById('idPreviewInline');
   var $name = document.getElementById('exhibitName');
   var $desc = document.getElementById('exhibitDesc');
+  var $themeGrid = document.getElementById('themeGrid');
+  var $themeRadios = $themeGrid.querySelectorAll('input[name="theme"]');
   var $list = document.getElementById('artworkList');
   var $addBtn = document.getElementById('addArtworkBtn');
   var $countHint = document.getElementById('artworkCountHint');
@@ -627,6 +745,7 @@
       state.id = typeof parsed.id === 'string' ? parsed.id : '';
       state.name = typeof parsed.name === 'string' ? parsed.name : '';
       state.description = typeof parsed.description === 'string' ? parsed.description : '';
+      state.theme = (typeof parsed.theme === 'string' && THEMES.indexOf(parsed.theme) !== -1) ? parsed.theme : 'daylight';
       state.artworks = Array.isArray(parsed.artworks) ? parsed.artworks.map(function (a) {
         return {
           _uid: nextUid(),
@@ -680,8 +799,18 @@
     $desc.value = state.description;
     validateId(true);
     updateUrlPreview();
+    renderTheme();
     renderArtworks();
     updateActionState();
+  }
+
+  function renderTheme() {
+    for (var i = 0; i < $themeRadios.length; i++) {
+      var radio = $themeRadios[i];
+      var selected = radio.value === state.theme;
+      radio.checked = selected;
+      radio.closest('.theme-card').classList.toggle('selected', selected);
+    }
   }
 
   function renderArtworks() {
@@ -921,6 +1050,16 @@
     scheduleSave();
   });
 
+  for (var ti = 0; ti < $themeRadios.length; ti++) {
+    $themeRadios[ti].addEventListener('change', function () {
+      if (this.checked) {
+        state.theme = this.value;
+        renderTheme();
+        scheduleSave();
+      }
+    });
+  }
+
   $addBtn.addEventListener('click', function () {
     if (state.artworks.length >= MAX_ARTWORKS) {
       window.alert('작품은 최대 ' + MAX_ARTWORKS + '점까지 등록할 수 있습니다.');
@@ -1103,6 +1242,7 @@
       id: state.id.trim(),
       name: state.name.trim(),
       description: state.description.trim(),
+      theme: THEMES.indexOf(state.theme) !== -1 ? state.theme : 'daylight',
       artworks: artworks
     };
   }

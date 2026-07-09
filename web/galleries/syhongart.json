@@ -2,6 +2,7 @@
   "id": "syhongart",
   "name": "syhongart 개인전",
   "description": "디지털 시대의 아름다움과 소멸을 네온 빛으로 재현한 개인전입니다. 전기적 빛과 아날로그 감정의 충돌을 통해 바니타스의 현대적 의미를 탐구합니다.",
+  "theme": "daylight",
   "artworks": [
     {
       "id": "aw-01",

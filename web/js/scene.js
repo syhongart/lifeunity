@@ -1,7 +1,8 @@
 // LifeUnity Metaverse — 전시장 건축 + 전역 조명
 // 루이지애나 미술관(덴마크) 스타일: 통유리 벽 너머로 정원·바다가 보이는 미술관
 //
-// createMuseum(scene) → { bounds: {minX,maxX,minZ,maxZ} }
+// createMuseum(scene, themeName = 'daylight') → { bounds: {minX,maxX,minZ,maxZ} }
+// themeName: 'daylight' | 'sunset' | 'night' (미지정/미상 테마는 daylight로 폴백) — THEMES 상수 참고
 // - 북쪽 벽: 차콜 전시벽 / 서쪽 벽: 화이트 전시벽
 // - 동쪽·남쪽 벽: 통유리 커튼월 (다크 멀리언) — 바깥 풍경이 보임
 // - 천장: 따뜻한 우드 슬랫
@@ -38,6 +39,100 @@ const VAULT_YC = VAULT_TOP - VAULT_R;
 const VAULT_THETA = Math.asin(HALF / VAULT_R);
 // z 위치에서의 볼트 천장 높이
 const vaultY = (z) => VAULT_YC + Math.sqrt(VAULT_R * VAULT_R - z * z);
+
+// ---------------------------------------------------------------------------
+// 테마 시스템 — 전시 분위기 프리셋 (작가가 갤러리 JSON에서 선택)
+// daylight(기본) / sunset(황혼) / night(야간 개장)
+// Three.js r160 물리 광량 단위: PointLight 20~60, SpotLight 80~250, Directional 0.2~3.5
+// ---------------------------------------------------------------------------
+export const THEMES = {
+  daylight: {
+    sky: {
+      stops: [
+        [0.0, '#4a86c8'],
+        [0.45, '#7fb2e0'],
+        [0.75, '#c8dff0'],
+        [1.0, '#e8f1f6'],
+      ],
+      cloudColor: '255,255,255',
+      cloudAlpha: [0.25, 0.55],
+      cloudCount: 26,
+      stars: 0,
+    },
+    sun: { pos: [55, 48, 42], color: 0xfff0da, intensity: 3.2 },
+    fill: { pos: [-20, 16, -14], color: 0xdde8f8, intensity: 0.5 },
+    hemi: { sky: 0xbfd9ee, ground: 0x6f8a52, intensity: 0.75 },
+    ambient: { color: 0xffffff, intensity: 0.22 },
+    fog: { color: 0xdfeaf2, near: 60, far: 420 },
+    background: 0xdfeaf2,
+    downlight: { color: 0xfff2dd, emissive: 0xffefc8, intensity: 22 },
+    sea: { color: 0x3f7396, roughness: 0.12, metalness: 0.25 },
+    grassTint: 0xffffff,
+    treeUplights: false,
+    shadowCamera: { left: -45, right: 70, top: 65, bottom: -45, near: 1, far: 180 },
+  },
+  sunset: {
+    sky: {
+      // 천정의 저문 인디고 → 수평선의 뜨거운 주황·골드 (황혼 그라디언트)
+      stops: [
+        [0.0, '#2c2f5e'],
+        [0.32, '#6a4f80'],
+        [0.58, '#c96a5e'],
+        [0.8, '#f0954f'],
+        [1.0, '#ffd9a2'],
+      ],
+      cloudColor: '255,200,145', // 노을빛이 밴 구름
+      cloudAlpha: [0.28, 0.6],
+      cloudCount: 24,
+      stars: 0,
+    },
+    // 동쪽 바다 위, 낮은 고도의 주황 태양
+    sun: { pos: [140, 14, 30], color: 0xff9552, intensity: 2.6 },
+    fill: { pos: [-30, 22, -20], color: 0x8a6fb0, intensity: 0.35 },
+    hemi: { sky: 0xffb37a, ground: 0x6b4a52, intensity: 0.55 },
+    ambient: { color: 0xffcfa0, intensity: 0.22 },
+    fog: { color: 0xcf7f62, near: 55, far: 400 },
+    background: 0xcf7f62,
+    downlight: { color: 0xffd8ae, emissive: 0xffd8ae, intensity: 27 }, // 실내 웜톤 보강
+    // 낮은 태양이 만드는 강한 반사 하이라이트 — 낮은 roughness/높은 metalness
+    sea: { color: 0x7a5a78, roughness: 0.06, metalness: 0.45 },
+    grassTint: 0xe6b98f,
+    treeUplights: false,
+    shadowCamera: { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 320 },
+  },
+  night: {
+    sky: {
+      // 짙은 남색 하늘
+      stops: [
+        [0.0, '#060814'],
+        [0.4, '#0d1330'],
+        [0.7, '#161f42'],
+        [1.0, '#232c4d'],
+      ],
+      cloudColor: '150,170,220', // 달빛이 스민 옅은 청회색 구름
+      cloudAlpha: [0.05, 0.14],
+      cloudCount: 16,
+      stars: 760, // 700개 이상, 크기/밝기 랜덤 (makeRand 시드 고정)
+    },
+    // 낮은 달 — 차갑고 희미한 방향광
+    sun: { pos: [-60, 40, -30], color: 0xaec6ff, intensity: 0.35 },
+    fill: { pos: [40, 20, 30], color: 0x2a3a66, intensity: 0.12 },
+    hemi: { sky: 0x1a2540, ground: 0x0a0c14, intensity: 0.22 },
+    ambient: { color: 0x33456e, intensity: 0.1 },
+    fog: { color: 0x0a0f22, near: 45, far: 320 },
+    background: 0x0a0f22,
+    // 다운라이트·작품 스포트라이트가 주인공 — 실내 조도 보강
+    downlight: { color: 0xfff0d8, emissive: 0xfff0d8, intensity: 32 },
+    sea: { color: 0x0b1830, roughness: 0.2, metalness: 0.25 },
+    grassTint: 0x28304a, // 바깥 잔디는 어둡게
+    treeUplights: true,  // 중정 나무 아래 업라이트 2개 (웜 스팟)
+    shadowCamera: { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 220 },
+  },
+};
+
+function resolveTheme(themeName) {
+  return THEMES[themeName] || THEMES.daylight;
+}
 
 // 움직이는 생물(나비/새) — sceneTick(delta)이 매 프레임 갱신
 const creatures = [];
@@ -300,25 +395,48 @@ function createGrassTexture() {
 // ---------------------------------------------------------------------------
 // 하늘 돔 (그라디언트 + 구름)
 // ---------------------------------------------------------------------------
-function createSky(scene) {
+function createSky(scene, theme) {
   const size = 1024;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
+  const sky = theme.sky;
 
-  // 세로 그라디언트: 천정 파랑 → 수평선 옅은 하늘
+  // 세로 그라디언트: 천정 색 → 수평선 색 (테마별 stops)
   const grad = ctx.createLinearGradient(0, 0, 0, size);
-  grad.addColorStop(0.0, '#4a86c8');
-  grad.addColorStop(0.45, '#7fb2e0');
-  grad.addColorStop(0.75, '#c8dff0');
-  grad.addColorStop(1.0, '#e8f1f6');
+  for (const [stop, color] of sky.stops) grad.addColorStop(stop, color);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
 
-  // 부드러운 뭉게구름
+  // 별 (night 테마) — 크기·밝기 랜덤, 시드 고정, 가끔 큰 별엔 은은한 글로우
+  if (sky.stars > 0) {
+    const srand = makeRand(90210);
+    for (let i = 0; i < sky.stars; i++) {
+      const x = srand() * size;
+      const y = srand() * size * 0.82; // 수평선 근처는 비워둠
+      const r = 0.4 + srand() * 1.6;
+      const bright = 0.35 + srand() * 0.65;
+      if (srand() > 0.965) {
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 5);
+        glow.addColorStop(0, `rgba(255, 255, 255, ${bright * 0.5})`);
+        glow.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = `rgba(255, 255, 255, ${bright})`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 부드러운 뭉게구름 (테마별 색조/농도)
   const rand = makeRand(13579);
-  for (let i = 0; i < 26; i++) {
+  const [aMin, aMax] = sky.cloudAlpha;
+  for (let i = 0; i < sky.cloudCount; i++) {
     const cx = rand() * size;
     const cy = size * (0.3 + rand() * 0.45); // 중간 높이대
     const scale = 30 + rand() * 90;
@@ -327,8 +445,8 @@ function createSky(scene) {
       const py = cy + (rand() - 0.5) * scale * 0.7;
       const pr = scale * (0.35 + rand() * 0.5);
       const cloudGrad = ctx.createRadialGradient(px, py, 0, px, py, pr);
-      cloudGrad.addColorStop(0, `rgba(255, 255, 255, ${0.25 + rand() * 0.3})`);
-      cloudGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      cloudGrad.addColorStop(0, `rgba(${sky.cloudColor}, ${aMin + rand() * (aMax - aMin)})`);
+      cloudGrad.addColorStop(1, `rgba(${sky.cloudColor}, 0)`);
       ctx.fillStyle = cloudGrad;
       ctx.beginPath();
       ctx.arc(px, py, pr, 0, Math.PI * 2);
@@ -350,12 +468,14 @@ function createSky(scene) {
 // ---------------------------------------------------------------------------
 // 실외: 잔디밭 / 바다 / 나무 / 야외 조각
 // ---------------------------------------------------------------------------
-function createOutdoors(scene) {
+function createOutdoors(scene, theme) {
   // 잔디밭 (미술관 바닥 밑까지 넓게 — 미술관 바닥이 위에 얹힘)
+  // grassTint: daylight는 흰색(무변화), sunset은 웜톤, night는 어둡게 다운
   const grass = new THREE.Mesh(
     new THREE.PlaneGeometry(800, 800),
     new THREE.MeshStandardMaterial({
       map: createGrassTexture(),
+      color: theme.grassTint,
       roughness: 0.95,
       metalness: 0.0,
     })
@@ -365,13 +485,13 @@ function createOutdoors(scene) {
   grass.receiveShadow = true;
   scene.add(grass);
 
-  // 동쪽 바다 (수평선의 외레순 해협)
+  // 동쪽 바다 (수평선의 외레순 해협) — 테마별 색/거칠기(태양 반사 강도)
   const sea = new THREE.Mesh(
     new THREE.PlaneGeometry(400, 900),
     new THREE.MeshStandardMaterial({
-      color: 0x3f7396,
-      roughness: 0.12,
-      metalness: 0.25,
+      color: theme.sea.color,
+      roughness: theme.sea.roughness,
+      metalness: theme.sea.metalness,
     })
   );
   sea.rotation.x = -Math.PI / 2;
@@ -1107,7 +1227,7 @@ function buildDetailedTree(seed, opts) {
 // ---------------------------------------------------------------------------
 // 실내 중정 — 유리로 둘러싸인 정원, 큰 나무가 지붕을 뚫고 자란다
 // ---------------------------------------------------------------------------
-function createCourtyard(scene) {
+function createCourtyard(scene, theme) {
   const H = ROOM.wallHeight;
   const { cx, cz, half } = COURTYARD;
   const size = half * 2;
@@ -1227,6 +1347,24 @@ function createCourtyard(scene) {
     rock.castShadow = true;
     rock.receiveShadow = true;
     scene.add(rock);
+  }
+
+  // ---- night 테마: 중정 큰 나무 밑 업라이트 2개 (위로 조준, 웜 스팟) ----
+  if (theme.treeUplights) {
+    const uplightSpots = [
+      [cx - 1.6, cz - 1.1],
+      [cx + 1.8, cz + 1.4],
+    ];
+    for (const [ux, uz] of uplightSpots) {
+      const spot = new THREE.SpotLight(0xffb066, 150, 15, Math.PI / 5.5, 0.55, 1.8);
+      spot.position.set(ux, 0.35, uz);
+      const target = new THREE.Object3D();
+      target.position.set(cx, 8.5, cz);
+      scene.add(target);
+      spot.target = target;
+      spot.castShadow = false; // 업라이트는 강조용 — 별도 그림자 부담 없이 가볍게
+      scene.add(spot);
+    }
   }
 }
 
@@ -1407,7 +1545,7 @@ function createLightTracks(scene) {
   }
 }
 
-function createDownlights(scene) {
+function createDownlights(scene, theme) {
   // 볼트 천장에서 내려오는 펜던트 조명 3x3
   const fixtureMat = new THREE.MeshStandardMaterial({
     color: 0x3a3a3c,
@@ -1416,8 +1554,8 @@ function createDownlights(scene) {
   });
   const bulbMat = new THREE.MeshStandardMaterial({
     color: 0xfff6e0,
-    emissive: 0xffefc8,
-    emissiveIntensity: 2.5,
+    emissive: theme.downlight.emissive,
+    emissiveIntensity: 2.5 * (theme.downlight.intensity / 22),
     roughness: 1.0,
   });
 
@@ -1453,66 +1591,69 @@ function createDownlights(scene) {
       bulb.position.set(x, shadeY - 0.14, z);
       scene.add(bulb);
 
-      // 낮의 미술관 — 보조광 수준
-      const light = new THREE.PointLight(0xfff2dd, 22, 18, 2);
+      // 실내 다운라이트 — 테마별 광량 (night는 스포트라이트와 함께 주광 역할)
+      const light = new THREE.PointLight(theme.downlight.color, theme.downlight.intensity, 18, 2);
       light.position.set(x, shadeY - 0.3, z);
       scene.add(light);
     }
   }
 }
 
-function createGlobalLights(scene) {
-  // 하늘빛 반구광 (파란 하늘 + 잔디 반사광)
-  const hemi = new THREE.HemisphereLight(0xbfd9ee, 0x6f8a52, 0.75);
+function createGlobalLights(scene, theme) {
+  // 하늘빛 반구광 (하늘색 + 지면 반사광) — 테마별 색/광량
+  const hemi = new THREE.HemisphereLight(theme.hemi.sky, theme.hemi.ground, theme.hemi.intensity);
   hemi.position.set(0, 40, 0);
   scene.add(hemi);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.22));
+  scene.add(new THREE.AmbientLight(theme.ambient.color, theme.ambient.intensity));
 
-  // 태양 — 남동쪽 높은 곳에서 유리벽을 통해 실내로 들어옴
-  const sun = new THREE.DirectionalLight(0xfff0da, 3.2);
-  sun.position.set(55, 48, 42);
+  // 태양(daylight/sunset) 또는 달(night) — 유리벽을 통해 실내로 들어오는 주 방향광
+  const sun = new THREE.DirectionalLight(theme.sun.color, theme.sun.intensity);
+  sun.position.set(...theme.sun.pos);
   sun.castShadow = true;
   sun.shadow.mapSize.set(4096, 4096);
   sun.shadow.bias = -0.0005;
   sun.shadow.normalBias = 0.02;
-  // 실내 + 근처 실외(정원/조각)까지 그림자 커버
-  sun.shadow.camera.left = -45;
-  sun.shadow.camera.right = 70;
-  sun.shadow.camera.top = 65;
-  sun.shadow.camera.bottom = -45;
-  sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 180;
+  // 실내 + 근처 실외(정원/조각)까지 그림자 커버 (테마별 태양 각도에 맞춰 조정)
+  const sc = theme.shadowCamera;
+  sun.shadow.camera.left = sc.left;
+  sun.shadow.camera.right = sc.right;
+  sun.shadow.camera.top = sc.top;
+  sun.shadow.camera.bottom = sc.bottom;
+  sun.shadow.camera.near = sc.near;
+  sun.shadow.camera.far = sc.far;
   scene.add(sun);
   scene.add(sun.target);
 
-  // 필 라이트 (북서쪽 차가운 하늘광 — 그림자 없음)
-  const fill = new THREE.DirectionalLight(0xdde8f8, 0.5);
-  fill.position.set(-20, 16, -14);
+  // 필 라이트 (반대쪽 차가운/보조 광 — 그림자 없음)
+  const fill = new THREE.DirectionalLight(theme.fill.color, theme.fill.intensity);
+  fill.position.set(...theme.fill.pos);
   scene.add(fill);
 }
 
 // ---------------------------------------------------------------------------
 // 공개 API
 // ---------------------------------------------------------------------------
-export function createMuseum(scene) {
-  // 안개: 실내는 또렷, 먼 풍경은 대기원근으로 옅어짐
-  scene.background = new THREE.Color(0xdfeaf2);
-  scene.fog = new THREE.Fog(0xdfeaf2, 60, 420);
+export function createMuseum(scene, themeName = 'daylight') {
+  const theme = resolveTheme(themeName);
 
-  createSky(scene);
-  createOutdoors(scene);
+  // 안개: 실내는 또렷, 먼 풍경은 대기원근으로 옅어짐 (테마별 색/거리)
+  scene.background = new THREE.Color(theme.background);
+  scene.fog = new THREE.Fog(theme.fog.color, theme.fog.near, theme.fog.far);
+
+  createSky(scene, theme);
+  createOutdoors(scene, theme);
 
   createFloor(scene);
   createSolidWalls(scene);
   createGlassWalls(scene);
   createPartitions(scene);
-  createCourtyard(scene);
+  createCourtyard(scene, theme);
   createBaseboards(scene);
   createCeiling(scene);
   createLightTracks(scene);
-  createDownlights(scene);
-  createGlobalLights(scene);
+  createDownlights(scene, theme);
+  createGlobalLights(scene, theme);
   createCreatures(scene);
 
   return {
