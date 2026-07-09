@@ -1,296 +1,727 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LifeUnity Metaverse - 가상 전시장</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIFEUNITY — 링크 하나로 열리는 나만의 미술관</title>
+<meta name="description" content="LifeUnity는 웹 브라우저만으로 접속하는 3D 가상 전시 플랫폼입니다. 아치형 목조 볼트 천장과 통유리 벽의 미술관에서 작품을 감상하고, 링크 하나로 나만의 전시를 열어보세요.">
+<style>
+  :root {
+    --gold: #d4af37;
+    --gold-soft: rgba(212,175,55,0.5);
+    --bg-dark: #0a0a0b;
+    --bg-dark-2: #111113;
+    --bg-light: #f7f6f3;
+    --bg-panel: #ffffff;
+    --text-dark: #0a0a0b;
+    --text-dim-dark: #5a5a5a;
+    --text-light: #f2f2f0;
+    --text-dim-light: #a6a6a4;
+    --border-light: #e4e2dd;
+    --border-dark: #232325;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg-light);
+    color: var(--text-dark);
+    font-family: "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    width: 100%;
+  }
+  a { text-decoration: none; }
+  img, canvas { max-width: 100%; }
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 400;
+  }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
+  /* ---------- Reveal-on-scroll ---------- */
+  .reveal {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
 
-        .container {
-            max-width: 800px;
-            text-align: center;
-            animation: fadeIn 1s ease-in;
-        }
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--bg-dark);
+    color: var(--text-light);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+    padding: 100px 24px 60px;
+  }
+  .hero canvas#heroCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    opacity: 0.9;
+  }
+  .hero::after {
+    /* soft vignette so text stays legible over particles */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(10,10,11,0) 0%, rgba(10,10,11,0.55) 78%, rgba(10,10,11,0.9) 100%);
+    pointer-events: none;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 760px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .hero .eyebrow {
+    margin-bottom: 22px;
+    opacity: 0;
+    animation: heroFadeUp 0.9s ease 0.1s forwards;
+  }
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(40px, 9vw, 108px);
+    font-weight: 200;
+    letter-spacing: 0.14em;
+    line-height: 1;
+    color: #fff;
+    opacity: 0;
+    animation: heroFadeUp 1s ease 0.25s forwards;
+  }
+  .hero h1 .dot { color: var(--gold); }
+  .hero .tagline-en {
+    margin: 22px 0 0;
+    font-size: 12px;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--text-dim-light);
+    opacity: 0;
+    animation: heroFadeUp 1s ease 0.45s forwards;
+  }
+  .hero .tagline-ko {
+    margin: 18px 0 0;
+    font-size: clamp(16px, 2.6vw, 21px);
+    font-weight: 300;
+    letter-spacing: 0.02em;
+    color: #d8d8d6;
+    opacity: 0;
+    animation: heroFadeUp 1s ease 0.6s forwards;
+  }
+  @keyframes heroFadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+  .hero-cta {
+    margin-top: 48px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    opacity: 0;
+    animation: heroFadeUp 1s ease 0.8s forwards;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 34px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.25s ease;
+    white-space: nowrap;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-gold {
+    background: var(--gold);
+    color: #0a0a0b;
+    border: 1px solid var(--gold);
+  }
+  .btn-gold:hover {
+    background: #e8c355;
+    border-color: #e8c355;
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--text-light);
+    border: 1px solid rgba(242,242,240,0.35);
+  }
+  .btn-outline:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .btn-outline-dark {
+    background: transparent;
+    color: var(--text-dark);
+    border: 1px solid rgba(10,10,11,0.25);
+  }
+  .btn-outline-dark:hover {
+    border-color: var(--gold);
+    color: #97772a;
+  }
 
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
+  .scroll-cue {
+    position: absolute;
+    bottom: 34px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-dim-light);
+  }
+  .scroll-cue .label {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  .scroll-cue .line {
+    width: 1px;
+    height: 46px;
+    background: linear-gradient(to bottom, rgba(212,175,55,0.9), rgba(212,175,55,0));
+    position: relative;
+    overflow: hidden;
+  }
+  .scroll-cue .line::after {
+    content: "";
+    position: absolute;
+    left: 0; top: -40%;
+    width: 100%; height: 40%;
+    background: linear-gradient(to bottom, transparent, #fff, transparent);
+    animation: scrollDrip 2.2s ease-in-out infinite;
+  }
+  @keyframes scrollDrip {
+    0%   { transform: translateY(-20%); opacity: 0; }
+    15%  { opacity: 1; }
+    85%  { opacity: 1; }
+    100% { transform: translateY(300%); opacity: 0; }
+  }
 
-        .subtitle {
-            font-size: 1.5rem;
-            margin-bottom: 2rem;
-            opacity: 0.9;
-        }
+  /* ---------- Section shell ---------- */
+  section { position: relative; }
+  .section-inner {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 110px 28px;
+  }
+  @media (max-width: 720px) {
+    .section-inner { padding: 80px 22px; }
+  }
+  .section-head {
+    text-align: center;
+    margin-bottom: 64px;
+  }
+  .section-head h2 {
+    margin: 16px 0 0;
+    font-size: clamp(24px, 4vw, 34px);
+    font-weight: 300;
+    letter-spacing: 0.01em;
+  }
+  .section-head p {
+    margin: 16px auto 0;
+    max-width: 520px;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text-dim-dark);
+  }
 
-        .status {
-            background: rgba(255,255,255,0.2);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 2rem;
-            margin: 2rem 0;
-            border: 1px solid rgba(255,255,255,0.3);
-        }
+  /* ---------- Features ---------- */
+  .features {
+    background: var(--bg-light);
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border-light);
+    border: 1px solid var(--border-light);
+  }
+  @media (max-width: 860px) {
+    .feature-grid { grid-template-columns: 1fr; }
+  }
+  .feature-card {
+    background: var(--bg-panel);
+    padding: 48px 38px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    transition: background 0.35s ease;
+  }
+  .feature-card:hover { background: #fcfbf8; }
+  .feature-icon {
+    width: 46px;
+    height: 46px;
+    color: var(--gold);
+  }
+  .feature-icon svg { width: 100%; height: 100%; display: block; }
+  .feature-card h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .feature-card p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.85;
+    color: var(--text-dim-dark);
+  }
 
-        .status h2 {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-        }
+  /* ---------- Exhibitions ---------- */
+  .exhibitions {
+    background: #ffffff;
+    border-top: 1px solid var(--border-light);
+  }
+  .exh-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 22px;
+  }
+  .exh-card {
+    border: 1px solid var(--border-light);
+    padding: 30px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    transition: border-color 0.3s ease, transform 0.3s ease;
+    background: var(--bg-panel);
+  }
+  .exh-card:hover {
+    border-color: var(--gold);
+    transform: translateY(-3px);
+  }
+  .exh-card .exh-name {
+    font-size: 17px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+  }
+  .exh-card .exh-meta {
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--text-dim-dark);
+    display: flex;
+    justify-content: space-between;
+  }
+  .exh-card .exh-enter {
+    margin-top: auto;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .exh-card .exh-enter svg {
+    width: 13px; height: 13px;
+    transition: transform 0.25s ease;
+  }
+  .exh-card:hover .exh-enter svg { transform: translateX(4px); }
 
-        .progress {
-            background: rgba(255,255,255,0.3);
-            height: 30px;
-            border-radius: 15px;
-            overflow: hidden;
-            margin: 1rem 0;
-        }
+  /* ---------- Recruit ---------- */
+  .recruit {
+    background: var(--bg-dark);
+    color: var(--text-light);
+    text-align: center;
+  }
+  .recruit h2 {
+    margin: 16px 0 0;
+    font-size: clamp(26px, 4.5vw, 40px);
+    font-weight: 300;
+  }
+  .recruit p {
+    margin: 20px auto 0;
+    max-width: 480px;
+    font-size: 14px;
+    line-height: 1.9;
+    color: var(--text-dim-light);
+  }
+  .recruit .hero-cta { margin-top: 40px; animation: none; opacity: 1; }
+  .recruit .guide-link {
+    display: block;
+    margin-top: 28px;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    color: var(--text-dim-light);
+    border-bottom: 1px solid transparent;
+  }
+  .recruit .guide-link:hover { color: var(--gold); border-color: var(--gold); }
 
-        .progress-bar {
-            background: linear-gradient(90deg, #4CAF50, #8BC34A);
-            height: 100%;
-            width: 70%;
-            animation: pulse 2s ease-in-out infinite;
-            transition: width 0.5s ease;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
-        }
-
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin: 2rem 0;
-        }
-
-        .feature {
-            background: rgba(255,255,255,0.1);
-            padding: 1.5rem;
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        .feature-icon {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .feature h3 {
-            font-size: 1.2rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .btn {
-            display: inline-block;
-            background: white;
-            color: #667eea;
-            padding: 1rem 2rem;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: bold;
-            margin: 0.5rem;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        }
-
-        .info {
-            margin-top: 2rem;
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-
-        .countdown {
-            font-size: 3rem;
-            font-weight: bold;
-            margin: 1rem 0;
-            color: #4CAF50;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        @keyframes pulse-btn {
-            0%, 100% {
-                transform: translateY(0) scale(1);
-            }
-            50% {
-                transform: translateY(-5px) scale(1.02);
-            }
-        }
-
-        @media (max-width: 600px) {
-            h1 { font-size: 2rem; }
-            .subtitle { font-size: 1.2rem; }
-            .countdown { font-size: 2rem; }
-        }
-    </style>
+  /* ---------- Footer ---------- */
+  footer {
+    background: var(--bg-dark-2);
+    color: var(--text-dim-light);
+    border-top: 1px solid var(--border-dark);
+    padding: 44px 28px 34px;
+  }
+  .footer-inner {
+    max-width: 1120px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+  }
+  .footer-brand {
+    font-size: 13px;
+    letter-spacing: 0.28em;
+    color: var(--text-light);
+    text-transform: uppercase;
+  }
+  .footer-brand .dot { color: var(--gold); }
+  .footer-links {
+    display: flex;
+    gap: 26px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+  }
+  .footer-links a { color: var(--text-dim-light); transition: color 0.25s ease; }
+  .footer-links a:hover { color: var(--gold); }
+  .footer-copy {
+    width: 100%;
+    text-align: center;
+    margin-top: 26px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border-dark);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: #8a8a90;
+  }
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>🌐 LifeUnity Metaverse</h1>
-        <p class="subtitle">리얼 가상 전시장 - 누구나 들어와서 작품을 감상하세요</p>
 
-        <div class="status">
-            <h2>🚀 WebGL 빌드 중...</h2>
-            <div class="progress">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
-            <p id="statusText">Unity WebGL 빌드 진행 중</p>
-            <div class="countdown" id="countdown">--:--</div>
-        </div>
-
-        <div class="features">
-            <div class="feature">
-                <div class="feature-icon">🌐</div>
-                <h3>멀티플레이어</h3>
-                <p>최대 50명 동시 접속</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">🎨</div>
-                <h3>리얼 그래픽</h3>
-                <p>URP 고품질 렌더링</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">🖼️</div>
-                <h3>작품 전시</h3>
-                <p>2D/3D 갤러리</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">💬</div>
-                <h3>소셜 기능</h3>
-                <p>음성/텍스트 채팅</p>
-            </div>
-        </div>
-
-        <div style="margin-top: 2rem;">
-            <a href="app/" class="btn" style="font-size: 1.3rem; padding: 1.5rem 3rem; background: linear-gradient(135deg, #d4af37, #b8941e); box-shadow: 0 8px 20px rgba(212, 175, 55, 0.4); animation: pulse-btn 2s infinite;">
-                🏛️ LIFEUNITY MUSEUM 입장! (멀티플레이어)
-            </a>
-        </div>
-
-        <div style="margin-top: 1rem;">
-            <a href="museum.html" class="btn" style="font-size: 1rem; padding: 1rem 2rem; background: rgba(255,255,255,0.15);">
-                🎨 구버전 뮤지엄
-            </a>
-            <a href="gallery.html" class="btn" style="font-size: 1rem; padding: 1rem 2rem; background: rgba(255,255,255,0.15);">
-                🖼️ 구버전 갤러리
-            </a>
-        </div>
-
-        <div style="margin-top: 1rem;">
-            <a href="https://github.com/syhongart/lifeunity" class="btn">
-                📦 GitHub 저장소
-            </a>
-            <a href="https://github.com/syhongart/lifeunity/blob/claude/voxels-korean-char-011CUumPbfUUn7d8tLwuXHig/README.md" class="btn">
-                📖 문서 보기
-            </a>
-        </div>
-
-        <div class="info">
-            <p><strong>개발 진행도:</strong> Phase 1-2 완료 (70%)</p>
-            <p><strong>지원 플랫폼:</strong> PC, WebGL, Android, iOS</p>
-            <p><strong>기술 스택:</strong> Unity 2021.3 + URP + Photon PUN2</p>
-            <p style="margin-top: 1rem; font-size: 0.8rem;">
-                © 2026 LifeUnity Metaverse | syhongartist@gmail.com
-            </p>
-        </div>
+  <!-- ============ HERO ============ -->
+  <section class="hero" id="top">
+    <canvas id="heroCanvas" aria-hidden="true"></canvas>
+    <div class="hero-content">
+      <div class="eyebrow">3D Virtual Exhibition Platform</div>
+      <h1>LIFEUNITY<span class="dot">.</span></h1>
+      <div class="tagline-en">Your Museum, One Link</div>
+      <p class="tagline-ko">링크 하나로 열리는 나만의 미술관.<br>브라우저만 있으면, 세계 어디서든 함께 작품을 거닐 수 있습니다.</p>
+      <div class="hero-cta">
+        <a class="btn btn-gold" href="./app/">전시 관람하기</a>
+        <a class="btn btn-outline" href="./app/studio.html">작가 스튜디오</a>
+      </div>
     </div>
+    <div class="scroll-cue">
+      <span class="label">Scroll</span>
+      <span class="line"></span>
+    </div>
+  </section>
 
-    <script>
-        // 진행 상황 업데이트
-        let progress = 70;
-        const progressBar = document.getElementById('progressBar');
-        const statusText = document.getElementById('statusText');
-        const countdownEl = document.getElementById('countdown');
+  <!-- ============ FEATURES ============ -->
+  <section class="features">
+    <div class="section-inner">
+      <div class="section-head reveal">
+        <div class="eyebrow">Experience</div>
+        <h2>도록을 넘기듯, 공간을 거닐다</h2>
+        <p>LifeUnity는 사진 갤러리가 아니라 걸어 들어가는 미술관입니다.</p>
+      </div>
+      <div class="feature-grid">
 
-        // 예상 완료 시간 (현재 시간 + 30분)
-        const estimatedTime = new Date(Date.now() + 30 * 60 * 1000);
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 44V20L24 6l18 14v24" />
+              <path d="M6 20a18 14 0 0 1 36 0" />
+              <path d="M14 44V28h20v16" />
+              <path d="M24 44V32" />
+            </svg>
+          </div>
+          <h3>3D 전시 공간</h3>
+          <p>아치형 목조 볼트 천장과 바닥까지 이어지는 통유리 벽, 그 안쪽 중정에 자리한 큰 나무까지 — 루이지애나 미술관을 닮은 공간을 1인칭으로 직접 걸으며 작품을 마주합니다.</p>
+        </div>
 
-        function updateProgress() {
-            progressBar.style.width = progress + '%';
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="16" cy="16" r="6" />
+              <circle cx="34" cy="18" r="5" />
+              <path d="M6 42v-4a10 10 0 0 1 10-10h1a10 10 0 0 1 9.6 7.2" />
+              <path d="M26 42v-3a9 9 0 0 1 9-9h1a9 9 0 0 1 8.9 7.6" />
+            </svg>
+          </div>
+          <h3>함께 관람</h3>
+          <p>같은 전시장에 접속한 사람들이 아바타로 함께 보입니다. Enter로 채팅을 열어 감상을 나누고, 낯선 이와 우연히 같은 작품 앞에 서는 순간을 만끽하세요.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="24" r="6" />
+              <circle cx="36" cy="12" r="6" />
+              <circle cx="36" cy="36" r="6" />
+              <path d="M17.6 21.2 30.4 14.8" />
+              <path d="M17.6 26.8 30.4 33.2" />
+            </svg>
+          </div>
+          <h3>링크 하나로 공유</h3>
+          <p>스튜디오에서 작품과 소개를 채우고 공유 링크를 만들면, 서버 업로드 없이도 URL 하나로 세상에 내 전시를 열 수 있습니다.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EXHIBITIONS ============ -->
+  <section class="exhibitions" id="exhibitions" style="display:none;">
+    <div class="section-inner">
+      <div class="section-head reveal">
+        <div class="eyebrow">Now Showing</div>
+        <h2>현재 열려 있는 전시</h2>
+        <p>지금 바로 입장해 작가들의 공간을 둘러보세요.</p>
+      </div>
+      <div class="exh-grid" id="exhGrid"></div>
+    </div>
+  </section>
+
+  <!-- ============ RECRUIT ============ -->
+  <section class="recruit">
+    <div class="section-inner">
+      <div class="eyebrow reveal">For Artists</div>
+      <h2 class="reveal">당신의 전시를 열어보세요</h2>
+      <p class="reveal">작품 14점, 소개 한 줄이면 충분합니다. 스튜디오에서 미리 보고, 다듬고, 링크 하나로 세상에 공개하세요.</p>
+      <div class="hero-cta reveal">
+        <a class="btn btn-gold" href="./app/studio.html">작가 스튜디오 열기</a>
+        <a class="btn btn-outline" href="./guide.html">이용 안내 보기</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">LIFEUNITY<span class="dot">.</span></div>
+      <div class="footer-links">
+        <a href="./guide.html">이용 안내</a>
+        <a href="./app/">전시 관람</a>
+        <a href="./app/studio.html">작가 스튜디오</a>
+        <a href="mailto:syhongartist@gmail.com">syhongartist@gmail.com</a>
+      </div>
+      <div class="footer-copy">&copy; 2026 LifeUnity. All rights reserved.</div>
+    </div>
+  </footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------- Scroll reveal ---------------- */
+  var revealEls = document.querySelectorAll(".reveal");
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          io.unobserve(entry.target);
         }
+      });
+    }, { threshold: 0.15, rootMargin: "0px 0px -40px 0px" });
+    revealEls.forEach(function (el) { io.observe(el); });
+  } else {
+    revealEls.forEach(function (el) { el.classList.add("is-visible"); });
+  }
 
-        function updateCountdown() {
-            const now = new Date();
-            const diff = estimatedTime - now;
+  /* ---------------- Hero particle field ---------------- */
+  var canvas = document.getElementById("heroCanvas");
+  var ctx = canvas.getContext("2d");
+  var particles = [];
+  var W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var MAX_PARTICLES = 70;
 
-            if (diff <= 0) {
-                countdownEl.textContent = "완료 임박!";
-                statusText.textContent = "곧 접속 가능합니다...";
-                return;
+  function sizeCanvas() {
+    var rect = canvas.parentElement.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+
+  function makeParticle() {
+    return {
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: 0.6 + Math.random() * 1.6,
+      baseAlpha: 0.15 + Math.random() * 0.45,
+      speedY: -(0.06 + Math.random() * 0.16),
+      speedX: (Math.random() - 0.5) * 0.05,
+      twinkleSpeed: 0.0006 + Math.random() * 0.0012,
+      twinklePhase: Math.random() * Math.PI * 2
+    };
+  }
+
+  function initParticles() {
+    var count = W < 640 ? Math.round(MAX_PARTICLES * 0.55) : MAX_PARTICLES;
+    particles = [];
+    for (var i = 0; i < count; i++) particles.push(makeParticle());
+  }
+
+  function drawBeams(t) {
+    // a couple of very faint, slowly shifting gold light rays
+    var cx = W * 0.5;
+    var beams = [
+      { angle: -0.32, width: W * 0.5, drift: Math.sin(t * 0.00006) * 40 },
+      { angle: 0.22, width: W * 0.4, drift: Math.cos(t * 0.00005) * 30 }
+    ];
+    beams.forEach(function (b) {
+      var x = cx + b.drift;
+      var grad = ctx.createLinearGradient(x, -H * 0.1, x + Math.sin(b.angle) * H, H * 0.9);
+      grad.addColorStop(0, "rgba(212,175,55,0.05)");
+      grad.addColorStop(1, "rgba(212,175,55,0)");
+      ctx.save();
+      ctx.translate(x, 0);
+      ctx.rotate(b.angle);
+      ctx.fillStyle = grad;
+      ctx.fillRect(-b.width / 2, -H * 0.2, b.width, H * 1.6);
+      ctx.restore();
+    });
+  }
+
+  var rafId = null;
+  function tick(t) {
+    ctx.clearRect(0, 0, W, H);
+    drawBeams(t);
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.y += p.speedY;
+      p.x += p.speedX;
+      if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
+      if (p.x < -10) p.x = W + 10;
+      if (p.x > W + 10) p.x = -10;
+      var tw = 0.7 + 0.3 * Math.sin(t * p.twinkleSpeed + p.twinklePhase);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(212,175,55," + (p.baseAlpha * tw).toFixed(3) + ")";
+      ctx.fill();
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function startAnim() {
+    if (rafId === null) rafId = requestAnimationFrame(tick);
+  }
+  function stopAnim() {
+    if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  sizeCanvas();
+  initParticles();
+
+  if (reduceMotion) {
+    // draw a single static-ish frame, no continuous animation
+    tick(0);
+  } else {
+    startAnim();
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) stopAnim(); else startAnim();
+    });
+  }
+
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      sizeCanvas();
+      initParticles();
+    }, 150);
+  });
+
+  /* ---------------- Exhibition list ---------------- */
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  fetch("./app/galleries/index.json")
+    .then(function (res) {
+      if (!res.ok) throw new Error("gallery index unavailable");
+      return res.json();
+    })
+    .then(function (list) {
+      if (!Array.isArray(list) || list.length === 0) return;
+      var grid = document.getElementById("exhGrid");
+      var frag = document.createDocumentFragment();
+      list.forEach(function (g) {
+        var id = g.id || "";
+        var name = g.name || id || "이름 없는 전시";
+        var artist = g.artist || "";
+        var count = (typeof g.count === "number") ? g.count : null;
+
+        var card = document.createElement("a");
+        card.className = "exh-card reveal";
+        card.href = "./app/?g=" + encodeURIComponent(id);
+
+        var metaRight = count !== null ? (count + "점") : "";
+        card.innerHTML =
+          '<div class="exh-name">' + escapeHtml(name) + '</div>' +
+          '<div class="exh-meta"><span>' + escapeHtml(artist) + '</span><span>' + escapeHtml(metaRight) + '</span></div>' +
+          '<div class="exh-enter">입장하기' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="13 5 20 12 13 19"/></svg>' +
+          '</div>';
+        frag.appendChild(card);
+      });
+      grid.appendChild(frag);
+      var section = document.getElementById("exhibitions");
+      section.style.display = "";
+
+      // observe the freshly-added reveal cards
+      if ("IntersectionObserver" in window) {
+        var io2 = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("is-visible");
+              io2.unobserve(entry.target);
             }
+          });
+        }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+        grid.querySelectorAll(".reveal").forEach(function (el) { io2.observe(el); });
+      } else {
+        grid.querySelectorAll(".reveal").forEach(function (el) { el.classList.add("is-visible"); });
+      }
+    })
+    .catch(function () {
+      // silently keep the section hidden
+    });
 
-            const minutes = Math.floor(diff / 60000);
-            const seconds = Math.floor((diff % 60000) / 1000);
-            countdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        }
-
-        // 상태 메시지 순환
-        const statuses = [
-            "Unity WebGL 빌드 진행 중...",
-            "리소스 최적화 중...",
-            "셰이더 컴파일 중...",
-            "Photon 네트워킹 설정 중...",
-            "URP 그래픽 렌더링 준비 중...",
-            "거의 다 되었습니다..."
-        ];
-        let statusIndex = 0;
-
-        setInterval(() => {
-            statusIndex = (statusIndex + 1) % statuses.length;
-            statusText.textContent = statuses[statusIndex];
-
-            // 진행도 증가 (최대 95%)
-            if (progress < 95) {
-                progress += 0.5;
-                updateProgress();
-            }
-        }, 3000);
-
-        // 카운트다운 업데이트
-        setInterval(updateCountdown, 1000);
-        updateCountdown();
-
-        // 페이지 로드 시 실제 빌드 상태 확인 (선택적)
-        fetch('https://api.github.com/repos/syhongart/lifeunity/branches/gh-pages')
-            .then(response => {
-                if (response.ok) {
-                    // gh-pages 브랜치가 있으면 빌드 완료
-                    statusText.textContent = "✅ 빌드 완료! 페이지를 새로고침하세요.";
-                    countdownEl.textContent = "완료!";
-                    progress = 100;
-                    updateProgress();
-                }
-            })
-            .catch(() => {
-                // 아직 빌드 안 됨
-            });
-    </script>
+})();
+</script>
 </body>
 </html>

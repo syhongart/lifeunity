@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이용 안내 — LIFEUNITY</title>
+<meta name="description" content="LifeUnity 3D 가상 전시 플랫폼 이용 안내 — 관람객 조작법과 작가 스튜디오 사용법, 자주 묻는 질문">
+<style>
+  :root {
+    --gold: #d4af37;
+    --ink: #0a0a0b;
+    --paper: #fbfbfa;
+    --paper-2: #f2f1ee;
+    --line: rgba(10,10,11,0.1);
+    --text: #17171a;
+    --text-dim: #55565c;
+    color-scheme: light dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--text);
+    font-family: "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+
+  img, svg { max-width: 100%; }
+
+  .label {
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* ---------------------------------------------------------------- topbar */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px clamp(18px, 4vw, 48px);
+    background: rgba(10,10,11,0.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .brand {
+    text-decoration: none;
+    color: #fff;
+    font-size: 15px;
+    letter-spacing: 0.22em;
+    font-weight: 400;
+  }
+  .brand b { color: var(--gold); font-weight: 400; }
+
+  .topnav {
+    display: flex;
+    gap: clamp(14px, 3vw, 34px);
+    flex-wrap: wrap;
+  }
+  .topnav a {
+    text-decoration: none;
+    color: rgba(255,255,255,0.72);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: color 0.25s ease;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 2px;
+  }
+  .topnav a:hover { color: #fff; border-color: var(--gold); }
+  .topnav a.current { color: var(--gold); }
+
+  /* ------------------------------------------------------------------ hero */
+  .hero {
+    background:
+      radial-gradient(ellipse at 30% 0%, rgba(212,175,55,0.14), transparent 55%),
+      var(--ink);
+    color: #fff;
+    padding: 72px clamp(18px, 6vw, 64px) 64px;
+  }
+  .hero .label { color: rgba(255,255,255,0.5); }
+  .hero h1 {
+    margin: 14px 0 16px;
+    font-weight: 300;
+    font-size: clamp(30px, 5vw, 48px);
+    letter-spacing: 0.01em;
+  }
+  .hero p {
+    max-width: 640px;
+    margin: 0;
+    color: rgba(255,255,255,0.68);
+    font-size: 15px;
+  }
+
+  /* ---------------------------------------------------------------- layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0,1fr);
+    gap: clamp(24px, 4vw, 64px);
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 48px clamp(18px, 6vw, 48px) 100px;
+    align-items: start;
+  }
+
+  /* ------------------------------------------------------------------- toc */
+  .toc-wrap { position: sticky; top: 84px; }
+  .toc-mobile-toggle { display: none; }
+
+  .toc-title {
+    margin: 0 0 14px;
+  }
+
+  .toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 1px solid var(--line);
+  }
+  .toc li { margin: 0; }
+  .toc a {
+    display: block;
+    text-decoration: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 7px 0 7px 16px;
+    border-left: 2px solid transparent;
+    margin-left: -1px;
+    transition: color 0.25s ease, border-color 0.25s ease;
+  }
+  .toc a:hover { color: var(--text); }
+  .toc a.active { color: var(--ink); border-left-color: var(--gold); font-weight: 400; }
+  .toc .toc-sub a { padding-left: 30px; font-size: 12.5px; }
+
+  /* --------------------------------------------------------------- content */
+  main { min-width: 0; }
+
+  section.doc-section {
+    padding-top: 8px;
+    margin-bottom: 84px;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  section.doc-section.in-view { opacity: 1; transform: translateY(0); }
+
+  .section-num {
+    display: inline-block;
+    color: var(--gold);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    font-weight: 300;
+    font-size: clamp(24px, 3.4vw, 32px);
+    margin: 0 0 8px;
+    letter-spacing: 0.01em;
+  }
+  .section-lede {
+    color: var(--text-dim);
+    font-size: 15px;
+    margin: 0 0 40px;
+    max-width: 620px;
+  }
+
+  h3 {
+    font-weight: 400;
+    font-size: 18px;
+    letter-spacing: 0.02em;
+    margin: 48px 0 14px;
+    padding-top: 4px;
+    border-top: 1px solid var(--line);
+    padding-top: 22px;
+  }
+  h3:first-of-type { border-top: none; padding-top: 0; }
+
+  p { margin: 0 0 14px; color: var(--text); font-size: 15px; }
+  .muted { color: var(--text-dim); font-size: 13.5px; }
+
+  ul.plain, ol.plain {
+    margin: 0 0 14px;
+    padding-left: 20px;
+  }
+  ul.plain li, ol.plain li {
+    margin-bottom: 8px;
+    font-size: 15px;
+  }
+
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    margin: 0 0 20px;
+    padding: 0;
+    display: grid;
+    gap: 12px;
+  }
+  .steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 14px 18px 14px 52px;
+    background: var(--paper-2);
+    border-radius: 4px;
+    font-size: 14.5px;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 16px;
+    top: 13px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--gold);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .steps li b { font-weight: 500; }
+
+  /* ------------------------------------------------------------------ table */
+  .table-wrap { overflow-x: auto; margin: 0 0 22px; border: 1px solid var(--line); border-radius: 6px; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 420px;
+    font-size: 14px;
+  }
+  thead th {
+    text-align: left;
+    padding: 12px 18px;
+    background: var(--paper-2);
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--line);
+  }
+  tbody td {
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:last-child { color: var(--text-dim); }
+
+  /* -------------------------------------------------------------- keycaps */
+  .key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 8px;
+    margin: 2px 3px 2px 0;
+    border-radius: 5px;
+    background: linear-gradient(#fff, #eceae4);
+    border: 1px solid #cfccc2;
+    box-shadow: 0 2px 0 #b9b6ab, 0 3px 3px rgba(0,0,0,0.12);
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: #2b2b2b;
+    letter-spacing: 0.01em;
+  }
+  .key-row { white-space: nowrap; }
+  .keys-gesture {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 14px;
+    background: var(--paper-2);
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+
+  /* ------------------------------------------------------------------ card */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 0 0 24px;
+  }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px;
+    background: #fff;
+  }
+  .card .label { margin-bottom: 8px; }
+  .card p:last-child { margin-bottom: 0; }
+
+  .note {
+    border-left: 3px solid var(--gold);
+    background: var(--paper-2);
+    padding: 14px 18px;
+    border-radius: 0 4px 4px 0;
+    font-size: 14px;
+    color: var(--text-dim);
+    margin: 0 0 22px;
+  }
+  .note b { color: var(--text); font-weight: 500; }
+
+  .diff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin: 0 0 22px;
+  }
+  .diff-card {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px;
+  }
+  .diff-card.gold { border-color: rgba(212,175,55,0.5); background: linear-gradient(180deg, rgba(212,175,55,0.06), transparent 40%); }
+  .diff-card h4 { margin: 0 0 8px; font-weight: 500; font-size: 15px; }
+  .diff-card ul { margin: 10px 0 0; padding-left: 18px; font-size: 13.5px; color: var(--text-dim); }
+  .diff-card ul li { margin-bottom: 6px; }
+
+  /* -------------------------------------------------------------------faq */
+  .faq-item {
+    border-bottom: 1px solid var(--line);
+  }
+  .faq-item summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 18px 30px 18px 0;
+    position: relative;
+    font-size: 15px;
+    font-weight: 400;
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary::after {
+    content: '+';
+    position: absolute;
+    right: 4px;
+    top: 16px;
+    font-size: 20px;
+    font-weight: 300;
+    color: var(--gold);
+    transition: transform 0.25s ease;
+  }
+  .faq-item[open] summary::after { transform: rotate(45deg); }
+  .faq-item .faq-a {
+    padding: 0 0 20px;
+    color: var(--text-dim);
+    font-size: 14.5px;
+    max-width: 640px;
+  }
+
+  /* ---------------------------------------------------------------- footer */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 40px clamp(18px, 6vw, 48px) 60px;
+    text-align: center;
+  }
+  footer .brand { color: var(--ink); }
+  footer .brand b { color: var(--gold); }
+  footer p { color: var(--text-dim); font-size: 13px; margin: 12px 0 0; }
+  footer a.mail { color: var(--gold); text-decoration: none; border-bottom: 1px solid rgba(212,175,55,0.4); }
+
+  /* --------------------------------------------------------------- mobile */
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; padding-top: 24px; }
+    .toc-wrap { position: static; }
+    .toc-mobile-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .toc-mobile-toggle::after { content: '▾'; color: var(--gold); }
+    details.toc-mobile[open] .toc-mobile-toggle::after { content: '▴'; }
+    details.toc-mobile summary { list-style: none; }
+    details.toc-mobile summary::-webkit-details-marker { display: none; }
+    .toc { padding-top: 12px; }
+    .topnav { display: none; }
+  }
+
+  /* -------------------------------------------------------- dark mode */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #101012;
+      --paper-2: #18181b;
+      --line: rgba(255,255,255,0.12);
+      --text: #ececec;
+      --text-dim: #9a9a9f;
+    }
+    .card { background: #17171a; }
+    .key {
+      background: linear-gradient(#3a3a3d, #232326);
+      border-color: #4a4a4e;
+      box-shadow: 0 2px 0 #17171a, 0 3px 3px rgba(0,0,0,0.4);
+      color: #f2f2f2;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #101012;
+    --paper-2: #18181b;
+    --line: rgba(255,255,255,0.12);
+    --text: #ececec;
+    --text-dim: #9a9a9f;
+  }
+  :root[data-theme="dark"] .card { background: #17171a; }
+  :root[data-theme="dark"] .key {
+    background: linear-gradient(#3a3a3d, #232326);
+    border-color: #4a4a4e;
+    box-shadow: 0 2px 0 #17171a, 0 3px 3px rgba(0,0,0,0.4);
+    color: #f2f2f2;
+  }
+  :root[data-theme="light"] {
+    --paper: #fbfbfa;
+    --paper-2: #f2f1ee;
+    --line: rgba(10,10,11,0.1);
+    --text: #17171a;
+    --text-dim: #55565c;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="./index.html">LIFE<b>UNITY</b></a>
+  <nav class="topnav">
+    <a href="./index.html">랜딩</a>
+    <a href="./app/">전시장 입장</a>
+    <a href="./app/studio.html">작가 스튜디오</a>
+    <a href="./guide.html" class="current">이용 안내</a>
+  </nav>
+</div>
+
+<header class="hero">
+  <div class="label">GUIDE</div>
+  <h1>LIFEUNITY 이용 안내</h1>
+  <p>브라우저만 있으면 누구나 접속할 수 있는 3D 가상 전시 플랫폼입니다. 관람객을 위한 조작법부터 작가가 직접 전시를 여는 방법까지, 필요한 모든 내용을 이 한 페이지에 정리했습니다.</p>
+</header>
+
+<div class="layout">
+  <div class="toc-wrap">
+    <details class="toc-mobile" open id="tocMobile">
+      <summary class="toc-mobile-toggle">목차</summary>
+      <nav class="toc" id="toc">
+        <div class="label toc-title" style="display:none;">목차</div>
+        <ol>
+          <li><a href="#visitor">① 관람객 가이드</a>
+            <ol class="toc-sub">
+              <li><a href="#visitor-enter">입장하기</a></li>
+              <li><a href="#visitor-controls">PC 조작법</a></li>
+              <li><a href="#visitor-mobile">모바일 조작법</a></li>
+              <li><a href="#visitor-artwork">작품 감상하기</a></li>
+              <li><a href="#visitor-chat">채팅</a></li>
+              <li><a href="#visitor-gallery">전시 선택하기</a></li>
+            </ol>
+          </li>
+          <li><a href="#artist">② 작가 가이드</a>
+            <ol class="toc-sub">
+              <li><a href="#artist-studio">스튜디오 열기</a></li>
+              <li><a href="#artist-info">전시 정보 입력</a></li>
+              <li><a href="#artist-artwork">작품 추가하기</a></li>
+              <li><a href="#artist-featured">대표작 지정</a></li>
+              <li><a href="#artist-preview">미리보기 &amp; 공개</a></li>
+              <li><a href="#artist-autosave">임시저장</a></li>
+            </ol>
+          </li>
+          <li><a href="#faq">③ 자주 묻는 질문</a></li>
+        </ol>
+      </nav>
+    </details>
+  </div>
+
+  <main>
+
+    <!-- ============================================================= 관람객 ============================================================= -->
+    <section class="doc-section" id="visitor">
+      <span class="section-num">01</span>
+      <h2>관람객 가이드</h2>
+      <p class="section-lede">별도의 설치나 앱 없이, 링크 하나로 3D 전시장에 입장할 수 있습니다. 아치형 목조 볼트 천장과 통유리 벽, 중정의 큰 나무가 있는 미술관 공간을 1인칭 시점으로 자유롭게 걸어다니며 작품을 감상하세요.</p>
+
+      <h3 id="visitor-enter">입장하기</h3>
+      <p>전시장 링크에 접속하면 가장 먼저 로비 화면이 나타납니다.</p>
+      <ol class="steps">
+        <li><b>닉네임</b>을 입력하세요. 비워두면 자동으로 <b>게스트</b>로 입장합니다.</li>
+        <li>목록에서 <b>아바타 색상</b>을 선택하세요. 다른 관람객에게 내 아바타 색으로 표시됩니다.</li>
+        <li><b>입장하기</b> 버튼을 누르면 전시장으로 들어갑니다. 이때 새소리·바람 소리 같은 배경음이 함께 재생됩니다. (브라우저 자동재생 정책상 버튼을 누른 뒤에만 소리가 시작됩니다.)</li>
+      </ol>
+
+      <h3 id="visitor-controls">PC 조작법</h3>
+      <p>키보드와 마우스로 자유롭게 이동하며 관람할 수 있습니다. 전시장 화면을 한 번 클릭하면 마우스 커서가 화면에 고정되고, 이후 마우스를 움직이는 대로 시점이 회전합니다. <span class="key">Esc</span>를 누르면 커서 고정이 풀립니다.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>조작</th><th>동작</th></tr></thead>
+          <tbody>
+            <tr><td><span class="keys-gesture">마우스 이동</span></td><td>시점 회전 (화면을 클릭해 커서를 고정한 뒤)</td></tr>
+            <tr><td class="key-row"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span></td><td>이동 (앞·왼쪽·뒤·오른쪽)</td></tr>
+            <tr><td class="key-row"><span class="key">Shift</span></td><td>달리기 (이동 중 함께 누르기)</td></tr>
+            <tr><td class="key-row"><span class="key">E</span></td><td>작품 3m 이내 접근 시, 라이트박스(전체화면 확대)로 감상</td></tr>
+            <tr><td class="key-row"><span class="key">Enter</span></td><td>채팅 입력창 열기 / 메시지 전송</td></tr>
+            <tr><td class="key-row"><span class="key">Esc</span></td><td>라이트박스 닫기 · 채팅 입력 취소 · 마우스 커서 고정 해제</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="visitor-mobile">모바일 조작법</h3>
+      <p>스마트폰·태블릿에서는 화면을 터치하여 조작합니다. 별도의 설정 없이 화면을 반으로 나누어 인식합니다.</p>
+      <div class="card-grid">
+        <div class="card">
+          <div class="label">화면 왼쪽</div>
+          <p>터치한 채로 드래그하면 그 방향으로 이동합니다. 손을 떼면 멈춥니다.</p>
+        </div>
+        <div class="card">
+          <div class="label">화면 오른쪽</div>
+          <p>터치한 채로 드래그하면 시점(카메라)이 회전합니다.</p>
+        </div>
+      </div>
+      <p class="muted">작품에 가까이 다가가면 화면에 나타나는 정보 패널의 안내에 따라 확대 감상할 수 있습니다.</p>
+
+      <h3 id="visitor-artwork">작품 감상하기</h3>
+      <p>작품에 <b>3m 이내로 가까이 다가가면</b> 화면 우측에 작가·제목·설명이 담긴 <b>정보 패널</b>이 나타납니다.</p>
+      <ul class="plain">
+        <li>PC에서는 <span class="key">E</span> 키를 눌러 <b>라이트박스</b>(전체화면 확대 보기)를 엽니다.</li>
+        <li>라이트박스는 <span class="key">Esc</span> 키, 우측 상단의 <b>×</b> 버튼, 또는 어두운 배경 클릭으로 닫을 수 있습니다.</li>
+        <li>라이트박스가 열려 있는 동안에는 이동·채팅 등 다른 조작이 일시적으로 멈춥니다.</li>
+      </ul>
+
+      <h3 id="visitor-chat">채팅</h3>
+      <p>같은 전시장에 접속한 다른 관람객은 각자의 색상 아바타로 실시간으로 보입니다. <span class="key">Enter</span> 키를 누르면 채팅창이 활성화되며, 메시지를 입력하고 다시 <span class="key">Enter</span>를 눌러 전송합니다. <span class="key">Esc</span>로 입력을 취소할 수 있습니다.</p>
+
+      <h3 id="visitor-gallery">전시 선택하기</h3>
+      <p>로비 화면의 <b>전시 선택</b> 목록에서 원하는 전시를 골라 입장할 수 있습니다. 특정 전시로 곧바로 이동하려면 주소 끝에 <code>?g=&lt;전시id&gt;</code>를 붙인 링크를 사용하세요.</p>
+    </section>
+
+    <!-- ============================================================== 작가 ============================================================== -->
+    <section class="doc-section" id="artist">
+      <span class="section-num">02</span>
+      <h2>작가 가이드</h2>
+      <p class="section-lede">작가 스튜디오에서는 회원가입이나 서버 업로드 없이, 브라우저 안에서 작품 정보를 입력하는 것만으로 나만의 3D 전시장을 만들고 바로 공유할 수 있습니다.</p>
+
+      <h3 id="artist-studio">스튜디오 열기</h3>
+      <p>상단 메뉴 또는 랜딩 페이지의 <b>작가 스튜디오</b> 링크로 이동하면 전시 정보 입력 화면이 나타납니다.</p>
+
+      <h3 id="artist-info">전시 정보 입력</h3>
+      <ul class="plain">
+        <li><b>전시 ID</b> — 전시를 구분하는 짧은 영문 식별자입니다. (예: <code>syhongart</code>)</li>
+        <li><b>전시 제목</b> — 전시장 안에서 표시될 이름입니다.</li>
+        <li><b>소개</b> — 전시에 대한 설명 문구입니다.</li>
+      </ul>
+
+      <h3 id="artist-artwork">작품 추가하기</h3>
+      <p>작품은 최대 <b>14점</b>까지 등록할 수 있습니다. 각 작품마다 제목, 작가명, 연도, 설명과 함께 <b>이미지 URL</b>을 입력합니다.</p>
+      <div class="note">
+        <b>이미지 URL 준비 팁</b> — 파일을 직접 업로드하지 않고, 웹에 이미 공개되어 있는 이미지 주소를 사용합니다. 권장 해상도는 <b>1200px 이상</b>이며, 가로세로 비율은 어떤 형태든 상관없습니다. URL을 입력하면 바로 옆에 미리보기가 표시되어 확인할 수 있습니다.
+      </div>
+
+      <h3 id="artist-featured">대표작 지정</h3>
+      <p>등록한 작품 중 최대 <b>2점</b>을 <b>대표작(featured)</b>으로 지정할 수 있습니다. 대표작은 전시장 중앙 가벽 정면에 걸려, 입장하는 관람객이 가장 먼저 마주하는 위치에 배치됩니다.</p>
+
+      <h3 id="artist-preview">미리보기 &amp; 공개</h3>
+      <p>정보 입력이 끝나면 세 가지 방법으로 전시를 확인하고 공개할 수 있습니다.</p>
+      <div class="diff-grid">
+        <div class="diff-card">
+          <h4>내 전시 미리보기</h4>
+          <p class="muted" style="margin-bottom:0;">지금 입력한 내용 그대로 3D 전시장을 즉시 열어 확인합니다. 저장이나 공유 전, 배치를 점검하는 용도입니다.</p>
+        </div>
+        <div class="diff-card gold">
+          <h4>공유 링크 만들기</h4>
+          <ul>
+            <li>전시 데이터가 URL 자체에 담깁니다.</li>
+            <li>서버 업로드 없이 링크만 전달하면 누구나 바로 관람 가능합니다.</li>
+            <li>작품 수·설명이 많으면 링크가 길어질 수 있습니다.</li>
+          </ul>
+        </div>
+        <div class="diff-card">
+          <h4>JSON 다운로드</h4>
+          <ul>
+            <li>전시 데이터를 파일(.json)로 저장합니다.</li>
+            <li>정식으로 전시 목록(galleries)에 등재하기 위한 방식입니다.</li>
+            <li>다운로드한 파일을 현재 운영자에게 전달하면 등록됩니다.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 id="artist-autosave">임시저장</h3>
+      <p>스튜디오에서 작성 중인 내용은 브라우저에 <b>자동으로 임시저장</b>됩니다. 창을 닫았다가 같은 브라우저로 다시 열어도 입력하던 내용이 유지됩니다. (단, 브라우저 저장 공간을 초기화하거나 다른 브라우저·기기로 접속하면 남아있지 않으니, 최종본은 JSON 다운로드로 보관해 두는 것을 권장합니다.)</p>
+    </section>
+
+    <!-- =============================================================== FAQ =============================================================== -->
+    <section class="doc-section" id="faq">
+      <span class="section-num">03</span>
+      <h2>자주 묻는 질문</h2>
+      <p class="section-lede">이용 중 궁금한 점을 모았습니다.</p>
+
+      <div class="faq-list">
+        <details class="faq-item" open>
+          <summary>소리가 안 나요</summary>
+          <div class="faq-a">브라우저의 자동재생 정책 때문에 사용자의 첫 클릭(입장하기 버튼) 이후에만 소리가 재생됩니다. 로비에서 입장하기 버튼을 눌러 들어왔는지 확인하고, 기기·브라우저의 음소거 상태와 볼륨도 함께 확인해 주세요.</div>
+        </details>
+        <details class="faq-item">
+          <summary>친구가 안 보여요</summary>
+          <div class="faq-a">같은 전시(같은 전시 ID)에 동시에 접속해 있어야 서로의 아바타가 보입니다. 네트워크 환경(회사·학교 방화벽, VPN 등)에 따라 실시간 연결이 원활하지 않을 수 있으니, 다른 네트워크에서 다시 시도해 보세요.</div>
+        </details>
+        <details class="faq-item">
+          <summary>모바일에서도 되나요</summary>
+          <div class="faq-a">네, 별도 앱 설치 없이 모바일 브라우저에서 바로 관람할 수 있습니다. 화면 왼쪽을 터치·드래그하면 이동, 오른쪽을 터치·드래그하면 시점이 회전합니다.</div>
+        </details>
+        <details class="faq-item">
+          <summary>공유 링크가 너무 길어요</summary>
+          <div class="faq-a">공유 링크는 전시 데이터를 주소 안에 그대로 담기 때문에, 작품 수가 많거나 설명이 길면 주소도 함께 길어집니다. 설명 문구를 간결하게 줄이거나, 정식 등록이 필요하다면 JSON 다운로드 방식을 이용해 주세요.</div>
+        </details>
+        <details class="faq-item">
+          <summary>작품 이미지가 안 나와요</summary>
+          <div class="faq-a">입력한 이미지 URL이 웹에서 실제로 열람 가능한 공개 주소인지 확인해 주세요. 비공개 저장소·로그인이 필요한 페이지·만료된 링크는 표시되지 않습니다. 스튜디오의 미리보기에서 이미지가 보이면 전시장에서도 정상적으로 표시됩니다.</div>
+        </details>
+        <details class="faq-item">
+          <summary>지원 브라우저는 무엇인가요</summary>
+          <div class="faq-a">최신 버전의 Chrome, Edge, Safari, Firefox 등 WebGL을 지원하는 브라우저에서 이용할 수 있습니다. 가급적 최신 버전으로 업데이트한 뒤 이용해 주세요.</div>
+        </details>
+        <details class="faq-item">
+          <summary>전시를 나중에 수정할 수 있나요</summary>
+          <div class="faq-a">스튜디오에서 다시 작품 정보를 입력한 뒤 새로 공유 링크를 만들거나 JSON을 다시 내려받아 전달하면 됩니다. 브라우저에 임시저장된 내용이 남아있다면 이어서 수정할 수 있습니다.</div>
+        </details>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <a class="brand" href="./index.html">LIFE<b>UNITY</b></a>
+  <p>문의 · <a class="mail" href="mailto:syhongartist@gmail.com">syhongartist@gmail.com</a></p>
+</footer>
+
+<script>
+(function () {
+  // 목차 활성 링크 하이라이트 + 섹션 리빌
+  var sections = Array.prototype.slice.call(document.querySelectorAll('section.doc-section'));
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll('#toc a'));
+
+  function setActive(id) {
+    tocLinks.forEach(function (a) {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+    });
+  }
+
+  if ('IntersectionObserver' in window) {
+    var revealObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+        }
+      });
+    }, { threshold: 0.08, rootMargin: '0px 0px -8% 0px' });
+    sections.forEach(function (s) { revealObserver.observe(s); });
+
+    var navObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) setActive(entry.target.id);
+      });
+    }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
+    sections.forEach(function (s) { navObserver.observe(s); });
+  } else {
+    sections.forEach(function (s) { s.classList.add('in-view'); });
+  }
+
+  // 모바일: 목차 항목 클릭 시 접기
+  var tocMobile = document.getElementById('tocMobile');
+  if (tocMobile) {
+    tocLinks.forEach(function (a) {
+      a.addEventListener('click', function () {
+        if (window.matchMedia('(max-width: 880px)').matches) {
+          tocMobile.removeAttribute('open');
+        }
+      });
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
