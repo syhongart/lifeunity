@@ -303,7 +303,9 @@ function decodeGalleryFromHash() {
   }
 }
 
-async function loadGallery() {
+// 갤러리 로드 본체 — ensureGalleryLoaded()가 결과를 1회만 계산하도록 캐시한다.
+// 반환값: { id, name, description, theme, artworks } (theme 필드 없으면 'daylight'로 보정)
+async function loadGalleryInternal() {
   // 1순위: #gd= 공유 링크 (파일 업로드 없이 URL에 내장된 갤러리 데이터)
   const shared = decodeGalleryFromHash();
   if (shared) {
@@ -315,7 +317,11 @@ async function loadGallery() {
       name: shared.name ?? '공유된 전시',
       description: shared.description ?? '',
     };
-    return shared.artworks;
+    return {
+      ...GALLERY_INFO,
+      theme: shared.theme ?? 'daylight',
+      artworks: shared.artworks,
+    };
   }
 
   // 2순위: ?g=<id> → ./galleries/<id>.json
@@ -332,7 +338,11 @@ async function loadGallery() {
       name: data.name ?? id,
       description: data.description ?? '',
     };
-    return data.artworks;
+    return {
+      ...GALLERY_INFO,
+      theme: data.theme ?? 'daylight',
+      artworks: data.artworks,
+    };
   } catch (err) {
     console.warn(
       `[artworks] 갤러리 "${id}" 로드 실패, 내장 폴백 데이터를 사용합니다:`,
@@ -344,8 +354,26 @@ async function loadGallery() {
       name: FALLBACK_GALLERY.name,
       description: FALLBACK_GALLERY.description,
     };
-    return FALLBACK_GALLERY.artworks;
+    return {
+      ...GALLERY_INFO,
+      theme: FALLBACK_GALLERY.theme ?? 'daylight',
+      artworks: FALLBACK_GALLERY.artworks,
+    };
   }
+}
+
+// loadGalleryInternal()의 결과를 1회만 계산해 재사용하는 캐시 프로미스.
+// createArtworks()와 ensureGalleryLoaded()의 다른 호출자들이 동일한 프로미스를
+// await하므로 fetch가 두 번 발생하지 않는다.
+let galleryLoadPromise = null;
+
+// 갤러리 데이터를 (최초 1회만) 로드해 캐시된 결과를 반환한다.
+// 반환: { id, name, description, theme, artworks } — theme 필드가 없으면 'daylight'로 보정됨.
+export function ensureGalleryLoaded() {
+  if (!galleryLoadPromise) {
+    galleryLoadPromise = loadGalleryInternal();
+  }
+  return galleryLoadPromise;
 }
 
 // 현재 로드된 작품 목록 (createArtworks가 채우고 getNearbyArtwork가 참조)
@@ -645,8 +673,8 @@ function buildSpotlight(art, scene) {
 // ---------------------------------------------------------------------------
 
 export async function createArtworks(scene) {
-  const rawArtworks = await loadGallery();
-  ARTWORKS = assignSlots(rawArtworks);
+  const ginfo = await ensureGalleryLoaded();
+  ARTWORKS = assignSlots(ginfo.artworks);
 
   const textureLoader = new THREE.TextureLoader();
   textureLoader.setCrossOrigin('anonymous');

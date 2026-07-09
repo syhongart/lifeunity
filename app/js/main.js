@@ -5,9 +5,9 @@ import * as THREE from 'three';
 import { ROOM, EYE_HEIGHT } from './config.js';
 import { createMuseum, sceneTick } from './scene.js';
 import {
+  ensureGalleryLoaded,
   createArtworks,
   getNearbyArtwork,
-  getGalleryInfo,
   getPlacedArtworks,
   getViewingPose,
 } from './artworks.js';
@@ -47,7 +47,7 @@ let mp = null; // MultiplayerManager — 입장 전에는 null (sendState/update
 let clock = null;
 let myNickname = '게스트'; // 입장 시 갱신 — 채팅 isSelf 판별용
 let entered = false; // 로비 통과 여부 — 라이트박스 E키 게이트에 사용
-let galleryInfo = null; // getGalleryInfo() 결과 캐시 (전시 디렉터리 picker의 currentId로 사용)
+let galleryInfo = null; // ensureGalleryLoaded() 결과 캐시 (전시 디렉터리 picker의 currentId로 사용)
 let placedArtworks = []; // getPlacedArtworks() 캐시 — 작품 목록/투어 공용
 
 // FPS 집계
@@ -154,13 +154,15 @@ async function init() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   document.body.appendChild(renderer.domElement);
 
-  // 2. 뮤지엄 건축 + 작품 설치
-  createMuseum(scene);
+  // 2. 갤러리 데이터 로드(1회, 캐시) → 테마 반영 뮤지엄 건축 → 작품 설치
+  //    createArtworks() 내부에서도 동일한 캐시된 프로미스를 await하므로 fetch는 1회만 발생한다.
+  const ginfo = await ensureGalleryLoaded();
+  createMuseum(scene, resolveAutoTheme(ginfo.theme));
   await createArtworks(scene);
 
-  // 전시 제목 표시 + 전시 디렉터리 picker 배선
-  galleryInfo = getGalleryInfo();
-  if (galleryInfo) setGalleryTitle(galleryInfo.name);
+  // 전시 제목 표시 + 전시 디렉터리 picker 배선 (ginfo 재사용)
+  galleryInfo = ginfo;
+  setGalleryTitle(galleryInfo.name);
   loadGalleryDirectory();
 
   // 작품 목록 패널 + 도슨트 투어 배선 (createArtworks 완료 후에만 유효)
@@ -207,8 +209,8 @@ async function init() {
 }
 
 // 전시 디렉터리 로드 — 실패 시(파일 없음, #gd= 공유 링크 접속 등) 조용히 스킵.
-// #gd= 공유 링크로 접속한 경우 getGalleryInfo().id가 null이므로 currentId도 null로
-// 전달되며, ui.js가 이를 '공유된 전시 관람 중'으로 처리한다.
+// #gd= 공유 링크로 접속한 경우 ensureGalleryLoaded() 결과의 id가 null이므로 currentId도
+// null로 전달되며, ui.js가 이를 '공유된 전시 관람 중'으로 처리한다.
 function loadGalleryDirectory() {
   fetch('./galleries/index.json')
     .then((res) => {
@@ -230,6 +232,16 @@ function loadGalleryDirectory() {
 // 전역 키 입력 — E(라이트박스) / M(작품 목록) / T(투어) / ←→(투어 이전·다음) / ESC(투어 종료).
 // 채팅 입력창 포커스 중에는 ui.js의 입력 핸들러가 keydown을 stopPropagation하므로
 // 여기까지 도달하지 않는다.
+// 'auto' 테마 → 관람객의 현지 시각으로 실제 테마 결정 (입장 시점 1회 — 추가 부하 없음).
+// 06~16시 daylight / 16~19시 sunset / 그 외 night.
+function resolveAutoTheme(theme) {
+  if (theme !== 'auto') return theme;
+  const h = new Date().getHours();
+  if (h >= 6 && h < 16) return 'daylight';
+  if (h >= 16 && h < 19) return 'sunset';
+  return 'night';
+}
+
 // 현재 감상 대상 작품을 라이트박스로 — E키와 터치 '크게 보기' 버튼이 공유하는 진입점.
 // 투어 중에는 정차 중인 작품을 그대로 대상으로 삼는다 (감상 포즈는 근접 판정
 // 거리보다 살짝 멀 수 있어 직접 지정).
