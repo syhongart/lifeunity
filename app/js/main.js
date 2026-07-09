@@ -150,7 +150,7 @@ async function init() {
   scene = new THREE.Scene();
 
   camera = new THREE.PerspectiveCamera(
-    70,
+    55, // 자연 원근 (사람 시야감) — 광각 왜곡 없이 180cm 관람자의 눈으로
     window.innerWidth / window.innerHeight,
     0.1,
     1000

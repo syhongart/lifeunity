@@ -188,7 +188,7 @@ const ART_H = 2.0; // 작품 높이 (m)
 const ART_CENTER_Y = 2.6; // 작품 중심 높이 (m)
 const FRAME_DEPTH = 0.1; // 프레임 두께 (m)
 const FRAME_BORDER = 0.09; // 프레임 테두리 폭 (m)
-const CEILING_LIGHT_Y = 6.8; // 스포트라이트 높이
+const CEILING_LIGHT_Y = 5.85; // 스포트라이트 높이 (천장 6m 바로 아래)
 const NEARBY_DIST = 3.5; // 근접 판정 거리 (m) — 감상 위치(3.2m)에서도 정보 패널이 뜨도록 여유
 
 // ---------------------------------------------------------------------------

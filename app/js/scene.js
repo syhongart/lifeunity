@@ -5,9 +5,9 @@
 // themeName: 'daylight' | 'sunset' | 'night' | 'cycle' (미지정/미상 테마는 daylight로 폴백) — THEMES 상수 참고
 // 'cycle': 정적 프리셋이 아니라 실시간 낮밤 순환 모드 — sceneTick(delta)이 매 프레임 태양 위치/
 // 조명/하늘/바다색을 daylight·sunset·night 3개 키프레임 사이에서 부드럽게 보간한다 (하루 720초).
-// - 북쪽 벽: 차콜 전시벽 / 서쪽 벽: 화이트 전시벽
+// - 북쪽/서쪽 벽: 화이트 회반죽 전시벽 + 노출 콘크리트 기둥
 // - 동쪽·남쪽 벽: 통유리 커튼월 (다크 멀리언) — 바깥 풍경이 보임
-// - 천장: 따뜻한 우드 슬랫
+// - 천장: 삼각 격자 콘크리트 와플 6m (루이스 칸, 예일대 미술관 스타일)
 // - 실외: 잔디밭, 나무들, 동쪽 바다, 야외 조각
 // - 중앙 가벽(파티션) 2개 — artworks.js가 여기에 대표작을 건다 (x=∓8, z=-5)
 // 작품별 스포트라이트는 artworks.js 담당이므로 여기서 만들지 않는다.
@@ -30,17 +30,6 @@ export const PARTITIONS = [
 // 실내 중정 (유리로 둘러싸인 정원 — 큰 나무가 지붕 개구부로 자람)
 const COURTYARD = { cx: 9, cz: 9, half: 4 }; // x 5..13, z 5..13
 
-// 아치형 배럴 볼트 천장 — 벽 상단(7m)에서 중앙 11m까지 솟는다 (킴벨 미술관 풍)
-// 정점을 따라 리지 스카이라이트(유리 띠)가 x 방향으로 흐른다
-const VAULT_TOP = 11;                 // 볼트 정점 높이
-const RIDGE_HALF = 1.8;               // 리지 스카이라이트 반폭 (z ±1.8)
-// 원호 기하: 현 50m, 상승 4m → 반지름/중심/반각
-const VAULT_RISE = VAULT_TOP - ROOM.wallHeight;
-const VAULT_R = (HALF * HALF + VAULT_RISE * VAULT_RISE) / (2 * VAULT_RISE);
-const VAULT_YC = VAULT_TOP - VAULT_R;
-const VAULT_THETA = Math.asin(HALF / VAULT_R);
-// z 위치에서의 볼트 천장 높이
-const vaultY = (z) => VAULT_YC + Math.sqrt(VAULT_R * VAULT_R - z * z);
 
 // ---------------------------------------------------------------------------
 // 테마 시스템 — 전시 분위기 프리셋 (작가가 갤러리 JSON에서 선택)
@@ -543,66 +532,180 @@ function createPlasterMaps() {
 }
 
 // ---------------------------------------------------------------------------
-// 절차적 텍스처: 우드 슬랫 천장 (루이지애나 회랑 천장)
+// 절차적 텍스처: 노출 콘크리트 (기둥/커브용) — 거푸집 조인트 + 얼룩 + 타이홀
 // ---------------------------------------------------------------------------
-function createWoodSlatMaps() {
-  const size = 1024;
+let concreteMapsCache = null;
+function createConcreteMaps() {
+  if (concreteMapsCache) return concreteMapsCache;
+  const size = 512;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
 
-  ctx.fillStyle = '#8a5f3c';
+  ctx.fillStyle = '#8f8b84';
   ctx.fillRect(0, 0, size, size);
 
-  const rand = makeRand(55555);
-  const slatH = 64; // 1024/64 = 16줄 정확히 → 상하 심리스
-  const tones = ['#8a5f3c', '#946a45', '#7d5434', '#9c724c', '#835a38'];
+  const rand = makeRand(31337);
+  const img = ctx.getImageData(0, 0, size, size);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (rand() - 0.5) * 16;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  ctx.putImageData(img, 0, 0);
 
-  for (let y = 0; y < size; y += slatH) {
-    const tone = tones[Math.floor(rand() * tones.length)];
-    ctx.fillStyle = tone;
-    ctx.fillRect(0, y, size, slatH - 4);
-
-    // 나뭇결 — 끝점을 시작 y로 되돌려 좌우 랩이 이어지게 한다
-    ctx.save();
+  // 물얼룩/거푸집 얼룩
+  for (let i = 0; i < 16; i++) {
+    const x = rand() * size;
+    const y = rand() * size;
+    const r = 30 + rand() * 90;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(70, 66, 60, ${0.04 + rand() * 0.05})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.rect(0, y, size, slatH - 4);
-    ctx.clip();
-    for (let g = 0; g < 14; g++) {
-      const gy = y + rand() * (slatH - 4);
-      ctx.strokeStyle = rand() > 0.5
-        ? `rgba(60, 38, 20, ${0.06 + rand() * 0.1})`
-        : `rgba(220, 185, 150, ${0.05 + rand() * 0.08})`;
-      ctx.lineWidth = 0.5 + rand() * 1.2;
-      ctx.beginPath();
-      ctx.moveTo(0, gy);
-      const segs = 6;
-      for (let s = 1; s < segs; s++) {
-        ctx.lineTo((size / segs) * s, gy + (rand() - 0.5) * 4);
-      }
-      ctx.lineTo(size, gy); // 시작점과 동일한 y로 마감 → 심리스
-      ctx.stroke();
-    }
-    ctx.restore();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-    // 슬랫 사이 그림자 홈 — 노말맵의 주요 높이 신호
-    ctx.fillStyle = 'rgba(25, 15, 8, 0.85)';
-    ctx.fillRect(0, y + slatH - 4, size, 4);
+  // 수평 거푸집 조인트 (128px 주기 → 상하 심리스)
+  for (let y = 0; y < size; y += 128) {
+    ctx.fillStyle = 'rgba(50, 47, 42, 0.5)';
+    ctx.fillRect(0, y, size, 3);
+    ctx.fillStyle = 'rgba(200, 195, 186, 0.25)';
+    ctx.fillRect(0, y + 3, size, 1);
+  }
+  // 폼 타이 홀
+  for (let y = 64; y < size; y += 128) {
+    for (let x = 64; x < size; x += 128) {
+      const g = ctx.createRadialGradient(x, y, 0.5, x, y, 5);
+      g.addColorStop(0, 'rgba(40, 37, 33, 0.8)');
+      g.addColorStop(1, 'rgba(40, 37, 33, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   const map = new THREE.CanvasTexture(canvas);
   map.colorSpace = THREE.SRGBColorSpace;
   map.wrapS = THREE.RepeatWrapping;
   map.wrapT = THREE.RepeatWrapping;
-  map.repeat.set(2, 20); // 슬랫 폭 ≈16cm 실측 (64px/1024 × 50m/20)
+  map.anisotropy = 4;
+
+  const normalMap = canvasToNormalTexture(canvas, 0.8);
+
+  concreteMapsCache = { map, normalMap };
+  return concreteMapsCache;
+}
+
+// ---------------------------------------------------------------------------
+// 절차적 텍스처: 삼각 격자 콘크리트 와플 천장 (루이스 칸, 예일대 미술관)
+// 리브 3방향(0°, ±60°) — 격자 주기가 캔버스 치수와 일치해 심리스.
+// 발광맵: 일부 삼각형 리세스 안에 매입 조명 도트.
+// ---------------------------------------------------------------------------
+let waffleMapsCache = null;
+function createWaffleCeilingMaps() {
+  if (waffleMapsCache) return waffleMapsCache;
+  const side = 128;                              // 삼각형 한 변 (px)
+  const rowH = side * Math.sin(Math.PI / 3);     // 평행 리브 간격
+  const w = side * 8;                            // 1024
+  const h = Math.round(rowH * 8);                // 887 — 격자 주기의 정수배
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  // 리세스(깊은 삼각 홈) — 어두운 콘크리트
+  ctx.fillStyle = '#2a2723';
+  ctx.fillRect(0, 0, w, h);
+  const rand = makeRand(60103);
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (rand() - 0.5) * 12;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  ctx.putImageData(img, 0, 0);
+
+  // 리브 3방향 — 회전 트릭으로 평행선 패밀리를 그린다
+  const span = Math.ceil(Math.hypot(w, h));
+  for (const ang of [0, Math.PI / 3, -Math.PI / 3]) {
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate(ang);
+    for (let yy = -span; yy <= span; yy += rowH) {
+      // 리브 그림자변 (리세스와의 경계 — 깊이감)
+      ctx.strokeStyle = '#4a453d';
+      ctx.lineWidth = 30;
+      ctx.beginPath();
+      ctx.moveTo(-span, yy);
+      ctx.lineTo(span, yy);
+      ctx.stroke();
+      // 리브 본체 (빛을 받는 콘크리트 면 — 두껍게)
+      ctx.strokeStyle = '#7d766a';
+      ctx.lineWidth = 22;
+      ctx.beginPath();
+      ctx.moveTo(-span, yy);
+      ctx.lineTo(span, yy);
+      ctx.stroke();
+      // 리브 중앙 하이라이트
+      ctx.strokeStyle = '#98907f';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(-span, yy);
+      ctx.lineTo(span, yy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 발광맵 — 검정 바탕에 일부 삼각형 리세스마다 웜 화이트 도트
+  const eCanvas = document.createElement('canvas');
+  eCanvas.width = w;
+  eCanvas.height = h;
+  const ectx = eCanvas.getContext('2d');
+  ectx.fillStyle = '#000';
+  ectx.fillRect(0, 0, w, h);
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (((r * 7 + c * 3) % 5) !== 0) continue; // 드문드문
+      const x = (c + (r % 2 ? 0.5 : 0)) * side + side / 2;
+      const y = r * rowH + rowH * 0.55;
+      const g = ectx.createRadialGradient(x % w, y % h, 0.5, x % w, y % h, 7);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.4, '#ffe9c4');
+      g.addColorStop(1, 'rgba(255,233,196,0)');
+      ectx.fillStyle = g;
+      ectx.beginPath();
+      ectx.arc(x % w, y % h, 7, 0, Math.PI * 2);
+      ectx.fill();
+    }
+  }
+
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = THREE.RepeatWrapping;
+  map.wrapT = THREE.RepeatWrapping;
   map.anisotropy = 8;
 
-  const normalMap = canvasToNormalTexture(canvas, 1.3);
-  normalMap.repeat.set(2, 20);
+  const normalMap = canvasToNormalTexture(canvas, 2.4);
   normalMap.anisotropy = 8;
 
-  return { map, normalMap };
+  const emissiveMap = new THREE.CanvasTexture(eCanvas);
+  emissiveMap.colorSpace = THREE.SRGBColorSpace;
+  emissiveMap.wrapS = THREE.RepeatWrapping;
+  emissiveMap.wrapT = THREE.RepeatWrapping;
+
+  // 물리 스케일: 타일 폭 10m (삼각형 변 1.25m) — 예일대 코퍼 스케일 근사
+  const repeatX = ROOM.size / 10;
+  const repeatY = ROOM.size / (10 * (h / w));
+
+  waffleMapsCache = { map, normalMap, emissiveMap, repeatX, repeatY };
+  return waffleMapsCache;
 }
 
 // ---------------------------------------------------------------------------
@@ -958,17 +1061,18 @@ function createFloor(scene) {
 function createSolidWalls(scene) {
   const H = ROOM.wallHeight;
 
-  // 북쪽 벽: 차콜 전시벽 (루이지애나 사진 전시실 스타일)
-  const charcoalMat = new THREE.MeshStandardMaterial({
-    color: 0x322e2b,
+  // 북쪽 벽: 화이트 회반죽 전시벽 (칸 갤러리 — 흰 벽에 작품)
+  const northMat = new THREE.MeshStandardMaterial({
+    map: createPlasterMaps().map,
     normalMap: createPlasterMaps().normalMap,
-    normalScale: new THREE.Vector2(0.3, 0.3),
-    roughness: 0.95,
+    normalScale: new THREE.Vector2(0.35, 0.35),
+    color: 0xffffff,
+    roughness: 0.92,
     metalness: 0.0,
   });
   const north = new THREE.Mesh(
     new THREE.BoxGeometry(ROOM.size + WALL_T * 2, H, WALL_T),
-    charcoalMat
+    northMat
   );
   north.position.set(0, H / 2, -HALF - WALL_T / 2);
   north.castShadow = true;
@@ -1085,26 +1189,30 @@ function createPartitions(scene) {
     roughness: 0.92,
     metalness: 0.0,
   });
-  const edgeMat = new THREE.MeshStandardMaterial({
-    color: 0xe8e5df,
-    roughness: 0.8,
+
+  // 예일대 미술관처럼 가벽이 나무 발 위에 살짝 떠 있다
+  const FOOT_H = 0.18;
+  const footMat = new THREE.MeshStandardMaterial({
+    color: 0x8a6a4a,
+    roughness: 0.7,
+    metalness: 0.0,
   });
 
   for (const p of PARTITIONS) {
     const wall = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.t), mat);
-    wall.position.set(p.x, p.h / 2, p.z);
+    wall.position.set(p.x, FOOT_H + p.h / 2, p.z);
     wall.castShadow = true;
     wall.receiveShadow = true;
     scene.add(wall);
 
-    // 하단 받침 (구조 디테일)
-    const base = new THREE.Mesh(
-      new THREE.BoxGeometry(p.w + 0.12, 0.1, p.t + 0.12),
-      edgeMat
-    );
-    base.position.set(p.x, 0.05, p.z);
-    base.receiveShadow = true;
-    scene.add(base);
+    // 나무 발 4개
+    const fx = p.w / 2 - 0.35;
+    for (const [ox, oz] of [[-fx, 0], [fx, 0], [-fx * 0.33, 0], [fx * 0.33, 0]]) {
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.09, FOOT_H, p.t + 0.04), footMat);
+      foot.position.set(p.x + ox, FOOT_H / 2, p.z + oz);
+      foot.castShadow = true;
+      scene.add(foot);
+    }
   }
 }
 
@@ -1136,214 +1244,134 @@ function createBaseboards(scene) {
 }
 
 function createCeiling(scene) {
-  // 아치형 배럴 볼트 천장 (z 방향으로 커브, x 방향으로 흐름)
-  // - 우드 슬랫 스트립이 원호를 따라 이어짐
-  // - 정점(|z| < RIDGE_HALF)은 리지 스카이라이트 유리
-  // - 중정(x 5~13, z 5~13) 위는 완전히 뚫림 — 큰 나무 관통
-  // - 글루램 아치 리브 + 아치형 박공(동쪽 유리 / 서쪽 회반죽)
+  // 삼각 격자 콘크리트 와플 천장 (루이스 칸) — 평천장 6m
+  // 중정(x 5~13, z 5~13) 위는 완전히 뚫림 — 큰 나무 관통
   const H = ROOM.wallHeight;
-  const woodMapsBase = createWoodSlatMaps();
+  const maps = createWaffleCeilingMaps();
   const roofMat = new THREE.MeshStandardMaterial({
-    color: 0x3b3733,
-    roughness: 0.9,
-    side: THREE.DoubleSide,
-  });
-  const skyGlassMat = new THREE.MeshPhysicalMaterial({
-    color: 0xe2f0f6,
-    transparent: true,
-    opacity: 0.1,
-    roughness: 0.05,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  });
-  const ribMat = new THREE.MeshStandardMaterial({
-    color: 0x241f1a,
-    roughness: 0.5,
-    metalness: 0.6,
-  });
-
-  const c0 = COURTYARD.cx - COURTYARD.half; // 5
-  const c1 = COURTYARD.cx + COURTYARD.half; // 13
-  const cz0 = COURTYARD.cz - COURTYARD.half;
-  const cz1 = COURTYARD.cz + COURTYARD.half;
-
-  // ---- 볼트 스트립 (원호를 따라 30개) ----
-  const N = 30;
-  const dTheta = (2 * VAULT_THETA) / N;
-
-  for (let i = 0; i < N; i++) {
-    const th0 = -VAULT_THETA + i * dTheta;
-    const thm = th0 + dTheta / 2;
-    const zm = VAULT_R * Math.sin(thm);
-    const ym = VAULT_YC + VAULT_R * Math.cos(thm);
-    const ds = 2 * VAULT_R * Math.sin(dTheta / 2); // 스트립 현 길이
-
-    const zLo = VAULT_R * Math.sin(th0);
-    const zHi = VAULT_R * Math.sin(th0 + dTheta);
-    const isRidge = Math.abs(zm) < RIDGE_HALF;
-    const cutCourtyard = zHi > cz0 && zLo < cz1;
-
-    // x 커버 구간: 중정과 겹치면 좌/우로 분할
-    const spans = cutCourtyard
-      ? [[-HALF, c0], [c1, HALF]]
-      : [[-HALF, HALF]];
-
-    for (const [x0, x1] of spans) {
-      const w = x1 - x0;
-      if (w <= 0) continue;
-
-      let mat;
-      if (isRidge) {
-        mat = skyGlassMat;
-      } else {
-        const tex = woodMapsBase.map.clone();
-        tex.needsUpdate = true;
-        tex.repeat.set((2 * w) / ROOM.size, (20 * ds) / ROOM.size);
-        const nrm = woodMapsBase.normalMap.clone();
-        nrm.needsUpdate = true;
-        nrm.repeat.set((2 * w) / ROOM.size, (20 * ds) / ROOM.size);
-        mat = new THREE.MeshStandardMaterial({
-          map: tex,
-          normalMap: nrm,
-          normalScale: new THREE.Vector2(0.55, 0.55),
-          roughness: 0.8,
-        });
-      }
-
-      const strip = new THREE.Mesh(new THREE.PlaneGeometry(w, ds), mat);
-      strip.rotation.x = Math.PI / 2 + thm; // 원호 접선 방향으로 기울임
-      strip.position.set((x0 + x1) / 2, ym, zm);
-      strip.receiveShadow = !isRidge;
-      scene.add(strip);
-
-      // 외피(지붕널) — 유리 리지 구간 제외, 태양광 차단용 castShadow
-      if (!isRidge) {
-        const shell = new THREE.Mesh(new THREE.PlaneGeometry(w, ds + 0.05), roofMat);
-        shell.rotation.x = Math.PI / 2 + thm;
-        shell.position.set(
-          (x0 + x1) / 2,
-          VAULT_YC + (VAULT_R + 0.16) * Math.cos(thm),
-          (VAULT_R + 0.16) * Math.sin(thm)
-        );
-        shell.castShadow = true;
-        scene.add(shell);
-      }
-    }
-  }
-
-  // ---- 글루램 아치 리브 (5m 간격 + 양끝) ----
-  const ribXs = [-24.9, -20, -15, -10, -5, 0, 5, 10, 15, 20, 24.9];
-  for (const rx of ribXs) {
-    const isGableRib = Math.abs(rx) > 24;
-    const rib = new THREE.Mesh(
-      new THREE.TorusGeometry(VAULT_R, isGableRib ? 0.1 : 0.14, 8, 72, 2 * VAULT_THETA),
-      ribMat
-    );
-    rib.rotation.z = Math.PI / 2 - VAULT_THETA; // 아치가 정점 중심에 오도록
-    const holder = new THREE.Group();
-    holder.rotation.y = Math.PI / 2;            // XY 평면 아치 → YZ 평면
-    holder.position.set(rx, VAULT_YC, 0);
-    holder.add(rib);
-    rib.castShadow = true;
-    scene.add(holder);
-  }
-
-  // ---- 리지 스카이라이트 프레임 ----
-  // 가장자리 빔 (x로 길게, z=±RIDGE_HALF)
-  for (const z of [-RIDGE_HALF, RIDGE_HALF]) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(ROOM.size, 0.2, 0.16), ribMat);
-    beam.position.set(0, vaultY(RIDGE_HALF) - 0.02, z);
-    beam.castShadow = true;
-    scene.add(beam);
-  }
-  // 크로스 리브 (2.5m 간격) — 스트라이프 빛
-  for (let x = -HALF + MULLION_GAP; x < HALF; x += MULLION_GAP) {
-    const rib = new THREE.Mesh(
-      new THREE.BoxGeometry(0.09, 0.13, RIDGE_HALF * 2 + 0.1),
-      ribMat
-    );
-    rib.position.set(x, vaultY(0) - 0.03, 0);
-    rib.castShadow = true;
-    scene.add(rib);
-  }
-
-  // ---- 아치형 박공 (동/서 끝의 벽 위 아치 안쪽 면) ----
-  const gableShape = new THREE.Shape();
-  gableShape.moveTo(-HALF, H);
-  const gSegs = 26;
-  for (let i = 1; i <= gSegs; i++) {
-    const z = -HALF + (ROOM.size / gSegs) * i;
-    gableShape.lineTo(z, vaultY(Math.min(Math.abs(z), HALF - 0.001) * Math.sign(z) || 0));
-  }
-  gableShape.lineTo(HALF, H);
-  gableShape.closePath();
-  const gableGeo = new THREE.ShapeGeometry(gableShape);
-
-  // 동쪽: 아치형 유리 박공 (빛이 쏟아짐) + 세로 포스트 팬
-  const eastGable = new THREE.Mesh(gableGeo, skyGlassMat);
-  eastGable.rotation.y = -Math.PI / 2;
-  eastGable.position.set(HALF - 0.02, 0, 0);
-  scene.add(eastGable);
-  for (let z = -20; z <= 20; z += 5) {
-    const h = vaultY(z) - H;
-    if (h < 0.15) continue;
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, h, 0.1), ribMat);
-    post.position.set(HALF - 0.02, H + h / 2, z);
-    post.castShadow = true;
-    scene.add(post);
-  }
-
-  // 서쪽: 회반죽 박공 (양면)
-  const westGableMat = new THREE.MeshStandardMaterial({
-    map: createPlasterMaps().map,
-    normalMap: createPlasterMaps().normalMap,
-    normalScale: new THREE.Vector2(0.35, 0.35),
-    color: 0xffffff,
+    color: 0x4a4642,
     roughness: 0.92,
     side: THREE.DoubleSide,
   });
-  const westGable = new THREE.Mesh(gableGeo.clone(), westGableMat);
-  westGable.rotation.y = Math.PI / 2;
-  westGable.position.set(-HALF + 0.02, 0, 0);
-  westGable.receiveShadow = true;
-  scene.add(westGable);
 
-  // ---- 중정 개구부 우드 커브 (볼트 표면 높이를 따라) ----
-  const curbMat = new THREE.MeshStandardMaterial({ color: 0x7a5638, roughness: 0.75 });
+  const c0 = COURTYARD.cx - COURTYARD.half;
+  const c1 = COURTYARD.cx + COURTYARD.half;
+  const cz0 = COURTYARD.cz - COURTYARD.half;
+  const cz1 = COURTYARD.cz + COURTYARD.half;
+
+  // 중정 개구부를 비운 사각 세그먼트
+  const rects = [
+    [-HALF, HALF, -HALF, cz0],
+    [-HALF, c0, cz0, cz1],
+    [c1, HALF, cz0, cz1],
+    [-HALF, HALF, cz1, HALF],
+  ];
+
+  for (const [x0, x1, z0, z1] of rects) {
+    const w = x1 - x0;
+    const dpt = z1 - z0;
+    if (w <= 0 || dpt <= 0) continue;
+
+    const map = maps.map.clone();
+    const nrm = maps.normalMap.clone();
+    const emi = maps.emissiveMap.clone();
+    for (const t of [map, nrm, emi]) {
+      t.needsUpdate = true;
+      // 전체 50m 기준의 반복/오프셋 → 세그먼트 사이에서 격자가 이어진다
+      t.repeat.set((maps.repeatX * w) / ROOM.size, (maps.repeatY * dpt) / ROOM.size);
+      t.offset.set(
+        (((x0 + HALF) / ROOM.size) * maps.repeatX) % 1,
+        (((z0 + HALF) / ROOM.size) * maps.repeatY) % 1
+      );
+    }
+
+    const mat = new THREE.MeshStandardMaterial({
+      map,
+      normalMap: nrm,
+      normalScale: new THREE.Vector2(1.7, 1.7),
+      emissiveMap: emi,
+      emissive: new THREE.Color(0xffdba6),
+      emissiveIntensity: 1.5,
+      roughness: 0.92,
+      metalness: 0.0,
+    });
+
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, dpt), mat);
+    panel.rotation.x = Math.PI / 2;
+    panel.position.set((x0 + x1) / 2, H, (z0 + z1) / 2);
+    panel.receiveShadow = true;
+    scene.add(panel);
+
+    // 지붕 슬래브 (와플 구조 두께 위)
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(w, 0.4, dpt), roofMat);
+    roof.position.set((x0 + x1) / 2, H + 0.65, (z0 + z1) / 2);
+    roof.castShadow = true;
+    scene.add(roof);
+  }
+
+  // 중정 개구부 콘크리트 커브
+  const cm = createConcreteMaps();
+  const curbMat = new THREE.MeshStandardMaterial({
+    map: cm.map,
+    normalMap: cm.normalMap,
+    normalScale: new THREE.Vector2(0.5, 0.5),
+    roughness: 0.92,
+  });
   const curbT = 0.3;
-  // 북/남 가장자리 (z 고정 → 수평 배치)
-  for (const z of [cz0, cz1]) {
-    const seg = new THREE.Mesh(
-      new THREE.BoxGeometry(c1 - c0 + curbT * 2, 0.5, curbT),
-      curbMat
-    );
-    seg.position.set(COURTYARD.cx, vaultY(z) - 0.05, z + (z === cz0 ? -curbT / 2 : curbT / 2));
-    seg.castShadow = true;
-    scene.add(seg);
-  }
-  // 동/서 가장자리 (z를 따라 경사 — 중간 기울기로 근사)
-  const slopeTheta = Math.asin(COURTYARD.cz / VAULT_R);
-  for (const x of [c0 - curbT / 2, c1 + curbT / 2]) {
-    const seg = new THREE.Mesh(
-      new THREE.BoxGeometry(curbT, 0.5, cz1 - cz0 + curbT),
-      curbMat
-    );
-    seg.position.set(x, (vaultY(cz0) + vaultY(cz1)) / 2 - 0.05, COURTYARD.cz);
-    seg.rotation.x = slopeTheta;
+  const curbSegs = [
+    { w: c1 - c0 + curbT * 2, d: curbT, x: COURTYARD.cx, z: cz0 - curbT / 2 },
+    { w: c1 - c0 + curbT * 2, d: curbT, x: COURTYARD.cx, z: cz1 + curbT / 2 },
+    { w: curbT, d: cz1 - cz0, x: c0 - curbT / 2, z: COURTYARD.cz },
+    { w: curbT, d: cz1 - cz0, x: c1 + curbT / 2, z: COURTYARD.cz },
+  ];
+  for (const s of curbSegs) {
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(s.w, 1.0, s.d), curbMat);
+    seg.position.set(s.x, H + 0.35, s.z);
     seg.castShadow = true;
     scene.add(seg);
   }
 
-  // ---- 우드 처마 페시아 (볼트가 벽과 만나는 북/남 모서리) ----
-  const fasciaMat = new THREE.MeshStandardMaterial({ color: 0x7a5638, roughness: 0.75 });
+  // 지붕 가장자리 파샤 — 콘크리트 톤
   for (const z of [-(HALF + 0.3), HALF + 0.3]) {
-    const seg = new THREE.Mesh(
-      new THREE.BoxGeometry(ROOM.size + 2.6, 0.42, 0.5),
-      fasciaMat
-    );
-    seg.position.set(0, H - 0.02, z);
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(ROOM.size + 2.6, 0.5, 0.5), curbMat);
+    seg.position.set(0, H + 0.1, z);
     seg.castShadow = true;
     scene.add(seg);
+  }
+  for (const x of [-(HALF + 0.3), HALF + 0.3]) {
+    const seg = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, ROOM.size + 2.6), curbMat);
+    seg.position.set(x, H + 0.1, 0);
+    seg.castShadow = true;
+    scene.add(seg);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 노출 콘크리트 기둥 — 유리벽 모서리/중앙 구조 기둥 (칸 스타일)
+// ---------------------------------------------------------------------------
+function createConcreteColumns(scene) {
+  const H = ROOM.wallHeight;
+  const cm = createConcreteMaps();
+  const mat = new THREE.MeshStandardMaterial({
+    map: cm.map,
+    normalMap: cm.normalMap,
+    normalScale: new THREE.Vector2(0.6, 0.6),
+    roughness: 0.9,
+    metalness: 0.0,
+  });
+
+  const inset = HALF - 0.35;
+  const spots = [
+    [inset, inset], [-inset, inset], [inset, -inset], [-inset, -inset], // 코너
+    [inset, 0],   // 동쪽 유리벽 중앙 피어
+    [0, inset],   // 남쪽 유리벽 중앙 피어
+  ];
+  for (const [x, z] of spots) {
+    const col = new THREE.Mesh(new THREE.BoxGeometry(0.7, H, 0.7), mat);
+    col.position.set(x, H / 2, z);
+    col.castShadow = true;
+    col.receiveShadow = true;
+    scene.add(col);
   }
 }
 
@@ -1859,49 +1887,12 @@ export function sceneTick(delta) {
   }
 }
 
-function createLightTracks(scene) {
-  const trackMat = new THREE.MeshStandardMaterial({
-    color: 0x2a2a2c,
-    roughness: 0.45,
-    metalness: 0.85,
-  });
-  const trackLen = ROOM.size - 8;
-  const y = ROOM.wallHeight - 0.08;
-  const zPositions = [-14, 0, 14];
-
-  for (const z of zPositions) {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(trackLen, 0.07, 0.12), trackMat);
-    rail.position.set(0, y, z);
-    scene.add(rail);
-
-    const groove = new THREE.Mesh(
-      new THREE.BoxGeometry(trackLen, 0.02, 0.04),
-      new THREE.MeshStandardMaterial({ color: 0x111113, roughness: 0.6, metalness: 0.6 })
-    );
-    groove.position.set(0, y - 0.045, z);
-    scene.add(groove);
-
-    // 볼트 천장까지 올라가는 행어 로드 (서스펜션 구조)
-    for (let hx = -18; hx <= 18; hx += 9) {
-      const topY = vaultY(z) - 0.05;
-      const rodLen = topY - y;
-      if (rodLen <= 0.1) continue;
-      const rod = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.02, 0.02, rodLen, 6),
-        trackMat
-      );
-      rod.position.set(hx, y + rodLen / 2, z);
-      scene.add(rod);
-    }
-  }
-}
-
 function createDownlights(scene, theme) {
-  // 볼트 천장에서 내려오는 펜던트 조명 3x3
-  const fixtureMat = new THREE.MeshStandardMaterial({
-    color: 0x3a3a3c,
-    roughness: 0.4,
-    metalness: 0.8,
+  // 와플 천장에 매입된 캔 조명 3x3 (예일대 코퍼 스팟)
+  const canMat = new THREE.MeshStandardMaterial({
+    color: 0x1c1a18,
+    roughness: 0.5,
+    metalness: 0.6,
   });
   const bulbMat = new THREE.MeshStandardMaterial({
     color: 0xfff6e0,
@@ -1910,42 +1901,31 @@ function createDownlights(scene, theme) {
     roughness: 1.0,
   });
 
+  const H = ROOM.wallHeight;
   const coords = [-14, 0, 14];
-  const shadeY = 6.5; // 펜던트 갓 높이
   const lights = [];
 
   for (const x of coords) {
     for (const z of coords) {
-      // 볼트 표면에서 갓까지 내려오는 와이어
-      const topY = vaultY(z) - 0.04;
-      const wireLen = topY - shadeY;
-      const wire = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.015, 0.015, wireLen, 6),
-        fixtureMat
+      // 매입 캔 (천장에서 살짝 내려온 원통)
+      const can = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.085, 0.1, 0.2, 16),
+        canMat
       );
-      wire.position.set(x, shadeY + wireLen / 2, z);
-      scene.add(wire);
+      can.position.set(x, H - 0.1, z);
+      scene.add(can);
 
-      // 펜던트 갓 (원뿔형)
-      const shade = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.09, 0.2, 0.26, 20),
-        fixtureMat
-      );
-      shade.position.set(x, shadeY, z);
-      shade.castShadow = true;
-      scene.add(shade);
-
-      // 발광 전구
+      // 발광 디스크
       const bulb = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.12, 0.12, 0.025, 20),
+        new THREE.CylinderGeometry(0.07, 0.07, 0.02, 16),
         bulbMat
       );
-      bulb.position.set(x, shadeY - 0.14, z);
+      bulb.position.set(x, H - 0.21, z);
       scene.add(bulb);
 
       // 실내 다운라이트 — 테마별 광량 (night는 스포트라이트와 함께 주광 역할)
       const light = new THREE.PointLight(theme.downlight.color, theme.downlight.intensity, 18, 2);
-      light.position.set(x, shadeY - 0.3, z);
+      light.position.set(x, H - 0.4, z);
       scene.add(light);
       lights.push(light);
     }
@@ -2008,11 +1988,11 @@ export function createMuseum(scene, themeName = 'daylight') {
   createFloor(scene);
   createSolidWalls(scene);
   createGlassWalls(scene);
+  createConcreteColumns(scene);
   createPartitions(scene);
   const courtyardRefs = createCourtyard(scene, theme);
   createBaseboards(scene);
   createCeiling(scene);
-  createLightTracks(scene);
   const downlightRefs = createDownlights(scene, theme);
   const lightRefs = createGlobalLights(scene, theme);
   createCreatures(scene);
