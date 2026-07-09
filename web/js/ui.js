@@ -49,8 +49,13 @@ const IS_TOUCH =
   (typeof window !== 'undefined' && 'ontouchstart' in window) ||
   (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
 
-// 터치 액션 버튼 콜백 (setActionHandlers로 배선) — 키보드 없는 기기의 M/T/E/G 대체
-let actionHandlers = { onTour: null, onViewArtwork: null, onGuestbook: null };
+// 터치 액션 버튼 콜백 (setActionHandlers로 배선) — 키보드 없는 기기의 M/T/E/G/P 대체
+let actionHandlers = { onTour: null, onViewArtwork: null, onGuestbook: null, onCapture: null };
+
+// 공유 모달 상태 (SNS 공유 — 포토 모드)
+let shareModalOpen = false;
+let shareData = { blob: null, dataUrl: '', galleryName: '', shareUrl: '' };
+let shareCopyTimer = null;
 
 // initUI() 호출 이전에 setGalleryTitle / initGalleryPicker / initArtworkList가
 // 먼저 불려도 값을 잃지 않도록 대기시켜 두었다가 DOM 생성 직후 적용한다.
@@ -812,6 +817,87 @@ function injectStyles() {
 #lu-tourbar-exit { color: rgba(255,255,255,0.6); }
 #lu-tourbar-exit:hover { color: var(--lu-gold); }
 
+/* ------------------------------- 셔터 플래시 ------------------------------- */
+/* 포토 모드(P키) 캡처 순간 흰 플래시 — flashShutter()가 opacity를 직접 제어한다 */
+#lu-shutter {
+  position: fixed; inset: 0; z-index: 970;
+  background: #fff;
+  opacity: 0; pointer-events: none;
+}
+
+/* -------------------------------- 공유 모달 -------------------------------- */
+#lu-share {
+  position: fixed; inset: 0; z-index: 980;
+  background: rgba(4,4,5,0.96);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+#lu-share.lu-open { opacity: 1; pointer-events: auto; }
+.lu-share-card {
+  position: relative;
+  width: 100%; max-width: 460px;
+  max-height: 92vh; overflow-y: auto;
+  background: rgba(255,255,255,0.97);
+  color: #111;
+  padding: 26px 24px 22px;
+  box-shadow: 0 30px 90px rgba(0,0,0,0.5);
+  text-align: center;
+  transform: scale(0.97); opacity: 0;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease;
+}
+#lu-share.lu-open .lu-share-card { transform: scale(1); opacity: 1; }
+#lu-share-close {
+  position: absolute; top: 14px; right: 14px;
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid #ddd; border-radius: 50%;
+  color: #999; font-size: 15px; font-weight: 300; line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+#lu-share-close:hover { border-color: var(--lu-gold); color: var(--lu-gold); transform: rotate(90deg); }
+.lu-share-title {
+  font-size: 13px; letter-spacing: 0.28em; text-indent: 0.28em;
+  color: #111; margin-bottom: 18px;
+}
+.lu-share-preview {
+  display: block;
+  max-width: 100%; max-height: 55vh;
+  margin: 0 auto;
+  object-fit: contain;
+  border: 1px solid #eee;
+  background: #f4f4f2;
+}
+.lu-share-actions {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-top: 20px;
+}
+.lu-share-btn {
+  width: 100%;
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 13px; letter-spacing: 0.04em;
+  color: #222; background: transparent;
+  border: 1px solid rgba(0,0,0,0.18);
+  border-radius: 3px;
+  padding: 11px 16px; cursor: pointer;
+  transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease;
+}
+.lu-share-btn:hover { border-color: rgba(0,0,0,0.45); }
+.lu-share-btn-primary {
+  background: var(--lu-gold); border-color: var(--lu-gold); color: #111;
+}
+.lu-share-btn-primary:hover { background: #c4a02f; border-color: #c4a02f; }
+.lu-share-btn-copied { border-color: var(--lu-gold); color: var(--lu-gold); }
+.lu-share-hint {
+  margin-top: 16px;
+  font-size: 10px; letter-spacing: 0.02em; line-height: 1.6;
+  color: #b0aca4;
+}
+
 /* ------------------------------- 모바일 ------------------------------- */
 @media (max-width: 640px) {
   .lu-lobby-card { padding: 34px 22px 26px; }
@@ -841,6 +927,8 @@ function injectStyles() {
     font-size: 11px; max-width: calc(100vw - 20px);
   }
   .lu-tour-title { max-width: 110px; }
+  .lu-share-card { padding: 20px 16px 18px; max-width: calc(100vw - 24px); }
+  .lu-share-preview { max-height: 42vh; }
 }
 `;
   const style = document.createElement('style');
@@ -1045,6 +1133,7 @@ function buildControls() {
         ['M', '작품 목록'],
         ['T', '투어'],
         ['G', '방명록'],
+        ['P', '사진 촬영'],
       ];
   const panel = el('div', { id: 'lu-controls', className: 'lu lu-hud' });
   panel.appendChild(el('div', { className: 'lu-controls-title', text: 'CONTROLS' }));
@@ -1094,8 +1183,16 @@ function buildMobileDock() {
     if (typeof actionHandlers.onTour === 'function') actionHandlers.onTour();
   });
 
+  const captureBtn = el('button', {
+    className: 'lu-dock-btn', type: 'button', 'aria-label': '사진 촬영',
+    text: '캡처',
+  });
+  captureBtn.addEventListener('click', () => {
+    if (typeof actionHandlers.onCapture === 'function') actionHandlers.onCapture();
+  });
+
   // 방명록은 화면 왼쪽 책갈피 탭(#lu-gbtab)이 담당하므로 독 버튼은 두지 않는다
-  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [listBtn, tourBtn]);
+  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [listBtn, tourBtn, captureBtn]);
   document.body.appendChild(dock);
   return dock;
 }
@@ -1401,18 +1498,119 @@ function buildTourBar() {
 }
 
 // ---------------------------------------------------------------------------
+// 셔터 플래시 — 포토 모드(P키) 캡처 순간 흰 화면 페이드
+// ---------------------------------------------------------------------------
+function buildShutter() {
+  const overlay = el('div', { id: 'lu-shutter', className: 'lu' });
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+// ---------------------------------------------------------------------------
+// 공유 모달 — 포토 모드로 캡처한 화면을 SNS(X/Threads)·기기 공유·저장·링크 복사
+// ---------------------------------------------------------------------------
+function buildShareModal() {
+  const closeBtn = el('button', { id: 'lu-share-close', type: 'button', 'aria-label': '닫기', text: '×' });
+  const title = el('div', { className: 'lu-share-title', text: '전시 공유하기' });
+  const preview = el('img', { className: 'lu-share-preview', alt: '캡처한 전시 화면' });
+
+  const deviceBtn = el('button', { className: 'lu-share-btn lu-share-btn-primary', type: 'button', text: '기기로 공유' });
+  const saveBtn = el('button', { className: 'lu-share-btn', type: 'button', text: '이미지 저장' });
+  const xBtn = el('button', { className: 'lu-share-btn', type: 'button', text: 'X에 공유' });
+  const threadsBtn = el('button', { className: 'lu-share-btn', type: 'button', text: 'Threads에 공유' });
+  const copyBtn = el('button', { className: 'lu-share-btn', type: 'button', text: '링크 복사' });
+
+  const actions = el('div', { className: 'lu-share-actions' }, [deviceBtn, saveBtn, xBtn, threadsBtn, copyBtn]);
+  const hint = el('div', {
+    className: 'lu-share-hint',
+    text: '인스타그램은 이미지를 저장하거나 기기로 공유한 뒤 앱에서 올려주세요',
+  });
+
+  const card = el('div', { className: 'lu-share-card' }, [closeBtn, title, preview, actions, hint]);
+  const overlay = el('div', { id: 'lu-share', className: 'lu' }, [card]);
+  document.body.appendChild(overlay);
+
+  closeBtn.addEventListener('click', () => hideShareModal());
+  // 카드 바깥(배경) 클릭 시 닫힘 — 카드 자체 클릭은 통과
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) hideShareModal(); });
+
+  deviceBtn.addEventListener('click', async () => {
+    if (!shareData.blob || typeof navigator === 'undefined' || typeof navigator.share !== 'function') return;
+    try {
+      const file = new File([shareData.blob], 'lifeunity.png', { type: 'image/png' });
+      await navigator.share({
+        files: [file],
+        title: shareData.galleryName || 'LIFEUNITY',
+        text: `${shareData.galleryName || 'LIFEUNITY'} — LIFEUNITY 3D 전시`,
+      });
+    } catch (_) {
+      /* 사용자가 공유 시트를 취소한 경우 등 — 조용히 무시 */
+    }
+  });
+
+  saveBtn.addEventListener('click', () => {
+    if (!shareData.dataUrl) return;
+    const a = document.createElement('a');
+    a.href = shareData.dataUrl;
+    a.download = 'lifeunity.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+
+  xBtn.addEventListener('click', () => {
+    const text = `${shareData.galleryName || 'LIFEUNITY'} — LIFEUNITY 3D 전시`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareData.shareUrl || '')}`;
+    window.open(url, '_blank', 'noopener');
+  });
+
+  threadsBtn.addEventListener('click', () => {
+    const text = `${shareData.galleryName || 'LIFEUNITY'} — LIFEUNITY 3D 전시 ${shareData.shareUrl || ''}`;
+    const url = `https://www.threads.net/intent/post?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener');
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareData.shareUrl || '');
+      if (shareCopyTimer) clearTimeout(shareCopyTimer);
+      copyBtn.textContent = '복사됨';
+      copyBtn.classList.add('lu-share-btn-copied');
+      shareCopyTimer = setTimeout(() => {
+        copyBtn.textContent = '링크 복사';
+        copyBtn.classList.remove('lu-share-btn-copied');
+        shareCopyTimer = null;
+      }, 1600);
+    } catch (_) {
+      /* 클립보드 접근 실패(권한 등) — 조용히 무시 */
+    }
+  });
+
+  return { overlay, card, title, preview, deviceBtn, saveBtn, xBtn, threadsBtn, copyBtn };
+}
+
+// ---------------------------------------------------------------------------
 // 전역 키 핸들러 — Enter로 채팅 입력창 포커스, ESC 우선순위 처리
 // ---------------------------------------------------------------------------
 // ESC 우선순위 규약:
-//   ① 라이트박스가 열려 있으면 라이트박스만 닫는다
-//   ② (라이트박스가 닫혀 있고) 작품 목록이 열려 있으면 작품 목록만 닫는다
-//   ③ (위 둘이 닫혀 있고) 방명록이 열려 있으면 방명록만 닫는다
-//   ④ 셋 다 닫혀 있으면 ui.js는 아무것도 하지 않는다 (투어 종료는 main.js 담당)
+//   ① 공유 모달이 열려 있으면 공유 모달만 닫는다
+//   ② (공유 모달이 닫혀 있고) 라이트박스가 열려 있으면 라이트박스만 닫는다
+//   ③ (위 둘이 닫혀 있고) 작품 목록이 열려 있으면 작품 목록만 닫는다
+//   ④ (위 셋이 닫혀 있고) 방명록이 열려 있으면 방명록만 닫는다
+//   ⑤ 넷 다 닫혀 있으면 ui.js는 아무것도 하지 않는다 (투어 종료는 main.js 담당)
 // 채팅/방명록 입력창 포커스 중 ESC는 입력창 자체 keydown 핸들러가 stopPropagation하므로
 // 이 전역 핸들러까지 도달하지 않는다 (기존 동작 유지).
 function bindGlobalKeys() {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      if (shareModalOpen) {
+        e.preventDefault();
+        // ui.js 리스너는 main.js보다 먼저 등록되므로 여기서 멈추면
+        // 같은 ESC가 main.js의 투어-종료 리스너까지 도달하지 않는다 (ESC=한 동작).
+        e.stopImmediatePropagation();
+        hideShareModal();
+        return;
+      }
       if (lightboxOpen) {
         e.preventDefault();
         // 같은 ESC가 main.js의 투어-종료 리스너까지 도달해 라이트박스 닫기 +
@@ -1436,9 +1634,9 @@ function bindGlobalKeys() {
       }
       return;
     }
-    // 라이트박스가 열려 있는 동안에는 Enter(채팅 포커스) 등 다른 전역 키를 막는다
+    // 라이트박스/공유 모달이 열려 있는 동안에는 Enter(채팅 포커스) 등 다른 전역 키를 막는다
     // — 오버레이에 가려진 채팅 입력창이 포커스되는 혼란을 방지.
-    if (lightboxOpen) return;
+    if (lightboxOpen || shareModalOpen) return;
     if (!entered) return;
     const active = document.activeElement;
     const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
@@ -1481,6 +1679,8 @@ export function initUI({ onEnter, onChatSend } = {}) {
     guestbook: buildGuestbookPanel(),
     tourBar: buildTourBar(),
     dock: buildMobileDock(),
+    shutter: buildShutter(),
+    share: buildShareModal(),
   };
 
   bindGlobalKeys();
@@ -1750,15 +1950,79 @@ export function hideTourBar() {
   els.tourBar.bar.classList.remove('lu-open');
 }
 
-// 터치 액션 독/작품 패널 버튼 콜백 — 키보드 없는 기기에서 T(투어)/E(크게 보기)/G(방명록) 대체.
+// 터치 액션 독/작품 패널 버튼 콜백 — 키보드 없는 기기에서 T(투어)/E(크게 보기)/G(방명록)/P(캡처) 대체.
 // main.js가 배선한다. 방명록 독 버튼 자체는 ui.js 내부에서 toggleGuestbook()을 직접 호출하므로
 // onGuestbook은 현재 ui.js 내부에서 호출하지 않지만, 계약대로 인터페이스에 포함해 둔다.
-export function setActionHandlers({ onTour, onViewArtwork, onGuestbook } = {}) {
+export function setActionHandlers({ onTour, onViewArtwork, onGuestbook, onCapture } = {}) {
   actionHandlers = {
     onTour: typeof onTour === 'function' ? onTour : null,
     onViewArtwork: typeof onViewArtwork === 'function' ? onViewArtwork : null,
     onGuestbook: typeof onGuestbook === 'function' ? onGuestbook : null,
+    onCapture: typeof onCapture === 'function' ? onCapture : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// 공유 모달 — 포토 모드(P키)로 캡처한 화면을 SNS 공유
+// ---------------------------------------------------------------------------
+
+// { blob, dataUrl, galleryName, shareUrl } — blob/dataUrl은 워터마크 합성이 끝난 PNG
+// (main.js의 capturePhoto()가 canvas.toBlob + toDataURL로 만들어 전달한다).
+export function showShareModal({ blob, dataUrl, galleryName, shareUrl } = {}) {
+  if (!els) return;
+  shareData = {
+    blob: blob || null,
+    dataUrl: dataUrl || '',
+    galleryName: galleryName || '',
+    shareUrl: shareUrl || (typeof window !== 'undefined' ? window.location.href : ''),
+  };
+  els.share.preview.src = shareData.dataUrl;
+
+  // '기기로 공유' 버튼 — Web Share API의 파일 공유를 지원하는 기기에서만 노출
+  let canDeviceShare = false;
+  if (
+    shareData.blob &&
+    typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function'
+  ) {
+    try {
+      const file = new File([shareData.blob], 'lifeunity.png', { type: 'image/png' });
+      canDeviceShare = navigator.canShare({ files: [file] });
+    } catch (_) {
+      canDeviceShare = false;
+    }
+  }
+  els.share.deviceBtn.style.display = canDeviceShare ? '' : 'none';
+
+  // 복사 버튼 표시 상태 초기화 (직전 '복사됨' 피드백이 남아있지 않도록)
+  if (shareCopyTimer) { clearTimeout(shareCopyTimer); shareCopyTimer = null; }
+  els.share.copyBtn.textContent = '링크 복사';
+  els.share.copyBtn.classList.remove('lu-share-btn-copied');
+
+  shareModalOpen = true;
+  els.share.overlay.classList.add('lu-open');
+}
+
+export function hideShareModal() {
+  if (!els || !shareModalOpen) return;
+  shareModalOpen = false;
+  els.share.overlay.classList.remove('lu-open');
+}
+
+export function isShareModalOpen() {
+  return shareModalOpen;
+}
+
+// 캡처 순간 흰 플래시 0.25s 페이드 — capturePhoto()가 renderer.render() 직후 호출한다.
+export function flashShutter() {
+  if (!els) return;
+  const s = els.shutter;
+  s.style.transition = 'none';
+  s.style.opacity = '1';
+  void s.offsetWidth; // 강제 리플로우: opacity:1을 먼저 확정시킨 뒤 트랜지션을 건다
+  s.style.transition = 'opacity 0.25s ease';
+  s.style.opacity = '0';
 }
 
 // onPrev/onNext/onExit/onToggleAuto — 투어 바 버튼 클릭 시 호출될 콜백.

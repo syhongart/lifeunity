@@ -42,6 +42,9 @@ import {
   toggleGuestbook,
   isGuestbookOpen,
   setGuestbookNotes,
+  showShareModal,
+  isShareModalOpen,
+  flashShutter,
 } from './ui.js';
 
 let renderer = null;
@@ -195,6 +198,7 @@ async function init() {
     onTour: () => { if (entered) toggleTour(); },
     onViewArtwork: viewCurrentArtwork,
     onGuestbook: () => { if (entered && !isLightboxOpen()) toggleGuestbook(); },
+    onCapture: () => { if (entered && !isShareModalOpen()) { flashShutter(); capturePhoto(); } },
   });
 
   // 3. 플레이어 컨트롤러 (로비 동안 비활성)
@@ -270,6 +274,114 @@ function viewCurrentArtwork() {
   player.disable();
 }
 
+// ---------------------------------------------------------------------------
+// SNS 공유 — 포토 모드 (P키 / 터치 독 '캡처' 버튼)
+// ---------------------------------------------------------------------------
+
+// 현재 3D 화면을 캡처해 워터마크를 합성한 뒤 공유 모달을 연다.
+// WebGL 컨텍스트는 preserveDrawingBuffer:false이므로, renderer.render() 직후
+// 같은 동기 흐름 안에서 toDataURL을 호출해야 화면이 지워지기 전에 픽셀을 읽을 수 있다.
+function capturePhoto() {
+  if (!renderer || !scene || !camera) return;
+  try {
+    renderer.render(scene, camera);
+    const rawDataUrl = renderer.domElement.toDataURL('image/png');
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0);
+      drawWatermark(ctx, canvas.width, canvas.height, galleryInfo ? galleryInfo.name : '');
+
+      // canvas.toBlob은 일부 환경에서 콜백이 오지 않는 사례가 있어,
+      // 어차피 미리보기용으로 만드는 dataURL에서 동기적으로 Blob을 만든다.
+      const outDataUrl = canvas.toDataURL('image/png');
+      showShareModal({
+        blob: dataUrlToBlob(outDataUrl),
+        dataUrl: outDataUrl,
+        galleryName: (galleryInfo && galleryInfo.name) || 'LIFEUNITY 전시',
+        shareUrl: getShareUrl(),
+      });
+    };
+    img.onerror = () => {
+      setStatus('사진 촬영에 실패했습니다.');
+    };
+    img.src = rawDataUrl;
+  } catch (err) {
+    console.error('사진 촬영 실패:', err);
+    setStatus('사진 촬영에 실패했습니다.');
+  }
+}
+
+// dataURL(base64 PNG) → Blob 동기 변환 — toBlob 콜백 미발화 환경 대응
+function dataUrlToBlob(dataUrl) {
+  const base64 = dataUrl.split(',')[1];
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: 'image/png' });
+}
+
+// 캡처 이미지 하단에 그라디언트 + 전시명(좌) + LIFEUNITY 브랜드/URL(우) 워터마크를 합성한다.
+function drawWatermark(ctx, w, h, galleryName) {
+  const bandHeight = Math.max(90, Math.round(h * 0.14));
+  const grad = ctx.createLinearGradient(0, h - bandHeight, 0, h);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, h - bandHeight, w, bandHeight);
+
+  const pad = Math.max(20, Math.round(w * 0.025));
+  // 고해상도(레티나 등) 캡처에서도 워터마크가 같은 비율로 보이도록 캔버스 폭 기준 스케일
+  const s = Math.max(1, w / 1400);
+  ctx.textBaseline = 'alphabetic';
+
+  // 좌하단 — 전시명
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.font = `300 ${Math.round(18 * s)}px Helvetica, Arial, sans-serif`;
+  ctx.fillText(galleryName || 'LIFEUNITY 전시', pad, h - pad - 6 * s);
+
+  // 우하단 — LIFEUNITY(골드, letter-spacing) + 사이트 URL
+  ctx.fillStyle = '#d4af37';
+  ctx.font = `300 ${Math.round(16 * s)}px Helvetica, Arial, sans-serif`;
+  drawLetterSpacedRight(ctx, 'LIFEUNITY', w - pad, h - pad - 22 * s, 2.5 * s);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = `300 ${Math.round(12 * s)}px Helvetica, Arial, sans-serif`;
+  ctx.fillText('syhongart.github.io/lifeunity', w - pad, h - pad - 4 * s);
+}
+
+// canvas 2D는 표준 letter-spacing을 지원하지 않는 브라우저가 많아, 글자를 하나씩
+// 그려서 우측 정렬 기준으로 자간을 직접 적용한다.
+function drawLetterSpacedRight(ctx, text, rightX, y, spacing) {
+  const chars = Array.from(text);
+  const widths = chars.map((ch) => ctx.measureText(ch).width);
+  const total = widths.reduce((sum, cw) => sum + cw, 0) + spacing * (chars.length - 1);
+
+  const prevAlign = ctx.textAlign;
+  ctx.textAlign = 'left';
+  let x = rightX - total;
+  chars.forEach((ch, i) => {
+    ctx.fillText(ch, x, y);
+    x += widths[i] + spacing;
+  });
+  ctx.textAlign = prevAlign;
+}
+
+// 공유용 URL — 기본은 현재 주소(#gd= 공유 링크 포함). 해시에 인코딩된 전시 데이터가
+// 너무 길면(2000자+) SNS 인텐트/미리보기에서 깨지기 쉬우므로 같은 경로의 landing.html로 대체한다.
+function getShareUrl() {
+  const href = window.location.href;
+  if (href.length < 2000) return href;
+  return window.location.origin + window.location.pathname.replace(/index\.html$/, 'landing.html');
+}
+
 function onKeyDown(e) {
   if (e.code === 'KeyE') {
     viewCurrentArtwork();
@@ -291,6 +403,15 @@ function onKeyDown(e) {
   if (e.code === 'KeyG') {
     if (!entered || isLightboxOpen()) return;
     toggleGuestbook();
+    return;
+  }
+
+  if (e.code === 'KeyP') {
+    // 라이트박스/투어 중에도 촬영 허용 — 캔버스에는 DOM UI가 찍히지 않으므로
+    // 지금 보이는 3D 화면 그대로 캡처된다. 공유 모달이 열려 있을 때만 막는다.
+    if (!entered || isShareModalOpen()) return;
+    flashShutter();
+    capturePhoto();
     return;
   }
 
