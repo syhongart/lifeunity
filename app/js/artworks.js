@@ -189,7 +189,7 @@ const ART_CENTER_Y = 2.6; // 작품 중심 높이 (m)
 const FRAME_DEPTH = 0.1; // 프레임 두께 (m)
 const FRAME_BORDER = 0.09; // 프레임 테두리 폭 (m)
 const CEILING_LIGHT_Y = 6.8; // 스포트라이트 높이
-const NEARBY_DIST = 3.0; // 근접 판정 거리 (m)
+const NEARBY_DIST = 3.5; // 근접 판정 거리 (m) — 감상 위치(3.2m)에서도 정보 패널이 뜨도록 여유
 
 // ---------------------------------------------------------------------------
 // 자동 배치 슬롯 (pos 생략된 작품에 차례로 할당)
@@ -686,4 +686,26 @@ export function getNearbyArtwork(position) {
     }
   }
   return best;
+}
+
+// 배치 완료된 작품 배열 (createArtworks 완료 후 유효, 이전엔 []).
+// 호출측의 우발적 변형으로부터 내부 배열을 보호하기 위해 얕은 복사본을 반환한다.
+export function getPlacedArtworks() {
+  return ARTWORKS.slice();
+}
+
+// 감상 포즈 계산 — 좌표 규약:
+//   normal = (sin(art.rotY), cos(art.rotY))  (실내 쪽을 향함)
+//   감상 위치 = art.pos + normal * VIEWING_DIST (x, z)
+//   감상 yaw = art.rotY
+const VIEWING_DIST = 3.2;
+
+export function getViewingPose(art) {
+  const nx = Math.sin(art.rotY);
+  const nz = Math.cos(art.rotY);
+  return {
+    x: art.pos.x + nx * VIEWING_DIST,
+    z: art.pos.z + nz * VIEWING_DIST,
+    ry: art.rotY,
+  };
 }

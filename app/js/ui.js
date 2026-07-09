@@ -23,10 +23,18 @@ let lightboxOpen = false;
 let onLightboxClose = null;
 let lightboxCloseTimer = null;
 
-// initUI() 호출 이전에 setGalleryTitle / initGalleryPicker가 먼저 불려도
-// 값을 잃지 않도록 대기시켜 두었다가 DOM 생성 직후 적용한다.
+// 작품 목록 패널 상태
+let artworkListOpen = false;
+let onArtworkSelect = null; // initArtworkList(artworks, onSelect)의 onSelect
+
+// 투어 바 버튼 콜백 (setTourHandlers로 배선)
+let tourHandlers = { onPrev: null, onNext: null, onExit: null, onToggleAuto: null };
+
+// initUI() 호출 이전에 setGalleryTitle / initGalleryPicker / initArtworkList가
+// 먼저 불려도 값을 잃지 않도록 대기시켜 두었다가 DOM 생성 직후 적용한다.
 let pendingGalleryTitle = null;
 let pendingPicker = null; // { galleries, currentId, onPick }
+let pendingArtworkList = null; // artworks 배열
 
 // ---------------------------------------------------------------------------
 // CSS 주입
@@ -425,6 +433,118 @@ function injectStyles() {
 }
 .lu-lightbox-desc:empty { display: none; }
 
+/* ----------------------------- 작품 목록 패널 ----------------------------- */
+#lu-artlist {
+  position: fixed; z-index: 650;
+  top: 0; right: 0; bottom: 0;
+  width: min(340px, calc(100vw - 24px));
+  background: rgba(255,255,255,0.97);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: #111;
+  box-shadow: -18px 0 50px rgba(0,0,0,0.28);
+  transform: translateX(105%);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex; flex-direction: column;
+}
+#lu-artlist.lu-open { transform: translateX(0); }
+#lu-artlist-head {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid #eee;
+}
+#lu-artlist-title {
+  font-size: 13px; letter-spacing: 0.28em; text-indent: 0.28em;
+  color: #111;
+}
+#lu-artlist-close {
+  flex: 0 0 auto;
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid #ddd; border-radius: 50%;
+  color: #999; font-size: 15px; font-weight: 300; line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+#lu-artlist-close:hover { border-color: var(--lu-gold); color: var(--lu-gold); transform: rotate(90deg); }
+#lu-artlist-body {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto;
+}
+.lu-artlist-card {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; text-align: left;
+  font-family: var(--lu-font); font-weight: 300;
+  background: transparent; border: none; border-bottom: 1px solid #f0f0ee;
+  padding: 14px 24px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.lu-artlist-card:hover { background: #f6f3ea; }
+.lu-artlist-thumb {
+  flex: 0 0 auto;
+  width: 56px; height: 56px; object-fit: cover;
+  background: #eee;
+}
+.lu-artlist-info { min-width: 0; }
+.lu-artlist-name {
+  font-size: 13px; color: #111;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lu-artlist-artist {
+  margin-top: 4px;
+  font-size: 11px; letter-spacing: 0.04em; color: #999;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lu-artlist-empty {
+  padding: 40px 24px; text-align: center;
+  font-size: 12px; color: #aaa;
+}
+
+/* -------------------------------- 투어 바 -------------------------------- */
+#lu-tourbar {
+  position: fixed; z-index: 500;
+  bottom: 78px; left: 50%;
+  display: flex; align-items: center; gap: 16px;
+  background: rgba(10,10,12,0.6);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  padding: 11px 24px;
+  border-top: 2px solid var(--lu-gold);
+  font-size: 12px; letter-spacing: 0.05em;
+  color: rgba(255,255,255,0.85);
+  max-width: min(90vw, 640px);
+  opacity: 0; pointer-events: none;
+  transform: translate(-50%, 16px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  white-space: nowrap;
+}
+#lu-tourbar.lu-open { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+#lu-tourbar button {
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 12px; letter-spacing: 0.03em;
+  color: rgba(255,255,255,0.85);
+  background: transparent; border: none;
+  cursor: pointer; padding: 4px 2px;
+  transition: color 0.2s ease;
+}
+#lu-tourbar button:hover { color: var(--lu-gold); }
+.lu-tour-sep {
+  flex: 0 0 auto;
+  width: 1px; height: 14px; background: rgba(255,255,255,0.2);
+}
+.lu-tour-count { color: var(--lu-gold); }
+.lu-tour-title {
+  display: inline-block;
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; vertical-align: bottom;
+  color: rgba(255,255,255,0.85);
+}
+#lu-tourbar .lu-tour-auto.lu-tour-on { color: var(--lu-gold); }
+#lu-tourbar-exit { color: rgba(255,255,255,0.6); }
+#lu-tourbar-exit:hover { color: var(--lu-gold); }
+
 /* ------------------------------- 모바일 ------------------------------- */
 @media (max-width: 640px) {
   .lu-lobby-card { padding: 34px 22px 26px; }
@@ -442,6 +562,14 @@ function injectStyles() {
   .lu-lightbox-media { max-width: 100%; max-height: 100%; }
   .lu-lightbox-title { font-size: 19px; }
   .lu-lightbox-caption { margin-top: 18px; }
+  #lu-artlist { width: calc(100vw - 24px); }
+  #lu-artlist-head { padding: 18px 18px 14px; }
+  .lu-artlist-card { padding: 12px 18px; gap: 12px; }
+  #lu-tourbar {
+    bottom: 92px; padding: 9px 14px; gap: 10px;
+    font-size: 11px; max-width: calc(100vw - 20px);
+  }
+  .lu-tour-title { max-width: 110px; }
 }
 `;
   const style = document.createElement('style');
@@ -561,6 +689,8 @@ function buildControls() {
     ['W A S D', '이동'],
     ['Shift', '달리기'],
     ['Enter', '채팅'],
+    ['M', '작품 목록'],
+    ['T', '투어'],
   ];
   const panel = el('div', { id: 'lu-controls', className: 'lu lu-hud' });
   panel.appendChild(el('div', { className: 'lu-controls-title', text: 'CONTROLS' }));
@@ -676,15 +806,109 @@ function buildLightbox() {
   return { overlay, closeBtn, stage, title: titleEl, meta: metaEl, rule: ruleEl, desc: descEl };
 }
 
+// 썸네일 로드 실패(또는 비디오 전용 작품 등 imageUrl 부재) 시 사용할 중립 회색 placeholder
+const ARTLIST_THUMB_FALLBACK =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" fill="#eaeae6"/></svg>'
+  );
+
+function renderArtworkList(artworks) {
+  const body = els.artworkList.body;
+  body.innerHTML = '';
+  if (!Array.isArray(artworks) || artworks.length === 0) {
+    body.appendChild(el('div', { className: 'lu-artlist-empty', text: '표시할 작품이 없습니다' }));
+    return;
+  }
+  artworks.forEach((art) => {
+    const thumb = el('img', {
+      className: 'lu-artlist-thumb',
+      src: art.imageUrl || ARTLIST_THUMB_FALLBACK,
+      alt: art.title || '',
+      loading: 'lazy',
+    });
+    thumb.addEventListener('error', () => { thumb.src = ARTLIST_THUMB_FALLBACK; }, { once: true });
+
+    const info = el('div', { className: 'lu-artlist-info' }, [
+      el('div', { className: 'lu-artlist-name', text: art.title || '' }),
+      el('div', { className: 'lu-artlist-artist', text: art.artist || '' }),
+    ]);
+    const card = el('button', { type: 'button', className: 'lu-artlist-card' }, [thumb, info]);
+    card.addEventListener('click', () => {
+      hideArtworkList();
+      if (typeof onArtworkSelect === 'function') onArtworkSelect(art);
+    });
+    body.appendChild(card);
+  });
+}
+
+function buildArtworkList() {
+  const closeBtn = el('button', { id: 'lu-artlist-close', type: 'button', 'aria-label': '닫기', text: '×' });
+  const head = el('div', { id: 'lu-artlist-head' }, [
+    el('div', { id: 'lu-artlist-title', text: '작품 목록' }),
+    closeBtn,
+  ]);
+  const body = el('div', { id: 'lu-artlist-body' });
+  const panel = el('div', { id: 'lu-artlist', className: 'lu' }, [head, body]);
+  document.body.appendChild(panel);
+
+  closeBtn.addEventListener('click', () => hideArtworkList());
+
+  return { panel, body };
+}
+
+function buildTourBar() {
+  const prevBtn = el('button', { type: 'button', 'aria-label': '이전 작품', text: '◀ 이전' });
+  const sep1 = el('span', { className: 'lu-tour-sep' });
+  const countEl = el('span', { className: 'lu-tour-count' });
+  const titleEl = el('span', { className: 'lu-tour-title' });
+  const sep2 = el('span', { className: 'lu-tour-sep' });
+  const nextBtn = el('button', { type: 'button', 'aria-label': '다음 작품', text: '다음 ▶' });
+  const sep3 = el('span', { className: 'lu-tour-sep' });
+  const autoBtn = el('button', { type: 'button', className: 'lu-tour-auto' });
+  const sep4 = el('span', { className: 'lu-tour-sep' });
+  const exitBtn = el('button', { id: 'lu-tourbar-exit', type: 'button', 'aria-label': '투어 종료', text: '✕ 종료' });
+
+  const bar = el('div', { id: 'lu-tourbar', className: 'lu' }, [
+    prevBtn, sep1, countEl, titleEl, sep2, nextBtn, sep3, autoBtn, sep4, exitBtn,
+  ]);
+  document.body.appendChild(bar);
+
+  prevBtn.addEventListener('click', () => { if (tourHandlers.onPrev) tourHandlers.onPrev(); });
+  nextBtn.addEventListener('click', () => { if (tourHandlers.onNext) tourHandlers.onNext(); });
+  exitBtn.addEventListener('click', () => { if (tourHandlers.onExit) tourHandlers.onExit(); });
+  autoBtn.addEventListener('click', () => { if (tourHandlers.onToggleAuto) tourHandlers.onToggleAuto(); });
+
+  return { bar, prevBtn, nextBtn, autoBtn, exitBtn, countEl, titleEl };
+}
+
 // ---------------------------------------------------------------------------
-// 전역 키 핸들러 — Enter로 채팅 입력창 포커스
+// 전역 키 핸들러 — Enter로 채팅 입력창 포커스, ESC 우선순위 처리
 // ---------------------------------------------------------------------------
+// ESC 우선순위 규약:
+//   ① 라이트박스가 열려 있으면 라이트박스만 닫는다
+//   ② (라이트박스가 닫혀 있고) 작품 목록이 열려 있으면 작품 목록만 닫는다
+//   ③ 둘 다 닫혀 있으면 ui.js는 아무것도 하지 않는다 (투어 종료는 main.js 담당)
+// 채팅 입력창 포커스 중 ESC는 입력창 자체 keydown 핸들러가 stopPropagation하므로
+// 이 전역 핸들러까지 도달하지 않는다 (기존 동작 유지).
 function bindGlobalKeys() {
   window.addEventListener('keydown', (e) => {
-    // 라이트박스가 열려 있으면 ESC로 닫는다 (입력창 포커스 여부와 무관)
-    if (lightboxOpen && e.key === 'Escape') {
-      e.preventDefault();
-      hideLightbox();
+    if (e.key === 'Escape') {
+      if (lightboxOpen) {
+        e.preventDefault();
+        // 같은 ESC가 main.js의 투어-종료 리스너까지 도달해 라이트박스 닫기 +
+        // 투어 종료가 한 번에 일어나는 것을 막는다 (ESC=한 동작). ui.js 리스너는
+        // main.js보다 먼저 등록되므로 여기서 멈추면 main.js는 이 ESC를 못 받는다.
+        e.stopImmediatePropagation();
+        hideLightbox();
+        return;
+      }
+      if (artworkListOpen) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        hideArtworkList();
+        return;
+      }
       return;
     }
     // 라이트박스가 열려 있는 동안에는 Enter(채팅 포커스) 등 다른 전역 키를 막는다
@@ -728,6 +952,8 @@ export function initUI({ onEnter, onChatSend } = {}) {
     artwork: buildArtworkPanel(),
     galleryTitle: buildGalleryTitle(),
     lightbox: buildLightbox(),
+    artworkList: buildArtworkList(),
+    tourBar: buildTourBar(),
   };
 
   bindGlobalKeys();
@@ -735,6 +961,7 @@ export function initUI({ onEnter, onChatSend } = {}) {
   // initUI() 호출 이전에 대기 중이던 값이 있으면 지금 적용한다.
   if (pendingGalleryTitle !== null) applyGalleryTitle(pendingGalleryTitle);
   if (pendingPicker) applyGalleryPicker(pendingPicker.galleries, pendingPicker.currentId, pendingPicker.onPick);
+  if (pendingArtworkList) renderArtworkList(pendingArtworkList);
 }
 
 export function showLoading(show) {
@@ -937,4 +1164,70 @@ export function isLightboxOpen() {
 
 export function setOnLightboxClose(cb) {
   onLightboxClose = typeof cb === 'function' ? cb : null;
+}
+
+// ---------------------------------------------------------------------------
+// 작품 목록 패널 — M 키(또는 HUD 버튼)로 열어 작품을 골라 텔레포트
+// ---------------------------------------------------------------------------
+
+// artworks: getPlacedArtworks()가 반환하는 작품 배열. onSelect(art)는 카드 클릭 시
+// (패널이 자동으로 닫힌 뒤) 호출된다. createArtworks() 완료 후 호출해야 한다.
+export function initArtworkList(artworks, onSelect) {
+  onArtworkSelect = typeof onSelect === 'function' ? onSelect : null;
+  pendingArtworkList = artworks;
+  if (!els) return; // initUI() 호출 시 pendingArtworkList가 적용됨
+  renderArtworkList(pendingArtworkList);
+}
+
+export function toggleArtworkList() {
+  if (!els) return;
+  if (artworkListOpen) {
+    hideArtworkList();
+  } else {
+    artworkListOpen = true;
+    els.artworkList.panel.classList.add('lu-open');
+  }
+}
+
+export function hideArtworkList() {
+  if (!els || !artworkListOpen) return;
+  artworkListOpen = false;
+  els.artworkList.panel.classList.remove('lu-open');
+}
+
+export function isArtworkListOpen() {
+  return artworkListOpen;
+}
+
+// ---------------------------------------------------------------------------
+// 투어 바 — T 키로 시작하는 도슨트 투어의 하단 중앙 컨트롤 바
+// ---------------------------------------------------------------------------
+
+// index는 0-based (현재 작품의 배열 인덱스) — 화면에는 index+1 / total로 표시된다.
+export function showTourBar({ index, total, title, autoOn } = {}) {
+  if (!els) return;
+  const t = els.tourBar;
+  const pos = Number.isFinite(index) ? index + 1 : 1;
+  const tot = Number.isFinite(total) ? total : 0;
+  t.countEl.textContent = `● ${pos} / ${tot}`;
+  t.titleEl.textContent = ` — ${title || ''}`;
+  t.autoBtn.textContent = autoOn ? '자동진행 ON' : '자동진행 OFF';
+  t.autoBtn.classList.toggle('lu-tour-on', !!autoOn);
+  t.bar.classList.add('lu-open');
+}
+
+export function hideTourBar() {
+  if (!els) return;
+  els.tourBar.bar.classList.remove('lu-open');
+}
+
+// onPrev/onNext/onExit/onToggleAuto — 투어 바 버튼 클릭 시 호출될 콜백.
+// main.js가 T 키 진입 시(또는 이후 필요 시점에) 배선한다.
+export function setTourHandlers({ onPrev, onNext, onExit, onToggleAuto } = {}) {
+  tourHandlers = {
+    onPrev: typeof onPrev === 'function' ? onPrev : null,
+    onNext: typeof onNext === 'function' ? onNext : null,
+    onExit: typeof onExit === 'function' ? onExit : null,
+    onToggleAuto: typeof onToggleAuto === 'function' ? onToggleAuto : null,
+  };
 }
