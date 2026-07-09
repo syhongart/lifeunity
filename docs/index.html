@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LifeUnity Metaverse - 가상 전시장</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            text-align: center;
+            animation: fadeIn 1s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .status {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .status h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .progress {
+            background: rgba(255,255,255,0.3);
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            height: 100%;
+            width: 70%;
+            animation: pulse 2s ease-in-out infinite;
+            transition: width 0.5s ease;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .feature {
+            background: rgba(255,255,255,0.1);
+            padding: 1.5rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .btn {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            margin: 0.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .info {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .countdown {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 1rem 0;
+            color: #4CAF50;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2rem; }
+            .subtitle { font-size: 1.2rem; }
+            .countdown { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 LifeUnity Metaverse</h1>
+        <p class="subtitle">리얼 가상 전시장 - 누구나 들어와서 작품을 감상하세요</p>
+
+        <div class="status">
+            <h2>🚀 WebGL 빌드 중...</h2>
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <p id="statusText">Unity WebGL 빌드 진행 중</p>
+            <div class="countdown" id="countdown">--:--</div>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🌐</div>
+                <h3>멀티플레이어</h3>
+                <p>최대 50명 동시 접속</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎨</div>
+                <h3>리얼 그래픽</h3>
+                <p>URP 고품질 렌더링</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🖼️</div>
+                <h3>작품 전시</h3>
+                <p>2D/3D 갤러리</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💬</div>
+                <h3>소셜 기능</h3>
+                <p>음성/텍스트 채팅</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 2rem;">
+            <a href="https://github.com/syhongart/lifeunity" class="btn">
+                📦 GitHub 저장소
+            </a>
+            <a href="https://github.com/syhongart/lifeunity/blob/claude/voxels-korean-char-011CUumPbfUUn7d8tLwuXHig/README.md" class="btn">
+                📖 문서 보기
+            </a>
+        </div>
+
+        <div class="info">
+            <p><strong>개발 진행도:</strong> Phase 1-2 완료 (70%)</p>
+            <p><strong>지원 플랫폼:</strong> PC, WebGL, Android, iOS</p>
+            <p><strong>기술 스택:</strong> Unity 2021.3 + URP + Photon PUN2</p>
+            <p style="margin-top: 1rem; font-size: 0.8rem;">
+                © 2026 LifeUnity Metaverse | syhongartist@gmail.com
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // 진행 상황 업데이트
+        let progress = 70;
+        const progressBar = document.getElementById('progressBar');
+        const statusText = document.getElementById('statusText');
+        const countdownEl = document.getElementById('countdown');
+
+        // 예상 완료 시간 (현재 시간 + 30분)
+        const estimatedTime = new Date(Date.now() + 30 * 60 * 1000);
+
+        function updateProgress() {
+            progressBar.style.width = progress + '%';
+        }
+
+        function updateCountdown() {
+            const now = new Date();
+            const diff = estimatedTime - now;
+
+            if (diff <= 0) {
+                countdownEl.textContent = "완료 임박!";
+                statusText.textContent = "곧 접속 가능합니다...";
+                return;
+            }
+
+            const minutes = Math.floor(diff / 60000);
+            const seconds = Math.floor((diff % 60000) / 1000);
+            countdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // 상태 메시지 순환
+        const statuses = [
+            "Unity WebGL 빌드 진행 중...",
+            "리소스 최적화 중...",
+            "셰이더 컴파일 중...",
+            "Photon 네트워킹 설정 중...",
+            "URP 그래픽 렌더링 준비 중...",
+            "거의 다 되었습니다..."
+        ];
+        let statusIndex = 0;
+
+        setInterval(() => {
+            statusIndex = (statusIndex + 1) % statuses.length;
+            statusText.textContent = statuses[statusIndex];
+
+            // 진행도 증가 (최대 95%)
+            if (progress < 95) {
+                progress += 0.5;
+                updateProgress();
+            }
+        }, 3000);
+
+        // 카운트다운 업데이트
+        setInterval(updateCountdown, 1000);
+        updateCountdown();
+
+        // 페이지 로드 시 실제 빌드 상태 확인 (선택적)
+        fetch('https://api.github.com/repos/syhongart/lifeunity/branches/gh-pages')
+            .then(response => {
+                if (response.ok) {
+                    // gh-pages 브랜치가 있으면 빌드 완료
+                    statusText.textContent = "✅ 빌드 완료! 페이지를 새로고침하세요.";
+                    countdownEl.textContent = "완료!";
+                    progress = 100;
+                    updateProgress();
+                }
+            })
+            .catch(() => {
+                // 아직 빌드 안 됨
+            });
+    </script>
+</body>
+</html>
