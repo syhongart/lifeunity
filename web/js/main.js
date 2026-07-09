@@ -2,7 +2,7 @@
 // 소유: 통합 담당. 다른 모듈의 공개 API 계약을 그대로 사용한다.
 
 import * as THREE from 'three';
-import { ROOM, EYE_HEIGHT } from './config.js';
+import { ROOM, EYE_HEIGHT, BUILDING } from './config.js';
 import { createMuseum, sceneTick } from './scene.js';
 import {
   ensureGalleryLoaded,
@@ -91,9 +91,11 @@ function lerpAngle(a, b, t) {
 // player.disable()을 유지하고, 완료 시 onDone(목표 pose)을 호출한다.
 function startTween(toPose, onDone) {
   const cur = player.getState();
+  const toY = typeof toPose.y === 'number' ? toPose.y : cur.y;
   const dx = toPose.x - cur.x;
+  const dy = toY - cur.y;
   const dz = toPose.z - cur.z;
-  const dist = Math.hypot(dx, dz);
+  const dist = Math.hypot(dx, dy, dz);
   const duration = THREE.MathUtils.clamp(
     TWEEN_MIN_DURATION + dist * 0.035,
     TWEEN_MIN_DURATION,
@@ -102,9 +104,11 @@ function startTween(toPose, onDone) {
   player.disable();
   tween = {
     fromX: cur.x,
+    fromY: cur.y,
     fromZ: cur.z,
     fromRy: cur.ry,
     toX: toPose.x,
+    toY: toY,
     toZ: toPose.z,
     toRy: toPose.ry,
     duration,
@@ -121,9 +125,10 @@ function updateTween(delta) {
   const t = Math.min(1, tween.elapsed / tween.duration);
   const e = easeInOutCubic(t);
   const x = tween.fromX + (tween.toX - tween.fromX) * e;
+  const y = tween.fromY + (tween.toY - tween.fromY) * e;
   const z = tween.fromZ + (tween.toZ - tween.fromZ) * e;
   const ry = lerpAngle(tween.fromRy, tween.toRy, e);
-  camera.position.set(x, EYE_HEIGHT, z);
+  camera.position.set(x, y, z);
   tweenEuler.set(0, ry, 0, 'YXZ');
   camera.quaternion.setFromEuler(tweenEuler);
   if (t >= 1) {
@@ -155,7 +160,7 @@ async function init() {
     0.1,
     1000
   );
-  camera.position.set(0, EYE_HEIGHT, 12);
+  camera.position.set(BUILDING.spawn.x, EYE_HEIGHT, BUILDING.spawn.z);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -204,7 +209,14 @@ async function init() {
   // 3. 플레이어 컨트롤러 (로비 동안 비활성)
   // 생성자가 스폰 위치를 z=8로 재설정하므로, 의도한 스폰(z=12)은 생성 후 지정
   player = new PlayerController(camera, renderer.domElement);
-  camera.position.set(0, EYE_HEIGHT, 12);
+  // BUILDING.spawn — 1F 남측 입구 앞, 북쪽(작품 벽)을 바라보고 시작
+  const spawnFloor = BUILDING.floors.find((f) => f.id === BUILDING.spawn.floor);
+  player.setPose({
+    x: BUILDING.spawn.x,
+    y: (spawnFloor ? spawnFloor.y : 0) + EYE_HEIGHT,
+    z: BUILDING.spawn.z,
+    ry: BUILDING.spawn.ry,
+  });
   player.disable();
 
   // 4. UI 초기화 → 로비 표시
@@ -261,6 +273,26 @@ function resolveAutoTheme(theme) {
   if (h >= 6 && h < 16) return 'daylight';
   if (h >= 16 && h < 19) return 'sunset';
   return 'night';
+}
+
+// 현재 층 판정/안내 — 카메라 y가 어느 층 대역에 있는지 (계단 중간은 아래층 유지)
+let currentFloorId = null;
+function updateFloorIndicator() {
+  if (!entered) return;
+  const y = camera.position.y - EYE_HEIGHT;
+  let best = null;
+  for (const f of BUILDING.floors) {
+    if (y >= f.y - 0.9 && (best === null || f.y > best.y)) best = f;
+  }
+  if (!best) return;
+  if (currentFloorId === null) {
+    currentFloorId = best.id; // 스폰 층은 조용히 기록
+    return;
+  }
+  if (best.id !== currentFloorId) {
+    currentFloorId = best.id;
+    setStatus(best.name);
+  }
 }
 
 // 현재 감상 대상 작품을 라이트박스로 — E키와 터치 '크게 보기' 버튼이 공유하는 진입점.
@@ -626,6 +658,9 @@ function animate() {
 
     // 나비·새 애니메이션
     sceneTick(delta);
+
+    // 층 이동 안내 — 카메라 y로 현재 층 판정, 바뀔 때 1회 표시
+    updateFloorIndicator();
 
     // 멀티플레이어 (입장 후에만) — 트윈/투어 중에도 카메라 기준으로 계속 전송
     if (mp) {
