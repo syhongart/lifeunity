@@ -30,6 +30,14 @@ let onArtworkSelect = null; // initArtworkList(artworks, onSelect)의 onSelect
 // 투어 바 버튼 콜백 (setTourHandlers로 배선)
 let tourHandlers = { onPrev: null, onNext: null, onExit: null, onToggleAuto: null };
 
+// 터치 기기 여부 — 조작 안내/액션 버튼 구성이 달라진다
+const IS_TOUCH =
+  (typeof window !== 'undefined' && 'ontouchstart' in window) ||
+  (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+
+// 터치 액션 버튼 콜백 (setActionHandlers로 배선) — 키보드 없는 기기의 M/T/E 대체
+let actionHandlers = { onTour: null, onViewArtwork: null };
+
 // initUI() 호출 이전에 setGalleryTitle / initGalleryPicker / initArtworkList가
 // 먼저 불려도 값을 잃지 않도록 대기시켜 두었다가 DOM 생성 직후 적용한다.
 let pendingGalleryTitle = null;
@@ -352,7 +360,12 @@ function injectStyles() {
 #lu-artwork .lu-art-hint {
   margin-top: 16px;
   font-size: 11px; letter-spacing: 0.04em; color: #999;
+  font-family: var(--lu-font); font-weight: 300;
+  background: transparent; border: none; cursor: pointer;
+  padding: 6px 0; text-align: left;
+  transition: color 0.25s ease;
 }
+#lu-artwork .lu-art-hint:hover { color: var(--lu-gold); }
 #lu-artwork .lu-art-hint .lu-key {
   display: inline-block;
   min-width: 16px; text-align: center;
@@ -361,6 +374,44 @@ function injectStyles() {
   border: 1px solid var(--lu-gold);
   color: var(--lu-gold);
   font-size: 10px; letter-spacing: 0.04em;
+}
+
+/* ---------------------- 터치 기기: 조작법 접기 + 액션 독 ---------------------- */
+#lu-controls.lu-collapsed { display: none; }
+#lu-controls-toggle {
+  position: fixed; top: 14px; left: 14px; z-index: 520;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10,10,12,0.6);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2); border-radius: 50%;
+  color: rgba(255,255,255,0.85);
+  font-family: var(--lu-font); font-weight: 300; font-size: 15px;
+  cursor: pointer;
+  transition: border-color 0.25s ease, color 0.25s ease;
+}
+#lu-controls-toggle:active { border-color: var(--lu-gold); color: var(--lu-gold); }
+#lu-dock {
+  position: fixed; right: 14px; bottom: 96px; z-index: 520;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.lu-dock-btn {
+  width: 52px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10,10,12,0.62);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.22); border-radius: 50%;
+  color: rgba(255,255,255,0.9);
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 12px; letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: border-color 0.25s ease, color 0.25s ease, transform 0.15s ease;
+}
+.lu-dock-btn:active {
+  border-color: var(--lu-gold); color: var(--lu-gold);
+  transform: scale(0.94);
 }
 
 /* -------------------------------- 라이트박스 -------------------------------- */
@@ -684,14 +735,21 @@ function buildLobby() {
 }
 
 function buildControls() {
-  const rows = [
-    ['마우스 드래그', '시점 회전'],
-    ['W A S D', '이동'],
-    ['Shift', '달리기'],
-    ['Enter', '채팅'],
-    ['M', '작품 목록'],
-    ['T', '투어'],
-  ];
+  // 기기별 조작 안내 — 터치 기기에는 키보드 안내 대신 터치 제스처 안내
+  const rows = IS_TOUCH
+    ? [
+        ['왼쪽 드래그', '이동'],
+        ['오른쪽 드래그', '시점 회전'],
+        ['작품 카드', '탭하여 크게 보기'],
+      ]
+    : [
+        ['마우스 드래그', '시점 회전'],
+        ['W A S D', '이동'],
+        ['Shift', '달리기'],
+        ['Enter', '채팅'],
+        ['M', '작품 목록'],
+        ['T', '투어'],
+      ];
   const panel = el('div', { id: 'lu-controls', className: 'lu lu-hud' });
   panel.appendChild(el('div', { className: 'lu-controls-title', text: 'CONTROLS' }));
   rows.forEach(([key, desc]) => {
@@ -702,7 +760,47 @@ function buildControls() {
     panel.appendChild(row);
   });
   document.body.appendChild(panel);
+
+  // 터치 기기: 화면을 넓게 쓰도록 접힌 상태로 시작 — '?' 칩으로 토글
+  if (IS_TOUCH) {
+    panel.classList.add('lu-collapsed');
+    const toggle = el('button', {
+      id: 'lu-controls-toggle',
+      className: 'lu lu-hud',
+      type: 'button',
+      'aria-label': '조작법 보기',
+      text: '?',
+    });
+    toggle.addEventListener('click', () => {
+      panel.classList.toggle('lu-collapsed');
+    });
+    document.body.appendChild(toggle);
+  }
+
   return panel;
+}
+
+function buildMobileDock() {
+  // 터치 기기 전용 액션 독 — 키보드 단축키(M/T)의 대체 진입점
+  if (!IS_TOUCH) return null;
+
+  const listBtn = el('button', {
+    className: 'lu-dock-btn', type: 'button', 'aria-label': '작품 목록',
+    text: '목록',
+  });
+  listBtn.addEventListener('click', () => toggleArtworkList());
+
+  const tourBtn = el('button', {
+    className: 'lu-dock-btn', type: 'button', 'aria-label': '투어 시작/종료',
+    text: '투어',
+  });
+  tourBtn.addEventListener('click', () => {
+    if (typeof actionHandlers.onTour === 'function') actionHandlers.onTour();
+  });
+
+  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [listBtn, tourBtn]);
+  document.body.appendChild(dock);
+  return dock;
 }
 
 function buildTopRight() {
@@ -732,7 +830,7 @@ function buildChat() {
     id: 'lu-chat-input',
     type: 'text',
     maxlength: '120',
-    placeholder: 'Enter 키로 채팅…',
+    placeholder: IS_TOUCH ? '탭하여 채팅…' : 'Enter 키로 채팅…',
     autocomplete: 'off',
     spellcheck: 'false',
   });
@@ -766,10 +864,17 @@ function buildArtworkPanel() {
   const meta = el('div', { className: 'lu-art-meta' });
   const rule = el('div', { className: 'lu-art-rule' });
   const desc = el('div', { className: 'lu-art-desc' });
-  const hint = el('div', { className: 'lu-art-hint' }, [
-    el('span', { className: 'lu-key', text: 'E' }),
-    document.createTextNode(' — 크게 보기'),
-  ]);
+  // 힌트를 실제 버튼으로 — 데스크톱은 E키 안내 겸용, 터치는 유일한 진입점
+  const hint = el('button', { className: 'lu-art-hint', type: 'button' });
+  if (IS_TOUCH) {
+    hint.appendChild(document.createTextNode('크게 보기'));
+  } else {
+    hint.appendChild(el('span', { className: 'lu-key', text: 'E' }));
+    hint.appendChild(document.createTextNode(' — 크게 보기'));
+  }
+  hint.addEventListener('click', () => {
+    if (typeof actionHandlers.onViewArtwork === 'function') actionHandlers.onViewArtwork();
+  });
   const panel = el('div', { id: 'lu-artwork', className: 'lu' }, [eyebrow, title, meta, rule, desc, hint]);
   document.body.appendChild(panel);
   return { panel, title, meta, desc };
@@ -954,6 +1059,7 @@ export function initUI({ onEnter, onChatSend } = {}) {
     lightbox: buildLightbox(),
     artworkList: buildArtworkList(),
     tourBar: buildTourBar(),
+    dock: buildMobileDock(),
   };
 
   bindGlobalKeys();
@@ -1219,6 +1325,15 @@ export function showTourBar({ index, total, title, autoOn } = {}) {
 export function hideTourBar() {
   if (!els) return;
   els.tourBar.bar.classList.remove('lu-open');
+}
+
+// 터치 액션 독/작품 패널 버튼 콜백 — 키보드 없는 기기에서 T(투어)/E(크게 보기) 대체.
+// main.js가 배선한다.
+export function setActionHandlers({ onTour, onViewArtwork } = {}) {
+  actionHandlers = {
+    onTour: typeof onTour === 'function' ? onTour : null,
+    onViewArtwork: typeof onViewArtwork === 'function' ? onViewArtwork : null,
+  };
 }
 
 // onPrev/onNext/onExit/onToggleAuto — 투어 바 버튼 클릭 시 호출될 콜백.
