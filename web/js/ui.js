@@ -2,8 +2,18 @@
 // LifeUnity Museum — UI 모듈 (DOM/CSS 전부 JS에서 동적 생성)
 // MoMA 미니멀 미학: Helvetica, 화이트/블랙, 골드(#d4af37) 포인트
 
+import * as THREE from 'three';
 import { AVATAR_COLORS } from './config.js';
-import { CHARACTERS, RPM_ALLOWED_PREFIXES } from './avatar.js';
+import { CHARACTERS, createAvatarInstance } from './avatar.js';
+import {
+  DCL_BASE,
+  SKIN_TONES,
+  HAIR_COLORS,
+  DEFAULT_LOOK,
+  loadPartsManifest,
+  encodeLook,
+  decodeLook,
+} from './avatarkit.js';
 import {
   PROVIDERS as AUTH_PROVIDERS,
   MOCK_NAMES as AUTH_MOCK_PREFILL,
@@ -24,9 +34,37 @@ let els = null;              // 생성된 DOM 요소 캐시
 let callbacks = { onEnter: null, onChatSend: null };
 let selectedColor = AVATAR_COLORS[0];
 const LU_CHAR_STORAGE_KEY = 'lu-char';
+// 커스텀(DCL) 아바타 선택을 가리키는 selectedChar 값 — CHARACTERS에는 없는 가상 id.
+// 실제 char 문자열('dcl:'+JSON)은 입장 submit 시점에 저장된 룩으로부터 새로 encodeLook한다.
+const CUSTOM_CHAR_ID = 'custom';
+// readStoredChar()가 아래에서 즉시 readStoredLook()을 호출하므로, 그 함수가 참조하는
+// const 키들은 (함수 선언 자체는 호이스팅되지만 const 바인딩은 TDZ이므로) 반드시
+// readStoredChar() 호출보다 앞서 선언되어야 한다.
+const LU_LOOK_STORAGE_KEY = 'lu-custom-look-v1';
+const LU_LOOK_THUMB_KEY = 'lu-custom-look-thumb-v1';
+function readStoredLook() {
+  try {
+    const raw = localStorage.getItem(LU_LOOK_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return null; // 프라이빗 모드 등 localStorage 접근 불가 또는 저장값 손상 시 무시
+  }
+}
+function saveStoredLook(look) {
+  try { localStorage.setItem(LU_LOOK_STORAGE_KEY, JSON.stringify(look)); } catch (_) { /* 무시 */ }
+}
+function readStoredLookThumb() {
+  try { return localStorage.getItem(LU_LOOK_THUMB_KEY) || ''; } catch (_) { return ''; }
+}
+function saveStoredLookThumb(dataUrl) {
+  try { localStorage.setItem(LU_LOOK_THUMB_KEY, dataUrl); } catch (_) { /* 무시 — 용량 초과 등은 조용히 무시 */ }
+}
 function readStoredChar() {
   try {
     const saved = localStorage.getItem(LU_CHAR_STORAGE_KEY);
+    if (saved === CUSTOM_CHAR_ID && readStoredLook()) return CUSTOM_CHAR_ID;
     return CHARACTERS.some((c) => c.id === saved) ? saved : CHARACTERS[0].id;
   } catch (_) {
     return CHARACTERS[0].id; // 프라이빗 모드 등 localStorage 접근 불가 시 기본값
@@ -68,10 +106,19 @@ let shareModalOpen = false;
 let shareData = { blob: null, dataUrl: '', galleryName: '', shareUrl: '' };
 let shareCopyTimer = null;
 
-// RPM 아바타 크리에이터 모달 상태 (로비 RPM 패널의 [아바타 직접 만들기])
-let rpmCreatorOpen = false;
-let rpmCreatorTimer = null; // 10초 무응답 타임아웃 — load 성공 시 클리어
-let onRpmAvatarExported = null; // buildLobby()가 배선 — export된 URL을 #lu-rpm-url에 반영
+// 아바타 커스터마이저(#lu-avatar-maker) 모달 상태
+// (LU_LOOK_STORAGE_KEY/LU_LOOK_THUMB_KEY 및 readStoredLook/saveStoredLook/readStoredLookThumb/
+// saveStoredLookThumb는 위쪽 readStoredChar() 앞에서 이미 선언했다 — TDZ 순서 문제로 이동됨)
+let makerOpen = false;
+let makerLook = null;            // 편집 중인 작업용 look 객체 (저장 전까지는 커밋되지 않음)
+let makerManifest = null;        // loadPartsManifest() 결과 캐시 (탭 렌더링용)
+let makerActiveTab = 'shape';
+let makerRebuildTimer = null;    // 파츠 변경 → 프리뷰 재조립 300ms 디바운스
+let makerPreviewInstance = null; // createAvatarInstance() 결과 — dispose 후 재조립
+let makerPreviewRAF = null;
+let makerPreviewLastT = 0;
+let makerDragging = false;
+let makerDragLastX = 0;
 
 // initUI() 호출 이전에 setGalleryTitle / initGalleryPicker / initArtworkList가
 // 먼저 불려도 값을 잃지 않도록 대기시켜 두었다가 DOM 생성 직후 적용한다.
@@ -213,124 +260,29 @@ function injectStyles() {
   background: #f6f3ea;
 }
 
-/* ------------------------- 커스텀 아바타 (Ready Player Me) ------------------------- */
-.lu-rpm-toggle {
+/* ------------------------------ 커스텀 아바타 버튼 ------------------------------ */
+.lu-char-custom {
+  position: relative;
+  background-size: cover; background-position: center 18%;
+}
+.lu-char-custom.lu-has-thumb {
+  color: #fff; border-color: #ddd;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.75);
+}
+.lu-char-edit-link {
   display: block;
-  width: 100%;
-  margin-top: 10px;
+  margin: 6px auto 0;
   font-family: var(--lu-font); font-weight: 300;
-  font-size: 11px; letter-spacing: 0.05em;
-  color: #999; background: transparent;
-  border: none; cursor: pointer;
-  padding: 2px 0; text-align: center;
-  transition: color 0.2s ease;
-}
-.lu-rpm-toggle:hover { color: var(--lu-gold); }
-.lu-rpm-panel {
-  max-height: 0; overflow: hidden;
-  opacity: 0;
-  transition: max-height 0.3s ease, opacity 0.25s ease, margin-top 0.3s ease;
-}
-.lu-rpm-panel.lu-open {
-  max-height: 320px; opacity: 1; margin-top: 10px;
-}
-/* 상태 A — 커스텀 아바타 없음: [직접 만들기] 버튼 + 접이식 "주소가 있다면" 링크 */
-.lu-rpm-make-btn {
-  display: block; width: 100%;
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 12px; letter-spacing: 0.08em;
-  color: #111; background: var(--lu-gold);
-  border: 1px solid var(--lu-gold); border-radius: 2px;
-  padding: 11px 0; cursor: pointer; text-align: center;
-  transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
-}
-.lu-rpm-make-btn:hover { background: #c9a02f; border-color: #c9a02f; }
-.lu-rpm-has-link {
-  display: block; width: 100%;
-  margin-top: 10px;
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 10px; letter-spacing: 0.02em; color: #999;
+  font-size: 10px; letter-spacing: 0.05em; color: #999;
   background: transparent; border: none; cursor: pointer;
-  padding: 2px 0; text-align: center;
+  padding: 2px 4px; text-align: center;
   transition: color 0.2s ease;
 }
-.lu-rpm-has-link:hover { color: var(--lu-gold); }
-.lu-rpm-url-row {
-  max-height: 0; overflow: hidden;
-  opacity: 0;
-  transition: max-height 0.3s ease, opacity 0.25s ease, margin-top 0.3s ease;
-}
-.lu-rpm-url-row.lu-open {
-  max-height: 160px; opacity: 1; margin-top: 8px;
-}
-#lu-rpm-url {
-  width: 100%;
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 13px; color: #111;
-  background: #fafafa;
-  border: 1px solid #eee;
-  padding: 9px 10px; outline: none;
-  border-radius: 0;
-  transition: border-color 0.25s ease;
-}
-#lu-rpm-url::placeholder { color: #bbb; }
-#lu-rpm-url:focus { border-color: var(--lu-gold); }
-#lu-rpm-url.lu-invalid { border-color: #c0392b; }
-.lu-rpm-hint {
-  margin-top: 6px; text-align: left;
-  font-size: 10px; color: #aaa;
-}
-.lu-rpm-link {
-  display: inline-block;
-  margin-top: 8px;
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 10px; letter-spacing: 0.03em; color: #999;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: color 0.2s ease, border-color 0.2s ease;
-}
-.lu-rpm-link:hover { color: var(--lu-gold); border-bottom-color: var(--lu-gold); }
-/* 상태 B — 커스텀 아바타 있음: 미리보기 + 상태 칩 */
-.lu-rpm-chip {
-  display: flex; align-items: center; flex-wrap: wrap;
-  gap: 8px 10px;
-}
-.lu-rpm-chip-avatar {
-  flex: 0 0 auto;
-  width: 48px; height: 48px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: #f2efe6;
-  border: 1px solid #eee;
-}
-.lu-rpm-chip-text {
-  flex: 1 1 auto;
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 12px; letter-spacing: 0.03em; color: #111;
-  min-width: 120px;
-}
-.lu-rpm-chip-btn {
-  flex: 0 0 auto;
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 10px; letter-spacing: 0.04em;
-  color: #999; background: transparent;
-  border: 1px solid #ddd; border-radius: 2px;
-  padding: 6px 10px; cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-.lu-rpm-chip-btn:hover { border-color: var(--lu-gold); color: var(--lu-gold); }
-/* 커스텀 아바타가 우선일 때 캐릭터 선택 행을 옅게 처리 */
-.lu-chars.lu-dimmed { opacity: 0.45; transition: opacity 0.2s ease; }
-.lu-rpm-priority-note {
-  display: none;
-  font-size: 10px; font-weight: 300; letter-spacing: 0.02em;
-  color: #999;
-}
-.lu-rpm-priority-note.lu-show { display: inline; }
+.lu-char-edit-link:hover { color: var(--lu-gold); }
 
-/* --------------------- RPM 아바타 크리에이터 모달 (iframe) --------------------- */
-#lu-rpm-creator {
-  position: fixed; inset: 0; z-index: 990;
+/* -------------------------- 아바타 커스터마이저 모달 -------------------------- */
+#lu-avatar-maker {
+  position: fixed; inset: 0; z-index: 985;
   background: rgba(4,4,5,0.96);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
@@ -339,9 +291,9 @@ function injectStyles() {
   opacity: 0; pointer-events: none;
   transition: opacity 0.3s ease;
 }
-#lu-rpm-creator.lu-open { opacity: 1; pointer-events: auto; }
-.lu-rpmc-card {
-  width: 100%; max-width: 720px; max-height: 92vh;
+#lu-avatar-maker.lu-open { opacity: 1; pointer-events: auto; }
+.lu-am-card {
+  width: 100%; max-width: 780px; max-height: 92vh;
   background: rgba(255,255,255,0.98);
   color: #111;
   box-shadow: 0 30px 90px rgba(0,0,0,0.5);
@@ -349,18 +301,15 @@ function injectStyles() {
   transform: scale(0.97); opacity: 0;
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease;
 }
-#lu-rpm-creator.lu-open .lu-rpmc-card { transform: scale(1); opacity: 1; }
-.lu-rpmc-head {
+#lu-avatar-maker.lu-open .lu-am-card { transform: scale(1); opacity: 1; }
+.lu-am-head {
   flex: 0 0 auto;
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid #eee;
 }
-.lu-rpmc-title {
-  font-size: 13px; letter-spacing: 0.12em;
-  color: #111;
-}
-#lu-rpmc-close {
+.lu-am-title { font-size: 13px; letter-spacing: 0.16em; text-indent: 0.16em; color: #111; }
+#lu-am-close {
   flex: 0 0 auto;
   width: 30px; height: 30px;
   display: flex; align-items: center; justify-content: center;
@@ -369,35 +318,113 @@ function injectStyles() {
   cursor: pointer;
   transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
-#lu-rpmc-close:hover { border-color: var(--lu-gold); color: var(--lu-gold); transform: rotate(90deg); }
-.lu-rpmc-body {
+#lu-am-close:hover { border-color: var(--lu-gold); color: var(--lu-gold); transform: rotate(90deg); }
+.lu-am-body {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; gap: 20px;
+  padding: 20px;
+  overflow: hidden;
+}
+.lu-am-preview {
+  flex: 0 0 auto;
+  width: 300px; height: 400px;
+  background: #f2efe6;
+  border: 1px solid #eee;
   position: relative;
-  flex: 0 0 auto;
-  width: 100%; height: min(640px, 80vh);
-  background: #0c0c0d;
+  touch-action: none;
 }
-#lu-rpmc-iframe {
-  width: 100%; height: 100%;
-  border: none; display: block;
-}
-.lu-rpmc-status {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 16px; padding: 24px;
+.lu-am-preview canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.lu-am-preview.lu-dragging canvas { cursor: grabbing; }
+.lu-am-preview-hint {
+  position: absolute; left: 0; right: 0; bottom: 8px;
   text-align: center;
+  font-size: 9px; letter-spacing: 0.06em; color: #b0aca4;
+  pointer-events: none;
 }
-.lu-rpmc-status-text {
-  font-size: 12px; letter-spacing: 0.06em; line-height: 1.7;
-  color: rgba(255,255,255,0.7);
-  max-width: 280px;
+.lu-am-panel {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column;
 }
-.lu-rpmc-hint {
+.lu-am-tabs {
   flex: 0 0 auto;
-  padding: 12px 20px 16px;
-  font-size: 10px; letter-spacing: 0.04em;
-  color: #b0aca4;
-  text-align: center;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;
 }
+.lu-am-tab {
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 11px; letter-spacing: 0.04em;
+  color: #666; background: #fafafa;
+  border: 1px solid #eee; border-radius: 2px;
+  padding: 6px 11px; cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.lu-am-tab:hover { border-color: rgba(0,0,0,0.25); }
+.lu-am-tab.lu-selected { border-color: var(--lu-gold); color: #111; background: #f6f3ea; }
+.lu-am-tabpage {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto;
+  padding-top: 14px;
+}
+.lu-am-section-title {
+  font-size: 10px; letter-spacing: 0.14em; color: #999;
+  margin: 14px 0 8px;
+}
+.lu-am-section-title:first-child { margin-top: 0; }
+.lu-am-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+  gap: 8px;
+}
+.lu-am-thumb {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: #fafafa; border: 1px solid #eee; border-radius: 2px;
+  padding: 6px 4px 7px; cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.lu-am-thumb:hover { border-color: rgba(0,0,0,0.25); }
+.lu-am-thumb.lu-selected { border-color: var(--lu-gold); background: #f6f3ea; }
+.lu-am-thumb img {
+  width: 48px; height: 48px; object-fit: contain;
+  background: #fff; border: 1px solid #f0f0ee;
+}
+.lu-am-thumb-none {
+  width: 48px; height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid #f0f0ee;
+  font-size: 10px; color: #bbb; letter-spacing: 0.02em;
+}
+.lu-am-thumb-label {
+  font-size: 9px; letter-spacing: 0.01em; color: #777;
+  text-align: center;
+  max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lu-am-cute-row { margin-top: 4px; }
+.lu-am-cute-label {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: #666; margin-bottom: 8px;
+}
+.lu-am-cute-label b { color: var(--lu-gold); font-weight: 400; }
+#lu-am-cute { width: 100%; accent-color: var(--lu-gold); }
+.lu-am-footer {
+  flex: 0 0 auto;
+  display: flex; gap: 10px; justify-content: flex-end;
+  padding: 14px 20px 18px;
+  border-top: 1px solid #eee;
+}
+.lu-am-btn {
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 12px; letter-spacing: 0.1em;
+  color: #666; background: transparent;
+  border: 1px solid #ddd; border-radius: 2px;
+  padding: 10px 18px; cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+.lu-am-btn:hover { border-color: rgba(0,0,0,0.35); color: #222; }
+.lu-am-btn-primary {
+  color: #111; background: var(--lu-gold); border-color: var(--lu-gold);
+}
+.lu-am-btn-primary:hover { background: #c9a02f; border-color: #c9a02f; color: #111; }
 
 #lu-enter-btn {
   width: 100%; margin-top: 30px;
@@ -1150,9 +1177,16 @@ function injectStyles() {
   .lu-tour-title { max-width: 110px; }
   .lu-share-card { padding: 20px 16px 18px; max-width: calc(100vw - 24px); }
   .lu-share-preview { max-height: 42vh; }
-  #lu-rpm-creator { padding: 8px; }
-  .lu-rpmc-card { max-width: 100%; max-height: calc(100vh - 16px); height: calc(100vh - 16px); }
-  .lu-rpmc-body { flex: 1 1 auto; height: auto; }
+}
+
+/* --------------------- 아바타 커스터마이저: 세로 배치 폴백 --------------------- */
+@media (max-width: 720px) {
+  #lu-avatar-maker { padding: 8px; }
+  .lu-am-card { max-width: 92vw; max-height: 88vh; }
+  .lu-am-body { flex-direction: column; overflow-y: auto; padding: 14px; gap: 14px; }
+  .lu-am-preview { width: 100%; max-width: 260px; height: 320px; margin: 0 auto; }
+  .lu-am-panel { min-height: 0; }
+  .lu-am-tabpage { max-height: 40vh; }
 }
 `;
   const style = document.createElement('style');
@@ -1274,11 +1308,17 @@ function buildLobby() {
   });
   const nickHint = el('div', { className: 'lu-field-hint', text: `최대 ${MAX_NICKNAME_LEN}자 · 비워두면 '게스트'로 입장합니다` });
 
-  // 캐릭터 선택 (KayKit Adventurers 4종) — 색상 스와치 위에 배치
+  // 캐릭터 선택 (KayKit Adventurers 4종 + 휴먼 + 커스텀) — 색상 스와치 위에 배치
   const charLabel = el('div', { className: 'lu-field-label', text: '캐릭터', style: 'margin-top:26px;' });
-  const charPriorityNote = el('span', { className: 'lu-rpm-priority-note', text: ' (커스텀 아바타 우선)' });
-  charLabel.appendChild(charPriorityNote);
   const charsRow = el('div', { className: 'lu-chars' });
+
+  function selectChar(id, btn) {
+    selectedChar = id;
+    try { localStorage.setItem(LU_CHAR_STORAGE_KEY, id); } catch (_) { /* 프라이빗 모드 등 무시 */ }
+    charsRow.querySelectorAll('.lu-char-btn').forEach((b) => b.classList.remove('lu-selected'));
+    btn.classList.add('lu-selected');
+  }
+
   CHARACTERS.forEach((c) => {
     const btn = el('button', {
       className: 'lu-char-btn' + (c.id === selectedChar ? ' lu-selected' : ''),
@@ -1286,170 +1326,46 @@ function buildLobby() {
       'aria-label': `캐릭터 ${c.name}`,
       text: c.name,
     });
-    btn.addEventListener('click', () => {
-      selectedChar = c.id;
-      try { localStorage.setItem(LU_CHAR_STORAGE_KEY, c.id); } catch (_) { /* 프라이빗 모드 등 무시 */ }
-      charsRow.querySelectorAll('.lu-char-btn').forEach((b) => b.classList.remove('lu-selected'));
-      btn.classList.add('lu-selected');
-    });
+    btn.addEventListener('click', () => selectChar(c.id, btn));
     charsRow.appendChild(btn);
   });
 
-  // 커스텀 아바타 (Ready Player Me) — 접이식. URL은 내부 구현 세부사항이라 기본
-  // UI에는 절대 노출하지 않는다: [직접 만들기] → 완성 → 끝이 기본 흐름이고,
-  // 이미 URL을 알고 있는 소수만 작은 링크를 펼쳐 붙여넣는다.
-  // localStorage에 유효한 URL이 저장돼 있으면 캐릭터 선택보다 우선한다 (submit()에서 처리).
-  const LU_RPM_STORAGE_KEY = 'lu-rpm-url';
-  function readStoredRpmUrl() {
-    try {
-      return localStorage.getItem(LU_RPM_STORAGE_KEY) || '';
-    } catch (_) {
-      return ''; // 프라이빗 모드 등 localStorage 접근 불가 시 무시
+  // 커스텀 아바타(자체 커스터마이저) — 6번째 선택지. 저장된 룩이 있으면 선택만 하고,
+  // 없으면 곧바로 커스터마이저를 연다. 저장 후에는 프리뷰 스냅샷을 배경으로 보여준다.
+  const customBtn = el('button', {
+    className: 'lu-char-btn lu-char-custom' + (selectedChar === CUSTOM_CHAR_ID ? ' lu-selected' : ''),
+    type: 'button',
+    'aria-label': '커스텀 아바타',
+  });
+  function syncCustomButtonVisual() {
+    const thumb = readStoredLookThumb();
+    if (thumb) {
+      customBtn.style.backgroundImage = `url('${thumb}')`;
+      customBtn.classList.add('lu-has-thumb');
+      customBtn.textContent = '';
+      customBtn.appendChild(el('span', { text: '커스텀' }));
+    } else {
+      customBtn.style.backgroundImage = '';
+      customBtn.classList.remove('lu-has-thumb');
+      customBtn.textContent = '✨ 커스텀';
     }
   }
-  function isValidRpmUrl(url) {
-    return (
-      typeof url === 'string' &&
-      url.toLowerCase().endsWith('.glb') &&
-      RPM_ALLOWED_PREFIXES.some((prefix) => url.startsWith(prefix))
-    );
-  }
-  // RPM은 GLB 주소의 확장자를 .png로 바꾸면 렌더 미리보기 이미지를 내려준다.
-  function rpmPreviewUrl(url) {
-    return url.replace(/\.glb(\?.*)?$/i, '.png');
-  }
-
-  const rpmToggle = el('button', {
-    className: 'lu-rpm-toggle',
-    type: 'button',
-    text: '나만의 아바타 (Ready Player Me) ▾',
-  });
-
-  // ---- 상태 A: 커스텀 아바타 없음 ----
-  const rpmMakeBtn = el('button', {
-    className: 'lu-rpm-make-btn',
-    type: 'button',
-    text: '아바타 직접 만들기',
-  });
-  const rpmHasLink = el('button', {
-    className: 'lu-rpm-has-link',
-    type: 'button',
-    text: '이미 만든 아바타 주소가 있다면 ▾',
-  });
-  const rpmInput = el('input', {
-    id: 'lu-rpm-url',
-    type: 'text',
-    placeholder: 'https://models.readyplayer.me/....glb',
-    autocomplete: 'off',
-    spellcheck: 'false',
-  });
-  const rpmHint = el('div', {
-    className: 'lu-rpm-hint',
-    text: 'readyplayer.me에서 만든 아바타 주소를 붙여넣으세요',
-  });
-  const rpmLink = el('a', {
-    className: 'lu-rpm-link',
-    href: 'https://readyplayer.me/',
-    target: '_blank',
-    rel: 'noopener noreferrer',
-    text: 'readyplayer.me에서 아바타 만들기 →',
-  });
-  const rpmUrlRow = el('div', { className: 'lu-rpm-url-row' }, [rpmInput, rpmHint, rpmLink]);
-  const rpmStateA = el('div', { className: 'lu-rpm-state-a' }, [rpmMakeBtn, rpmHasLink, rpmUrlRow]);
-
-  let urlRowOpen = false;
-  function setUrlRowOpen(open) {
-    urlRowOpen = open;
-    rpmUrlRow.classList.toggle('lu-open', open);
-    rpmHasLink.textContent = `이미 만든 아바타 주소가 있다면 ${open ? '▴' : '▾'}`;
-  }
-  rpmHasLink.addEventListener('click', () => setUrlRowOpen(!urlRowOpen));
-
-  // ---- 상태 B: 커스텀 아바타 있음 (가로 칩) ----
-  const rpmChipAvatar = el('img', { className: 'lu-rpm-chip-avatar', alt: '' });
-  rpmChipAvatar.addEventListener('error', () => { rpmChipAvatar.style.display = 'none'; });
-  const rpmChipText = el('span', { className: 'lu-rpm-chip-text', text: '나만의 아바타 사용 중' });
-  const rpmChangeBtn = el('button', { className: 'lu-rpm-chip-btn', type: 'button', text: '변경' });
-  const rpmUseDefaultBtn = el('button', { className: 'lu-rpm-chip-btn', type: 'button', text: '기본 캐릭터 사용' });
-  const rpmStateB = el('div', { className: 'lu-rpm-chip' }, [rpmChipAvatar, rpmChipText, rpmChangeBtn, rpmUseDefaultBtn]);
-
-  const rpmPanel = el('div', { className: 'lu-rpm-panel' }, [rpmStateA, rpmStateB]);
-
-  let rpmOpen = false;
-  function setRpmOpen(open) {
-    rpmOpen = open;
-    rpmPanel.classList.toggle('lu-open', open);
-    rpmToggle.textContent = `나만의 아바타 (Ready Player Me) ${open ? '▴' : '▾'}`;
-  }
-  rpmToggle.addEventListener('click', () => setRpmOpen(!rpmOpen));
-
-  function syncRpmValidity() {
-    const v = rpmInput.value.trim();
-    rpmInput.classList.toggle('lu-invalid', v.length > 0 && !isValidRpmUrl(v));
-  }
-
-  // 저장된 URL 유무(그리고 유효성)에 따라 상태 A/B를 전환하고, 칩 미리보기와
-  // 캐릭터 선택 행의 옅음 처리/문구를 함께 갱신한다.
-  function renderRpmState() {
-    const stored = readStoredRpmUrl();
-    const hasCustom = isValidRpmUrl(stored);
-    rpmStateA.style.display = hasCustom ? 'none' : '';
-    rpmStateB.style.display = hasCustom ? '' : 'none';
-    charsRow.classList.toggle('lu-dimmed', hasCustom);
-    charPriorityNote.classList.toggle('lu-show', hasCustom);
-    if (hasCustom) {
-      rpmChipAvatar.style.display = '';
-      rpmChipAvatar.src = rpmPreviewUrl(stored);
+  syncCustomButtonVisual();
+  customBtn.addEventListener('click', () => {
+    if (readStoredLook()) {
+      selectChar(CUSTOM_CHAR_ID, customBtn);
+    } else {
+      openAvatarMaker();
     }
-  }
-
-  // 크리에이터 export 콜백 및 수동 붙여넣기가 공통으로 태우는 저장 경로.
-  // localStorage에 저장하고, 숨겨진 rpmInput과 값을 동기화한 뒤 패널을 재렌더한다.
-  function setRpmUrl(url) {
-    const v = typeof url === 'string' ? url.trim() : '';
-    rpmInput.value = v;
-    try { localStorage.setItem(LU_RPM_STORAGE_KEY, v); } catch (_) { /* 무시 */ }
-    syncRpmValidity();
-    renderRpmState();
-  }
-  function clearRpmUrl() {
-    rpmInput.value = '';
-    try { localStorage.removeItem(LU_RPM_STORAGE_KEY); } catch (_) { /* 무시 */ }
-    syncRpmValidity();
-    renderRpmState();
-  }
-
-  rpmMakeBtn.addEventListener('click', () => {
-    openRpmCreator((url) => {
-      setRpmUrl(url);
-      setRpmOpen(true); // RPM 패널은 펼쳐진 상태를 유지
-    });
   });
-  rpmChangeBtn.addEventListener('click', () => {
-    openRpmCreator((url) => {
-      setRpmUrl(url);
-      setRpmOpen(true);
-    });
-  });
-  rpmUseDefaultBtn.addEventListener('click', () => clearRpmUrl());
+  charsRow.appendChild(customBtn);
 
-  const storedRpmUrl = readStoredRpmUrl();
-  rpmInput.value = storedRpmUrl;
-  syncRpmValidity();
-  renderRpmState();
-  if (storedRpmUrl) {
-    setRpmOpen(true); // 저장된 값이 있으면 시작부터 펼쳐 보여준다
-    if (!isValidRpmUrl(storedRpmUrl)) setUrlRowOpen(true); // 예전에 남은 무효값이면 고칠 수 있게 입력 행도 펼친다
-  }
-
-  rpmInput.addEventListener('input', () => {
-    const v = rpmInput.value.trim();
-    try { localStorage.setItem(LU_RPM_STORAGE_KEY, v); } catch (_) { /* 무시 */ }
-    syncRpmValidity();
-    if (isValidRpmUrl(v)) renderRpmState(); // 유효한 주소를 다 붙여넣으면 곧바로 상태 B(칩)로 전환
+  const editLink = el('button', {
+    className: 'lu-char-edit-link',
+    type: 'button',
+    text: '꾸미기 ✎',
   });
-  rpmInput.addEventListener('keydown', (e) => e.stopPropagation()); // 로비 입력 중 WASD/Enter 전역 처리 차단
-  rpmInput.addEventListener('keyup', (e) => e.stopPropagation());
+  editLink.addEventListener('click', () => openAvatarMaker());
 
   // 색상 스와치
   const swatchLabel = el('div', { className: 'lu-field-label', text: '아바타 색상', style: 'margin-top:20px;' });
@@ -1489,10 +1405,7 @@ function buildLobby() {
     title, sub, rule,
     authBox, orDivider,
     nickLabel, nickInput, nickHint,
-    charLabel, charsRow,
-    // rpmToggle/rpmPanel 제외 — Ready Player Me 공개 서비스가 2026-01-31 종료되어
-    // (Netflix 인수) 커스텀 아바타 생성/URL 로드가 더 이상 동작하지 않는다.
-    // 자체 커스터마이저로 대체 예정. 관련 코드는 참조용으로만 잔존.
+    charLabel, charsRow, editLink,
     swatchLabel, swatches,
     enterBtn,
     pickerBox,
@@ -1508,8 +1421,13 @@ function buildLobby() {
   function submit() {
     let nickname = nickInput.value.trim().slice(0, MAX_NICKNAME_LEN);
     if (!nickname) nickname = '게스트';
-    // RPM 서비스 종료로 커스텀 URL 경로는 비활성 — 항상 선택된 캐릭터를 사용한다.
-    const char = selectedChar;
+    // 커스텀 선택 시 저장된 룩으로부터 char 문자열('dcl:'+JSON)을 새로 인코딩한다
+    // (manifest 기준 정규화/폴백까지 encodeLook이 처리 — avatarkit.js 계약).
+    let char = selectedChar;
+    if (selectedChar === CUSTOM_CHAR_ID) {
+      const storedLook = readStoredLook();
+      char = encodeLook(Object.assign({}, DEFAULT_LOOK, storedLook || {}));
+    }
     if (typeof callbacks.onEnter === 'function') {
       callbacks.onEnter({ nickname, color: selectedColor, char });
     }
@@ -1521,7 +1439,14 @@ function buildLobby() {
   });
   nickInput.addEventListener('keyup', (e) => e.stopPropagation());
 
-  return { overlay, nickInput, pickerBox };
+  // 커스터마이저에서 [저장하고 사용]을 누르면 호출 — 로비의 커스텀 버튼을 선택 상태로
+  // 전환하고 썸네일을 갱신한다 (아바타 메이커 모달은 이 함수를 통해서만 로비 상태를 건드린다).
+  function onCustomLookSaved() {
+    syncCustomButtonVisual();
+    selectChar(CUSTOM_CHAR_ID, customBtn);
+  }
+
+  return { overlay, nickInput, pickerBox, onCustomLookSaved };
 }
 
 function buildControls() {
@@ -1997,137 +1922,382 @@ function buildShareModal() {
 }
 
 // ---------------------------------------------------------------------------
-// RPM 아바타 크리에이터 모달 — 로비 RPM 패널의 [아바타 직접 만들기]로 열리는
-// Ready Player Me 공식 크리에이터 iframe. 완성된 아바타 GLB URL을 postMessage로
-// 받아 #lu-rpm-url에 자동으로 채워 넣는다 (RPM Frame API).
+// 아바타 커스터마이저 모달 — Decentraland base-avatars 파츠(avatarkit.js)를
+// 조합해 나만의 아바타를 만든다. 좌측 3D 라이브 프리뷰는 avatar.js의
+// createAvatarInstance()를 그대로 재사용한다(중복 구현 최소화).
 // ---------------------------------------------------------------------------
-const RPM_CREATOR_SRC = 'https://demo.readyplayer.me/avatar?frameApi&clearCache';
-const RPM_CREATOR_TIMEOUT_MS = 10000;
+const MAKER_TABS = [
+  { key: 'shape', label: '체형' },
+  { key: 'hair', label: '헤어' },
+  { key: 'top', label: '상의' },
+  { key: 'bottom', label: '하의' },
+  { key: 'feet', label: '신발' },
+  { key: 'face', label: '얼굴' },
+  { key: 'glasses', label: '안경' },
+  { key: 'color', label: '색상' },
+];
+// look 필드 → manifest 카테고리 키 (avatarkit.js 내부 매핑과 동일 — 파츠 목록 조회용)
+const MAKER_FIELD_CATEGORY = { hair: 'hair', top: 'upper_body', bottom: 'lower_body', feet: 'feet', glasses: 'eyewear' };
+const MAKER_NULLABLE_FIELDS = new Set(['hair', 'glasses']);
 
-function buildRpmCreator() {
-  const closeBtn = el('button', { id: 'lu-rpmc-close', type: 'button', 'aria-label': '닫기', text: '×' });
-  const title = el('div', { className: 'lu-rpmc-title', text: '아바타 만들기 — Ready Player Me' });
-  const head = el('div', { className: 'lu-rpmc-head' }, [title, closeBtn]);
+function buildAvatarMaker() {
+  const closeBtn = el('button', { id: 'lu-am-close', type: 'button', 'aria-label': '닫기', text: '×' });
+  const title = el('div', { className: 'lu-am-title', text: '아바타 커스터마이저' });
+  const head = el('div', { className: 'lu-am-head' }, [title, closeBtn]);
 
-  const spinner = el('div', { className: 'lu-spinner' });
-  const statusText = el('div', { className: 'lu-rpmc-status-text', text: '크리에이터 불러오는 중...' });
-  const status = el('div', { className: 'lu-rpmc-status' }, [spinner, statusText]);
+  // ---- 좌측: 3D 라이브 프리뷰 (자체 소형 렌더러 — 메인 씬과 독립) ----
+  const canvas = el('canvas', { width: '300', height: '400' });
+  const previewHint = el('div', { className: 'lu-am-preview-hint', text: '드래그해서 회전' });
+  const previewBox = el('div', { className: 'lu-am-preview' }, [canvas, previewHint]);
 
-  // src는 openRpmCreator()에서 지연 설정하고, closeRpmCreator()에서 제거해 리소스를 해제한다.
-  const iframe = el('iframe', {
-    id: 'lu-rpmc-iframe',
-    title: 'Ready Player Me 아바타 크리에이터',
-    allow: 'camera *; microphone *',
+  const previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  previewRenderer.setPixelRatio(Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
+  previewRenderer.setSize(300, 400, false);
+  previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  previewRenderer.toneMappingExposure = 1.1;
+  previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  const previewScene = new THREE.Scene();
+  previewScene.background = new THREE.Color('#f2efe6');
+  const previewCamera = new THREE.PerspectiveCamera(28, 300 / 400, 0.1, 20);
+  previewCamera.position.set(0, 1.15, 3.1);
+  previewCamera.lookAt(0, 0.95, 0);
+
+  previewScene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 3.4));
+  const previewKeyLight = new THREE.DirectionalLight(0xffffff, 3.2);
+  previewKeyLight.position.set(1.4, 2.6, 2.0);
+  previewScene.add(previewKeyLight);
+
+  const previewRotator = new THREE.Group(); // 자동 회전/드래그 회전은 이 그룹만 돌린다
+  previewScene.add(previewRotator);
+
+  // ---- 우측: 탭 + 탭 페이지 ----
+  const tabsRow = el('div', { className: 'lu-am-tabs' });
+  const tabButtons = new Map();
+  const tabPage = el('div', { className: 'lu-am-tabpage' });
+  MAKER_TABS.forEach((tab) => {
+    const btn = el('button', {
+      type: 'button',
+      className: 'lu-am-tab' + (tab.key === makerActiveTab ? ' lu-selected' : ''),
+      text: tab.label,
+    });
+    btn.addEventListener('click', () => setActiveTab(tab.key));
+    tabButtons.set(tab.key, btn);
+    tabsRow.appendChild(btn);
   });
+  const panel = el('div', { className: 'lu-am-panel' }, [tabsRow, tabPage]);
 
-  const body = el('div', { className: 'lu-rpmc-body' }, [status, iframe]);
-  const hint = el('div', { className: 'lu-rpmc-hint', text: '완성하면 주소가 자동으로 입력됩니다' });
+  const body = el('div', { className: 'lu-am-body' }, [previewBox, panel]);
 
-  const card = el('div', { className: 'lu-rpmc-card' }, [head, body, hint]);
-  const overlay = el('div', { id: 'lu-rpm-creator', className: 'lu' }, [card]);
+  const saveBtn = el('button', { className: 'lu-am-btn lu-am-btn-primary', type: 'button', text: '저장하고 사용' });
+  const closeBtn2 = el('button', { className: 'lu-am-btn', type: 'button', text: '닫기' });
+  const footer = el('div', { className: 'lu-am-footer' }, [closeBtn2, saveBtn]);
+
+  const card = el('div', { className: 'lu-am-card' }, [head, body, footer]);
+  const overlay = el('div', { id: 'lu-avatar-maker', className: 'lu' }, [card]);
   document.body.appendChild(overlay);
 
-  closeBtn.addEventListener('click', () => closeRpmCreator());
+  closeBtn.addEventListener('click', () => closeAvatarMaker());
+  closeBtn2.addEventListener('click', () => closeAvatarMaker());
   // 카드 바깥(배경) 클릭 시 닫힘 — 카드 자체 클릭은 통과
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeRpmCreator(); });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeAvatarMaker(); });
 
-  iframe.addEventListener('load', () => {
-    if (!rpmCreatorOpen) return; // 모달이 닫힌 뒤(src 제거로 발생하는) about:blank load는 무시
-    if (rpmCreatorTimer) { clearTimeout(rpmCreatorTimer); rpmCreatorTimer = null; }
-    status.style.display = 'none';
-    iframe.style.display = '';
-    subscribeRpmFrame();
-  });
-  iframe.addEventListener('error', () => showRpmCreatorError());
-
-  return { overlay, card, iframe, status, statusText, spinner };
-}
-
-// origin 검증 — 'https://' + (서브도메인.)?readyplayer.me 형태만 통과시킨다.
-// event.origin이 이 형태면(합성 테스트 이벤트 포함) 그대로 통과한다.
-function isRpmOrigin(origin) {
-  return typeof origin === 'string' && /^https:\/\/([a-z0-9-]+\.)?readyplayer\.me$/i.test(origin);
-}
-
-function parseRpmEvent(event) {
-  if (!isRpmOrigin(event.origin)) return null;
-  try {
-    const json = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    return json && json.source === 'readyplayerme' ? json : null;
-  } catch (_) {
-    return null;
-  }
-}
-
-function subscribeRpmFrame() {
-  if (!els || !els.rpmCreator) return;
-  const iframe = els.rpmCreator.iframe;
-  if (!iframe.contentWindow) return;
-  iframe.contentWindow.postMessage(
-    JSON.stringify({ target: 'readyplayerme', type: 'subscribe', eventName: 'v1.**' }),
-    '*'
-  );
-}
-
-function bindRpmMessageListener() {
-  window.addEventListener('message', (event) => {
-    const json = parseRpmEvent(event);
-    if (!json) return;
-    if (json.eventName === 'v1.frame.ready') {
-      subscribeRpmFrame();
-    } else if (json.eventName === 'v1.avatar.exported') {
-      const url = json.data && json.data.url;
-      if (url && typeof onRpmAvatarExported === 'function') onRpmAvatarExported(url);
-      closeRpmCreator();
+  saveBtn.addEventListener('click', () => {
+    if (!makerLook) return;
+    saveStoredLook(makerLook);
+    try {
+      // 스냅샷 직전에 동기 렌더 — WebGLRenderer는 preserveDrawingBuffer:false라
+      // 직전 rAF 프레임의 드로잉 버퍼가 합성 후 비워져, 클릭 핸들러 시점의
+      // toDataURL()이 빈(투명) 이미지를 반환할 수 있다. 같은 태스크 안에서 다시
+      // 그린 직후 읽으면 실제 아바타가 담긴다.
+      previewRenderer.render(previewScene, previewCamera);
+      saveStoredLookThumb(previewRenderer.domElement.toDataURL('image/png'));
+    } catch (_) {
+      /* 캔버스 오염 등 — 썸네일 스냅샷 실패는 조용히 무시(저장 자체는 계속 진행) */
     }
+    if (els && els.lobby) els.lobby.onCustomLookSaved();
+    closeAvatarMaker();
   });
+
+  // ---- 파츠 썸네일 그리드 ----
+  function thumbButton(categoryKey, item, selectedId, onPick) {
+    const isNone = item.id === null;
+    const btn = el('button', {
+      type: 'button',
+      className: 'lu-am-thumb' + (item.id === selectedId ? ' lu-selected' : ''),
+      title: item.name || (isNone ? '없음' : item.id),
+    });
+    if (isNone) {
+      btn.appendChild(el('span', { className: 'lu-am-thumb-none', text: '없음' }));
+    } else if (item.thumb) {
+      const img = el('img', {
+        src: `${DCL_BASE}/${categoryKey}/${item.id}/${item.thumb}`,
+        alt: item.name || item.id,
+        loading: 'lazy',
+      });
+      img.addEventListener(
+        'error',
+        () => {
+          img.remove();
+          btn.insertBefore(
+            el('span', { className: 'lu-am-thumb-none', text: (item.name || item.id).slice(0, 2) }),
+            btn.firstChild
+          );
+        },
+        { once: true }
+      );
+      btn.appendChild(img);
+    } else {
+      btn.appendChild(el('span', { className: 'lu-am-thumb-none', text: (item.name || item.id).slice(0, 2) }));
+    }
+    btn.appendChild(el('span', { className: 'lu-am-thumb-label', text: isNone ? '없음' : item.name || item.id }));
+    btn.addEventListener('click', () => onPick(item.id));
+    return btn;
+  }
+
+  function renderPartGrid(container, categoryKey, field) {
+    const list = (makerManifest && makerManifest.categories && makerManifest.categories[categoryKey]) || [];
+    const supported = list.filter((it) => it.models && it.models[makerLook.shape]);
+    const grid = el('div', { className: 'lu-am-grid' });
+    if (MAKER_NULLABLE_FIELDS.has(field)) {
+      grid.appendChild(thumbButton(categoryKey, { id: null, name: '없음' }, makerLook[field], (id) => pickField(field, id)));
+    }
+    supported.forEach((item) => grid.appendChild(thumbButton(categoryKey, item, makerLook[field], (id) => pickField(field, id))));
+    container.appendChild(grid);
+  }
+
+  // encodeLook()→decodeLook() 왕복으로 avatarkit.js의 정규화/체형-미지원 폴백 로직을
+  // 그대로 재사용한다(파츠 id 유효성 검사 등을 ui.js에 중복 구현하지 않는다).
+  function normalizeMakerLook() {
+    makerLook = decodeLook(encodeLook(makerLook)) || Object.assign({}, DEFAULT_LOOK);
+  }
+
+  function pickField(field, id) {
+    if (!makerLook) return;
+    makerLook[field] = id;
+    normalizeMakerLook();
+    scheduleRebuildPreview();
+    renderActiveTab();
+  }
+
+  function pickShape(shape) {
+    if (!makerLook || makerLook.shape === shape) return;
+    makerLook.shape = shape;
+    normalizeMakerLook(); // 체형 미지원 파츠는 여기서 기본값으로 자동 대체됨
+    scheduleRebuildPreview();
+    renderActiveTab();
+  }
+
+  function renderShapeTab() {
+    const list = (makerManifest && makerManifest.categories && makerManifest.categories.body_shape) || [];
+    const grid = el('div', { className: 'lu-am-grid' });
+    list.forEach((item) => {
+      const shape = item.models && item.models.male ? 'male' : 'female';
+      grid.appendChild(thumbButton('body_shape', item, makerLook.shape === shape ? shape : null, () => pickShape(shape)));
+    });
+    tabPage.appendChild(grid);
+  }
+
+  function renderFaceTab() {
+    [
+      ['눈', 'eyes', 'eyes'],
+      ['눈썹', 'eyebrows', 'brows'],
+      ['입', 'mouth', 'mouth'],
+    ].forEach(([label, categoryKey, field]) => {
+      tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: label }));
+      renderPartGrid(tabPage, categoryKey, field);
+    });
+  }
+
+  function renderColorTab() {
+    tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: '피부색' }));
+    const skinRow = el('div', { className: 'lu-swatches' });
+    SKIN_TONES.forEach((hex) => {
+      const swatch = el('button', {
+        type: 'button',
+        className: 'lu-swatch' + (makerLook.skin === hex ? ' lu-selected' : ''),
+        style: `background:${hex};`,
+        title: hex,
+        'aria-label': `피부색 ${hex}`,
+      });
+      swatch.addEventListener('click', () => {
+        makerLook.skin = hex;
+        normalizeMakerLook();
+        scheduleRebuildPreview();
+        renderActiveTab();
+      });
+      skinRow.appendChild(swatch);
+    });
+    tabPage.appendChild(skinRow);
+
+    tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: '머리 색' }));
+    const hairRow = el('div', { className: 'lu-swatches' });
+    HAIR_COLORS.forEach((hex) => {
+      const swatch = el('button', {
+        type: 'button',
+        className: 'lu-swatch' + (makerLook.hairColor === hex ? ' lu-selected' : ''),
+        style: `background:${hex};`,
+        title: hex,
+        'aria-label': `머리색 ${hex}`,
+      });
+      swatch.addEventListener('click', () => {
+        makerLook.hairColor = hex;
+        normalizeMakerLook();
+        scheduleRebuildPreview();
+        renderActiveTab();
+      });
+      hairRow.appendChild(swatch);
+    });
+    tabPage.appendChild(hairRow);
+
+    tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: '귀여움' }));
+    const cuteLabel = el('div', { className: 'lu-am-cute-label' }, [
+      el('span', { text: '진지함' }),
+      el('b', { text: `${Math.round(makerLook.cute * 100)}%` }),
+      el('span', { text: '귀여움' }),
+    ]);
+    const cuteInput = el('input', {
+      id: 'lu-am-cute',
+      type: 'range',
+      min: '0',
+      max: '100',
+      step: '1',
+      value: String(Math.round(makerLook.cute * 100)),
+    });
+    cuteInput.addEventListener('input', () => {
+      makerLook.cute = Number(cuteInput.value) / 100;
+      cuteLabel.querySelector('b').textContent = `${cuteInput.value}%`;
+      scheduleRebuildPreview(); // 슬라이더 드래그 중에는 탭을 재렌더하지 않는다(포커스 유지)
+    });
+    cuteInput.addEventListener('keydown', (e) => e.stopPropagation());
+    tabPage.appendChild(el('div', { className: 'lu-am-cute-row' }, [cuteLabel, cuteInput]));
+  }
+
+  function renderActiveTab() {
+    tabPage.textContent = '';
+    if (!makerLook || !makerManifest) return;
+    tabButtons.forEach((btn, key) => btn.classList.toggle('lu-selected', key === makerActiveTab));
+    if (makerActiveTab === 'shape') renderShapeTab();
+    else if (makerActiveTab === 'face') renderFaceTab();
+    else if (makerActiveTab === 'color') renderColorTab();
+    else renderPartGrid(tabPage, MAKER_FIELD_CATEGORY[makerActiveTab], makerActiveTab);
+  }
+
+  function setActiveTab(key) {
+    makerActiveTab = key;
+    renderActiveTab();
+  }
+
+  // ---- 프리뷰 조립/재조립 — 파츠 변경 300ms 디바운스 후 dispose→재조립 ----
+  function rebuildPreview() {
+    if (!makerLook) return;
+    if (makerPreviewInstance) {
+      previewRotator.remove(makerPreviewInstance.group);
+      makerPreviewInstance.dispose();
+      makerPreviewInstance = null;
+    }
+    makerPreviewInstance = createAvatarInstance(encodeLook(makerLook), GOLD, ' ');
+    previewRotator.add(makerPreviewInstance.group);
+  }
+
+  function scheduleRebuildPreview() {
+    if (makerRebuildTimer) clearTimeout(makerRebuildTimer);
+    makerRebuildTimer = setTimeout(() => {
+      makerRebuildTimer = null;
+      rebuildPreview();
+    }, 300);
+  }
+
+  // ---- 렌더 루프: 느린 자동 회전 + idle 애니메이션(speed=0) ----
+  function previewFrame(t) {
+    makerPreviewRAF = requestAnimationFrame(previewFrame);
+    const delta = makerPreviewLastT ? Math.min(0.05, (t - makerPreviewLastT) / 1000) : 0;
+    makerPreviewLastT = t;
+    if (!makerDragging) previewRotator.rotation.y += delta * 0.35;
+    if (makerPreviewInstance) makerPreviewInstance.update(delta, 0); // speed 0 → idle 블렌드
+    previewRenderer.render(previewScene, previewCamera);
+  }
+  function startPreviewLoop() {
+    if (makerPreviewRAF) return;
+    makerPreviewLastT = 0;
+    makerPreviewRAF = requestAnimationFrame(previewFrame);
+  }
+  function stopPreviewLoop() {
+    if (makerPreviewRAF) cancelAnimationFrame(makerPreviewRAF);
+    makerPreviewRAF = null;
+  }
+
+  // ---- 드래그 회전 (자동 회전은 드래그 중 일시정지) ----
+  canvas.addEventListener('pointerdown', (e) => {
+    makerDragging = true;
+    makerDragLastX = e.clientX;
+    previewBox.classList.add('lu-dragging');
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* 무시 */ }
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!makerDragging) return;
+    const dx = e.clientX - makerDragLastX;
+    makerDragLastX = e.clientX;
+    previewRotator.rotation.y += dx * 0.012;
+  });
+  function endDrag() {
+    makerDragging = false;
+    previewBox.classList.remove('lu-dragging');
+  }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerleave', endDrag);
+
+  async function open() {
+    makerOpen = true;
+    overlay.classList.add('lu-open');
+    startPreviewLoop();
+    tabPage.textContent = '';
+    const manifest = await loadPartsManifest().catch((err) => {
+      console.warn('DCL 파츠 manifest 로드 실패:', err);
+      return null;
+    });
+    if (!makerOpen) return; // 로딩 중 모달이 닫힌 경우
+    makerManifest = manifest;
+    const stored = readStoredLook();
+    makerLook = Object.assign({}, DEFAULT_LOOK, stored || {});
+    normalizeMakerLook();
+    makerActiveTab = 'shape';
+    renderActiveTab();
+    rebuildPreview();
+  }
+
+  function close() {
+    if (!makerOpen) return;
+    makerOpen = false;
+    overlay.classList.remove('lu-open');
+    stopPreviewLoop();
+    if (makerRebuildTimer) { clearTimeout(makerRebuildTimer); makerRebuildTimer = null; }
+    if (makerPreviewInstance) {
+      previewRotator.remove(makerPreviewInstance.group);
+      makerPreviewInstance.dispose();
+      makerPreviewInstance = null;
+    }
+  }
+
+  return { overlay, card, open, close };
 }
 
-// onExported(url) — export 완료 시 호출될 콜백. buildLobby()가 [아바타 직접 만들기]
-// 클릭 시 배선해 #lu-rpm-url을 채우고 패널을 펼친 채로 유지한다.
-function openRpmCreator(onExported) {
-  if (!els || !els.rpmCreator) return;
-  onRpmAvatarExported = typeof onExported === 'function' ? onExported : null;
-  rpmCreatorOpen = true;
-
-  const { overlay, iframe, status, statusText, spinner } = els.rpmCreator;
-  spinner.style.display = '';
-  statusText.textContent = '크리에이터 불러오는 중...';
-  status.style.display = 'flex';
-  iframe.style.display = 'none';
-  overlay.classList.add('lu-open');
-
-  if (rpmCreatorTimer) clearTimeout(rpmCreatorTimer);
-  rpmCreatorTimer = setTimeout(() => showRpmCreatorError(), RPM_CREATOR_TIMEOUT_MS);
-
-  iframe.src = RPM_CREATOR_SRC; // lazy 생성 — 모달을 열 때만 로드
+// 로비의 커스텀 버튼/꾸미기 링크가 호출하는 진입점 — 실제 열기/닫기는
+// buildAvatarMaker()가 반환한 open()/close()에 위임한다.
+function openAvatarMaker() {
+  if (els && els.avatarMaker) els.avatarMaker.open();
 }
-
-function showRpmCreatorError() {
-  if (!els || !els.rpmCreator) return;
-  if (rpmCreatorTimer) { clearTimeout(rpmCreatorTimer); rpmCreatorTimer = null; }
-  const { status, statusText, spinner, iframe } = els.rpmCreator;
-  spinner.style.display = 'none';
-  statusText.textContent = '연결할 수 없습니다 — readyplayer.me에서 만든 주소를 직접 붙여넣어 주세요';
-  status.style.display = 'flex';
-  iframe.style.display = 'none';
-}
-
-function closeRpmCreator() {
-  if (!els || !els.rpmCreator || !rpmCreatorOpen) return;
-  rpmCreatorOpen = false;
-  onRpmAvatarExported = null;
-  if (rpmCreatorTimer) { clearTimeout(rpmCreatorTimer); rpmCreatorTimer = null; }
-  els.rpmCreator.overlay.classList.remove('lu-open');
-  els.rpmCreator.iframe.removeAttribute('src'); // 리소스 해제
+function closeAvatarMaker() {
+  if (els && els.avatarMaker) els.avatarMaker.close();
 }
 
 // ---------------------------------------------------------------------------
 // 전역 키 핸들러 — Enter로 채팅 입력창 포커스, ESC 우선순위 처리
 // ---------------------------------------------------------------------------
 // ESC 우선순위 규약:
-//   ① 아바타 크리에이터 모달이 열려 있으면 크리에이터 모달만 닫는다
-//   ② (크리에이터 모달이 닫혀 있고) 공유 모달이 열려 있으면 공유 모달만 닫는다
+//   ① 아바타 커스터마이저 모달이 열려 있으면 커스터마이저 모달만 닫는다
+//   ② (커스터마이저가 닫혀 있고) 공유 모달이 열려 있으면 공유 모달만 닫는다
 //   ③ (위 둘이 닫혀 있고) 라이트박스가 열려 있으면 라이트박스만 닫는다
 //   ④ (위 셋이 닫혀 있고) 작품 목록이 열려 있으면 작품 목록만 닫는다
 //   ⑤ (위 넷이 닫혀 있고) 방명록이 열려 있으면 방명록만 닫는다
@@ -2137,12 +2307,12 @@ function closeRpmCreator() {
 function bindGlobalKeys() {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      if (rpmCreatorOpen) {
+      if (makerOpen) {
         e.preventDefault();
         // ui.js 리스너는 main.js보다 먼저 등록되므로 여기서 멈추면
         // 같은 ESC가 main.js의 투어-종료 리스너까지 도달하지 않는다 (ESC=한 동작).
         e.stopImmediatePropagation();
-        closeRpmCreator();
+        closeAvatarMaker();
         return;
       }
       if (shareModalOpen) {
@@ -2176,9 +2346,9 @@ function bindGlobalKeys() {
       }
       return;
     }
-    // 라이트박스/공유 모달/크리에이터 모달이 열려 있는 동안에는 Enter(채팅 포커스) 등
+    // 라이트박스/공유 모달/커스터마이저 모달이 열려 있는 동안에는 Enter(채팅 포커스) 등
     // 다른 전역 키를 막는다 — 오버레이에 가려진 채팅 입력창이 포커스되는 혼란을 방지.
-    if (lightboxOpen || shareModalOpen || rpmCreatorOpen) return;
+    if (lightboxOpen || shareModalOpen || makerOpen) return;
     if (!entered) return;
     const active = document.activeElement;
     const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
@@ -2223,11 +2393,12 @@ export function initUI({ onEnter, onChatSend } = {}) {
     dock: buildMobileDock(),
     shutter: buildShutter(),
     share: buildShareModal(),
-    rpmCreator: buildRpmCreator(),
+    avatarMaker: buildAvatarMaker(),
   };
 
   bindGlobalKeys();
-  bindRpmMessageListener();
+  // 커스터마이저를 열기 전에 미리 워밍업 — 첫 오픈 시 탭이 빈 상태로 잠깐 보이는 것을 줄인다.
+  loadPartsManifest().catch(() => { /* 실패해도 openAvatarMaker()가 재시도 + 콘솔 경고 */ });
 
   // initUI() 호출 이전에 대기 중이던 값이 있으면 지금 적용한다.
   if (pendingGalleryTitle !== null) applyGalleryTitle(pendingGalleryTitle);
