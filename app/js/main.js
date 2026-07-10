@@ -14,7 +14,7 @@ import {
 import { startAmbient } from './ambient.js';
 import { PlayerController } from './player.js';
 import { MultiplayerManager } from './multiplayer.js';
-import { preloadAvatarTemplates } from './avatar.js';
+import { preloadAvatarTemplates, createAvatarInstance } from './avatar.js';
 import { loadNotes, saveNotes, mergeNotes, makeNote } from './guestbook.js';
 import {
   initUI,
@@ -53,6 +53,69 @@ let scene = null;
 let camera = null;
 let player = null;
 let mp = null; // MultiplayerManager — 입장 전에는 null (sendState/update 가드)
+
+// ---------------------------------------------------------------------------
+// 3인칭 '내 모습 보기' (V키 / 터치 독 '시점' 버튼)
+// 플레이어 제어는 1인칭 그대로 두고, 렌더 직전에만 카메라를 시선 반대 방향으로
+// 당겼다가 복원한다 — player.js가 camera.position을 눈 위치로 소유하는 계약을
+// 깨지 않는다(이동·충돌·상태 전송 모두 눈 위치 기준 유지).
+// ---------------------------------------------------------------------------
+const SELF_CAM_DIST = 3.0;
+const SELF_CAM_RISE = 0.7;
+const SELF_CAM_TILT = -0.2; // 살짝 내려다보는 오버숄더 앵글(rad)
+let thirdPerson = false;
+let selfAvatar = null;  // createAvatarInstance() 결과 — 최초 토글 시 지연 생성
+let selfInfo = null;    // { nickname, color, char } — 입장 시 캡처
+let selfPrev = null;    // 자기 속도 산출용 직전 (x,z)
+let selfSpeed = 0;
+const _selfCamSaved = new THREE.Vector3();
+const _selfCamBack = new THREE.Vector3();
+const _selfCamQuatSaved = new THREE.Quaternion();
+
+function toggleSelfView() {
+  if (!entered) return;
+  thirdPerson = !thirdPerson;
+  if (thirdPerson) {
+    if (!selfAvatar && selfInfo) {
+      try {
+        selfAvatar = createAvatarInstance(selfInfo.char, selfInfo.color, ' ');
+        // 닉네임 라벨 스프라이트 숨김 — 3인칭 화면 중앙을 빈 알약이 가리지 않게
+        selfAvatar.group.traverse((o) => {
+          if (o.isSprite) o.visible = false;
+        });
+        scene.add(selfAvatar.group);
+      } catch (err) {
+        console.warn('내 아바타 생성 실패:', err);
+        selfAvatar = null;
+        thirdPerson = false;
+        return;
+      }
+    }
+    if (!selfAvatar) {
+      thirdPerson = false;
+      return;
+    }
+    selfAvatar.group.visible = true;
+    selfPrev = null;
+    selfSpeed = 0;
+    setStatus('내 모습 보기 — V키로 1인칭 복귀');
+  } else if (selfAvatar) {
+    selfAvatar.group.visible = false;
+  }
+}
+
+function applySelfCamOffset() {
+  _selfCamSaved.copy(camera.position);
+  _selfCamQuatSaved.copy(camera.quaternion);
+  _selfCamBack.set(0, 0, 1).applyQuaternion(camera.quaternion);
+  camera.position.addScaledVector(_selfCamBack, SELF_CAM_DIST);
+  camera.position.y += SELF_CAM_RISE;
+  camera.rotateX(SELF_CAM_TILT);
+}
+function restoreSelfCamOffset() {
+  camera.position.copy(_selfCamSaved);
+  camera.quaternion.copy(_selfCamQuatSaved);
+}
 let clock = null;
 let myNickname = '게스트'; // 입장 시 갱신 — 채팅 isSelf 판별용
 let entered = false; // 로비 통과 여부 — 라이트박스 E키 게이트에 사용
@@ -206,6 +269,7 @@ async function init() {
   });
   // 터치 기기 액션 독(투어/방명록)·작품 패널 '크게 보기' 버튼 — 키보드 T/E/G의 대체 진입점
   setActionHandlers({
+    onSelfView: () => { if (entered && !isShareModalOpen()) toggleSelfView(); },
     onTour: () => { if (entered) toggleTour(); },
     onViewArtwork: viewCurrentArtwork,
     onGuestbook: () => { if (entered && !isLightboxOpen()) toggleGuestbook(); },
@@ -322,7 +386,9 @@ function viewCurrentArtwork() {
 function capturePhoto() {
   if (!renderer || !scene || !camera) return;
   try {
+    if (thirdPerson && selfAvatar) applySelfCamOffset();
     renderer.render(scene, camera);
+    if (thirdPerson && selfAvatar) restoreSelfCamOffset();
     const rawDataUrl = renderer.domElement.toDataURL('image/png');
 
     const img = new Image();
@@ -453,6 +519,12 @@ function onKeyDown(e) {
     return;
   }
 
+  if (e.code === 'KeyV') {
+    if (!entered || isShareModalOpen()) return;
+    toggleSelfView();
+    return;
+  }
+
   if (touring && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) {
     if (isLightboxOpen()) return;
     e.preventDefault();
@@ -567,6 +639,7 @@ function tourToggleAuto() {
 
 function handleEnter({ nickname, color, char }) {
   myNickname = nickname;
+  selfInfo = { nickname, color, char };
   entered = true;
   hideLobby();
   player.enable();
@@ -674,6 +747,19 @@ function animate() {
       mp.update(delta);
     }
 
+    // 3인칭 자기 아바타 — 눈 위치/yaw를 발밑 기준으로 반영 + 속도 평활
+    if (thirdPerson && selfAvatar) {
+      const st = player.getState();
+      selfAvatar.group.position.set(st.x, st.y - EYE_HEIGHT, st.z);
+      selfAvatar.group.rotation.y = st.ry;
+      if (!selfPrev) selfPrev = { x: st.x, z: st.z };
+      const raw = delta > 0 ? Math.hypot(st.x - selfPrev.x, st.z - selfPrev.z) / delta : 0;
+      selfSpeed += (raw - selfSpeed) * Math.min(1, 10 * delta);
+      selfPrev.x = st.x;
+      selfPrev.z = st.z;
+      selfAvatar.update(delta, selfSpeed);
+    }
+
     // 근접 작품 안내 — ui.js가 중복 렌더를 막으므로 매 프레임 호출해도 안전
     const nearby = getNearbyArtwork(camera.position);
     if (nearby) {
@@ -691,7 +777,13 @@ function animate() {
       fpsElapsed = 0;
     }
 
-    renderer.render(scene, camera);
+    if (thirdPerson && selfAvatar) {
+      applySelfCamOffset();
+      renderer.render(scene, camera);
+      restoreSelfCamOffset();
+    } else {
+      renderer.render(scene, camera);
+    }
   } catch (err) {
     console.error('렌더 루프 오류:', err);
     renderer.setAnimationLoop(null);

@@ -134,7 +134,7 @@ const IS_TOUCH =
   (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
 
 // 터치 액션 버튼 콜백 (setActionHandlers로 배선) — 키보드 없는 기기의 M/T/E/G/P 대체
-let actionHandlers = { onTour: null, onViewArtwork: null, onGuestbook: null, onCapture: null };
+let actionHandlers = { onTour: null, onViewArtwork: null, onGuestbook: null, onCapture: null, onSelfView: null };
 
 // 공유 모달 상태 (SNS 공유 — 포토 모드)
 let shareModalOpen = false;
@@ -1547,6 +1547,7 @@ function buildControls() {
         ['M', '작품 목록'],
         ['T', '투어'],
         ['G', '방명록'],
+        ['V', '내 모습 보기'],
         ['P', '사진 촬영'],
       ];
   const panel = el('div', { id: 'lu-controls', className: 'lu lu-hud' });
@@ -1605,8 +1606,16 @@ function buildMobileDock() {
     if (typeof actionHandlers.onCapture === 'function') actionHandlers.onCapture();
   });
 
+  const selfViewBtn = el('button', {
+    className: 'lu-dock-btn', type: 'button', 'aria-label': '내 모습 보기',
+    text: '시점',
+  });
+  selfViewBtn.addEventListener('click', () => {
+    if (typeof actionHandlers.onSelfView === 'function') actionHandlers.onSelfView();
+  });
+
   // 방명록은 화면 왼쪽 책갈피 탭(#lu-gbtab)이 담당하므로 독 버튼은 두지 않는다
-  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [listBtn, tourBtn, captureBtn]);
+  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [listBtn, tourBtn, selfViewBtn, captureBtn]);
   document.body.appendChild(dock);
   return dock;
 }
@@ -3014,12 +3023,13 @@ export function hideTourBar() {
 // 터치 액션 독/작품 패널 버튼 콜백 — 키보드 없는 기기에서 T(투어)/E(크게 보기)/G(방명록)/P(캡처) 대체.
 // main.js가 배선한다. 방명록 독 버튼 자체는 ui.js 내부에서 toggleGuestbook()을 직접 호출하므로
 // onGuestbook은 현재 ui.js 내부에서 호출하지 않지만, 계약대로 인터페이스에 포함해 둔다.
-export function setActionHandlers({ onTour, onViewArtwork, onGuestbook, onCapture } = {}) {
+export function setActionHandlers({ onTour, onViewArtwork, onGuestbook, onCapture, onSelfView } = {}) {
   actionHandlers = {
     onTour: typeof onTour === 'function' ? onTour : null,
     onViewArtwork: typeof onViewArtwork === 'function' ? onViewArtwork : null,
     onGuestbook: typeof onGuestbook === 'function' ? onGuestbook : null,
     onCapture: typeof onCapture === 'function' ? onCapture : null,
+    onSelfView: typeof onSelfView === 'function' ? onSelfView : null,
   };
 }
 
