@@ -16,6 +16,16 @@ import {
   decodeLook,
 } from './avatarkit.js';
 import {
+  DEFAULT_CHIBI,
+  CHIBI_HAIR_STYLES,
+  CHIBI_EYE_STYLES,
+  CHIBI_MOUTH_STYLES,
+  CHIBI_BOTTOM_TYPES,
+  CHIBI_ACCESSORIES,
+  encodeChibi,
+  normalizeChibi,
+} from './chibi.js';
+import {
   PROVIDERS as AUTH_PROVIDERS,
   MOCK_NAMES as AUTH_MOCK_PREFILL,
   loginWith as authLoginWith,
@@ -62,10 +72,34 @@ function readStoredLookThumb() {
 function saveStoredLookThumb(dataUrl) {
   try { localStorage.setItem(LU_LOOK_THUMB_KEY, dataUrl); } catch (_) { /* 무시 — 용량 초과 등은 조용히 무시 */ }
 }
+// 치비(자체 코드 생성) 아바타 — CUSTOM_CHAR_ID와 같은 패턴의 가상 id.
+const CHIBI_SEL_ID = 'chibi';
+const LU_CHIBI_STORAGE_KEY = 'lu-chibi-look-v1';
+const LU_CHIBI_THUMB_KEY = 'lu-chibi-look-thumb-v1';
+function readStoredChibi() {
+  try {
+    const raw = localStorage.getItem(LU_CHIBI_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+function saveStoredChibi(params) {
+  try { localStorage.setItem(LU_CHIBI_STORAGE_KEY, JSON.stringify(params)); } catch (_) { /* 무시 */ }
+}
+function readStoredChibiThumb() {
+  try { return localStorage.getItem(LU_CHIBI_THUMB_KEY) || ''; } catch (_) { return ''; }
+}
+function saveStoredChibiThumb(dataUrl) {
+  try { localStorage.setItem(LU_CHIBI_THUMB_KEY, dataUrl); } catch (_) { /* 무시 */ }
+}
 function readStoredChar() {
   try {
     const saved = localStorage.getItem(LU_CHAR_STORAGE_KEY);
     if (saved === CUSTOM_CHAR_ID && readStoredLook()) return CUSTOM_CHAR_ID;
+    if (saved === CHIBI_SEL_ID && readStoredChibi()) return CHIBI_SEL_ID;
     return CHARACTERS.some((c) => c.id === saved) ? saved : CHARACTERS[0].id;
   } catch (_) {
     return CHARACTERS[0].id; // 프라이빗 모드 등 localStorage 접근 불가 시 기본값
@@ -120,6 +154,15 @@ let makerPreviewRAF = null;
 let makerPreviewLastT = 0;
 let makerDragging = false;
 let makerDragLastX = 0;
+
+// 치비 메이커(#lu-chibi-maker) 모달 상태 — 커스터마이저와 동일 패턴, 탭 없음
+let chibiOpen = false;
+let chibiParams = null;
+let chibiPreviewInstance = null;
+let chibiPreviewRAF = null;
+let chibiPreviewLastT = 0;
+let chibiDragging = false;
+let chibiDragLastX = 0;
 
 // initUI() 호출 이전에 setGalleryTitle / initGalleryPicker / initArtworkList가
 // 먼저 불려도 값을 잃지 않도록 대기시켜 두었다가 DOM 생성 직후 적용한다.
@@ -282,7 +325,7 @@ function injectStyles() {
 .lu-char-edit-link:hover { color: var(--lu-gold); }
 
 /* -------------------------- 아바타 커스터마이저 모달 -------------------------- */
-#lu-avatar-maker {
+#lu-avatar-maker, #lu-chibi-maker {
   position: fixed; inset: 0; z-index: 985;
   background: rgba(4,4,5,0.96);
   -webkit-backdrop-filter: blur(6px);
@@ -292,7 +335,7 @@ function injectStyles() {
   opacity: 0; pointer-events: none;
   transition: opacity 0.3s ease;
 }
-#lu-avatar-maker.lu-open { opacity: 1; pointer-events: auto; }
+#lu-avatar-maker.lu-open, #lu-chibi-maker.lu-open { opacity: 1; pointer-events: auto; }
 .lu-am-card {
   width: 100%; max-width: 780px; max-height: 92vh;
   background: rgba(255,255,255,0.98);
@@ -302,7 +345,7 @@ function injectStyles() {
   transform: scale(0.97); opacity: 0;
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease;
 }
-#lu-avatar-maker.lu-open .lu-am-card { transform: scale(1); opacity: 1; }
+#lu-avatar-maker.lu-open .lu-am-card, #lu-chibi-maker.lu-open .lu-am-card { transform: scale(1); opacity: 1; }
 .lu-am-head {
   flex: 0 0 auto;
   display: flex; align-items: center; justify-content: space-between;
@@ -1182,7 +1225,7 @@ function injectStyles() {
 
 /* --------------------- 아바타 커스터마이저: 세로 배치 폴백 --------------------- */
 @media (max-width: 720px) {
-  #lu-avatar-maker { padding: 8px; }
+  #lu-avatar-maker, #lu-chibi-maker { padding: 8px; }
   .lu-am-card { max-width: 92vw; max-height: 88vh; }
   .lu-am-body { flex-direction: column; overflow-y: auto; padding: 14px; gap: 14px; }
   .lu-am-preview { width: 100%; max-width: 260px; height: 320px; margin: 0 auto; }
@@ -1361,6 +1404,36 @@ function buildLobby() {
   });
   charsRow.appendChild(customBtn);
 
+  // 치비 아바타(자체 코드 생성) — 7번째 선택지. 저장된 룩이 있으면 1클릭은 선택,
+  // 재클릭은 메이커 열기. 없으면 곧바로 메이커를 연다.
+  const chibiBtn = el('button', {
+    className: 'lu-char-btn lu-char-custom' + (selectedChar === CHIBI_SEL_ID ? ' lu-selected' : ''),
+    type: 'button',
+    'aria-label': '치비 아바타',
+  });
+  function syncChibiButtonVisual() {
+    const thumb = readStoredChibiThumb();
+    if (thumb) {
+      chibiBtn.style.backgroundImage = `url('${thumb}')`;
+      chibiBtn.classList.add('lu-has-thumb');
+      chibiBtn.textContent = '';
+      chibiBtn.appendChild(el('span', { text: '치비' }));
+    } else {
+      chibiBtn.style.backgroundImage = '';
+      chibiBtn.classList.remove('lu-has-thumb');
+      chibiBtn.textContent = '🧸 치비';
+    }
+  }
+  syncChibiButtonVisual();
+  chibiBtn.addEventListener('click', () => {
+    if (readStoredChibi() && selectedChar !== CHIBI_SEL_ID) {
+      selectChar(CHIBI_SEL_ID, chibiBtn);
+    } else {
+      openChibiMaker();
+    }
+  });
+  charsRow.appendChild(chibiBtn);
+
   const editLink = el('button', {
     className: 'lu-char-edit-link',
     type: 'button',
@@ -1428,6 +1501,8 @@ function buildLobby() {
     if (selectedChar === CUSTOM_CHAR_ID) {
       const storedLook = readStoredLook();
       char = encodeLook(Object.assign({}, DEFAULT_LOOK, storedLook || {}));
+    } else if (selectedChar === CHIBI_SEL_ID) {
+      char = encodeChibi(Object.assign({}, DEFAULT_CHIBI, readStoredChibi() || {}));
     }
     if (typeof callbacks.onEnter === 'function') {
       callbacks.onEnter({ nickname, color: selectedColor, char });
@@ -1447,7 +1522,13 @@ function buildLobby() {
     selectChar(CUSTOM_CHAR_ID, customBtn);
   }
 
-  return { overlay, nickInput, pickerBox, onCustomLookSaved };
+  // 치비 메이커에서 [저장하고 사용]을 누르면 호출 — onCustomLookSaved와 동일 규약
+  function onChibiSaved() {
+    syncChibiButtonVisual();
+    selectChar(CHIBI_SEL_ID, chibiBtn);
+  }
+
+  return { overlay, nickInput, pickerBox, onCustomLookSaved, onChibiSaved };
 }
 
 function buildControls() {
@@ -2324,6 +2405,224 @@ function buildAvatarMaker() {
 }
 
 // 로비의 커스텀 버튼/꾸미기 링크가 호출하는 진입점 — 실제 열기/닫기는
+
+// ---------------------------------------------------------------------------
+// 치비 메이커 모달 — chibi.js(자체 코드 생성기)의 파라미터를 칩/스와치로 편집.
+// DCL 커스터마이저와 동일한 모달 CSS(lu-am-*)를 재사용하되 탭 없이 한 화면이다.
+// 프리뷰는 createAvatarInstance('chibi:'+JSON)를 그대로 재사용한다.
+// ---------------------------------------------------------------------------
+const CHIBI_CLOTH_COLORS = [
+  '#ff8fab', '#ffd166', '#7ec4cf', '#95d5b2', '#5468c4',
+  '#b799ff', '#fffdf7', '#3a3f4a', '#e0596e', '#d96c2c',
+];
+
+function buildChibiMaker() {
+  const closeX = el('button', { id: 'lu-am-close', type: 'button', 'aria-label': '닫기', text: '×' });
+  const title = el('div', { className: 'lu-am-title', text: '치비 만들기' });
+  const head = el('div', { className: 'lu-am-head' }, [title, closeX]);
+
+  const canvas = el('canvas', { width: '300', height: '400' });
+  const previewHint = el('div', { className: 'lu-am-preview-hint', text: '드래그해서 회전' });
+  const previewBox = el('div', { className: 'lu-am-preview' }, [canvas, previewHint]);
+
+  let previewRenderer = null;
+  let previewScene = null;
+  let previewCamera = null;
+  let previewRotator = null;
+
+  function ensurePreviewRenderer() {
+    if (previewRenderer) return;
+    previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    previewRenderer.setPixelRatio(Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
+    previewRenderer.setSize(300, 400, false);
+    previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    previewRenderer.toneMappingExposure = 1.1;
+    previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    previewScene = new THREE.Scene();
+    previewScene.background = new THREE.Color('#f6f1e3');
+    // 치비 신장(~1.34m)에 맞춘 근접 프레이밍 — DCL 프리뷰(1.8m)보다 낮고 가깝다
+    previewCamera = new THREE.PerspectiveCamera(30, 300 / 400, 0.1, 20);
+    previewCamera.position.set(0, 0.82, 2.35);
+    previewCamera.lookAt(0, 0.7, 0);
+    previewScene.add(new THREE.HemisphereLight(0xfff1d9, 0x2b1f14, 3.0));
+    const key = new THREE.DirectionalLight(0xffd9a0, 3.0);
+    key.position.set(1.4, 2.6, 2.0);
+    previewScene.add(key);
+    const fill = new THREE.DirectionalLight(0xffe8c8, 1.1);
+    fill.position.set(-1.8, 1.1, 1.6);
+    previewScene.add(fill);
+    previewRotator = new THREE.Group();
+    previewScene.add(previewRotator);
+  }
+
+  const panel = el('div', { className: 'lu-am-panel' });
+  const page = el('div', { className: 'lu-am-tabpage' });
+  panel.appendChild(page);
+  const body = el('div', { className: 'lu-am-body' }, [previewBox, panel]);
+
+  const saveBtn = el('button', { className: 'lu-am-btn lu-am-btn-primary', type: 'button', text: '저장하고 사용' });
+  const closeBtn = el('button', { className: 'lu-am-btn', type: 'button', text: '닫기' });
+  const footer = el('div', { className: 'lu-am-footer' }, [closeBtn, saveBtn]);
+  const card = el('div', { className: 'lu-am-card' }, [head, body, footer]);
+  const overlay = el('div', { id: 'lu-chibi-maker', className: 'lu' }, [card]);
+  document.body.appendChild(overlay);
+
+  function setParam(key, value) {
+    if (!chibiParams) return;
+    chibiParams[key] = value;
+    chibiParams = normalizeChibi(chibiParams);
+    rebuildPreview();
+    renderPanel();
+  }
+
+  function chipRow(labelText, options, key) {
+    page.appendChild(el('div', { className: 'lu-am-section-title', text: labelText }));
+    const row = el('div', { className: 'lu-am-tabs' });
+    options.forEach((opt) => {
+      const btn = el('button', {
+        type: 'button',
+        className: 'lu-am-tab' + (chibiParams[key] === opt.id ? ' lu-selected' : ''),
+        text: opt.name,
+      });
+      btn.addEventListener('click', () => setParam(key, opt.id));
+      row.appendChild(btn);
+    });
+    page.appendChild(row);
+  }
+
+  function swatchRow(labelText, palette, key) {
+    page.appendChild(el('div', { className: 'lu-am-section-title', text: labelText }));
+    const row = el('div', { className: 'lu-swatches' });
+    palette.forEach((hex) => {
+      const swatch = el('button', {
+        type: 'button',
+        className: 'lu-swatch' + (chibiParams[key] === hex ? ' lu-selected' : ''),
+        style: `background:${hex};`,
+        title: hex,
+        'aria-label': `${labelText} ${hex}`,
+      });
+      swatch.addEventListener('click', () => setParam(key, hex));
+      row.appendChild(swatch);
+    });
+    page.appendChild(row);
+  }
+
+  function renderPanel() {
+    page.textContent = '';
+    if (!chibiParams) return;
+    chipRow('헤어', CHIBI_HAIR_STYLES, 'hairStyle');
+    chipRow('눈', CHIBI_EYE_STYLES, 'eyeStyle');
+    chipRow('입', CHIBI_MOUTH_STYLES, 'mouth');
+    chipRow('볼터치', [{ id: true, name: '있음' }, { id: false, name: '없음' }], 'blush');
+    chipRow('하의', CHIBI_BOTTOM_TYPES, 'bottomType');
+    chipRow('액세서리', CHIBI_ACCESSORIES, 'acc');
+    swatchRow('피부색', SKIN_TONES, 'skin');
+    swatchRow('머리 색', HAIR_COLORS, 'hairColor');
+    swatchRow('눈동자 색', EYE_COLORS, 'eyeColor');
+    swatchRow('상의 색', CHIBI_CLOTH_COLORS, 'top');
+    swatchRow('하의 색', CHIBI_CLOTH_COLORS, 'bottom');
+    swatchRow('신발 색', CHIBI_CLOTH_COLORS, 'shoes');
+  }
+
+  // 치비 조립은 동기·저비용이라 디바운스 없이 즉시 재조립한다
+  function rebuildPreview() {
+    if (!chibiParams || !previewRotator) return;
+    if (chibiPreviewInstance) {
+      previewRotator.remove(chibiPreviewInstance.group);
+      chibiPreviewInstance.dispose();
+      chibiPreviewInstance = null;
+    }
+    chibiPreviewInstance = createAvatarInstance(encodeChibi(chibiParams), GOLD, ' ');
+    previewRotator.add(chibiPreviewInstance.group);
+  }
+
+  function previewFrame(t) {
+    chibiPreviewRAF = requestAnimationFrame(previewFrame);
+    const delta = chibiPreviewLastT ? Math.min(0.05, (t - chibiPreviewLastT) / 1000) : 0;
+    chibiPreviewLastT = t;
+    if (!chibiDragging) previewRotator.rotation.y += delta * 0.35;
+    if (chibiPreviewInstance) chibiPreviewInstance.update(delta, 0);
+    previewRenderer.render(previewScene, previewCamera);
+  }
+  function startLoop() {
+    if (chibiPreviewRAF) return;
+    chibiPreviewLastT = 0;
+    chibiPreviewRAF = requestAnimationFrame(previewFrame);
+  }
+  function stopLoop() {
+    if (chibiPreviewRAF) cancelAnimationFrame(chibiPreviewRAF);
+    chibiPreviewRAF = null;
+  }
+
+  // 드래그 회전 — 포인터 캡처로 카드 밖 드래그도 추적
+  canvas.addEventListener('pointerdown', (e) => {
+    chibiDragging = true;
+    chibiDragLastX = e.clientX;
+    previewBox.classList.add('lu-dragging');
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!chibiDragging) return;
+    previewRotator.rotation.y += (e.clientX - chibiDragLastX) * 0.012;
+    chibiDragLastX = e.clientX;
+  });
+  const endDrag = () => {
+    chibiDragging = false;
+    previewBox.classList.remove('lu-dragging');
+  };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
+  closeX.addEventListener('click', () => closeChibiMaker());
+  closeBtn.addEventListener('click', () => closeChibiMaker());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeChibiMaker(); });
+
+  saveBtn.addEventListener('click', () => {
+    if (!chibiParams) return;
+    saveStoredChibi(chibiParams);
+    try {
+      if (previewRenderer) {
+        // preserveDrawingBuffer:false 대응 — 같은 태스크 안에서 렌더 직후 스냅샷
+        previewRenderer.render(previewScene, previewCamera);
+        saveStoredChibiThumb(previewRenderer.domElement.toDataURL('image/png'));
+      }
+    } catch (_) {
+      /* 스냅샷 실패는 무시 — 저장 자체는 진행 */
+    }
+    if (els && els.lobby) els.lobby.onChibiSaved();
+    closeChibiMaker();
+  });
+
+  function open() {
+    chibiParams = normalizeChibi(Object.assign({}, DEFAULT_CHIBI, readStoredChibi() || {}));
+    ensurePreviewRenderer();
+    previewRotator.rotation.y = 0;
+    rebuildPreview();
+    renderPanel();
+    overlay.classList.add('lu-open');
+    chibiOpen = true;
+    startLoop();
+  }
+  function close() {
+    overlay.classList.remove('lu-open');
+    chibiOpen = false;
+    stopLoop();
+    if (chibiPreviewInstance) {
+      previewRotator.remove(chibiPreviewInstance.group);
+      chibiPreviewInstance.dispose();
+      chibiPreviewInstance = null;
+    }
+  }
+  return { open, close };
+}
+
+function openChibiMaker() {
+  if (els && els.chibiMaker) els.chibiMaker.open();
+}
+function closeChibiMaker() {
+  if (els && els.chibiMaker) els.chibiMaker.close();
+}
+
 // buildAvatarMaker()가 반환한 open()/close()에 위임한다.
 function openAvatarMaker() {
   if (els && els.avatarMaker) els.avatarMaker.open();
@@ -2347,6 +2646,12 @@ function closeAvatarMaker() {
 function bindGlobalKeys() {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      if (chibiOpen) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        closeChibiMaker();
+        return;
+      }
       if (makerOpen) {
         e.preventDefault();
         // ui.js 리스너는 main.js보다 먼저 등록되므로 여기서 멈추면
@@ -2434,6 +2739,7 @@ export function initUI({ onEnter, onChatSend } = {}) {
     shutter: buildShutter(),
     share: buildShareModal(),
     avatarMaker: buildAvatarMaker(),
+    chibiMaker: buildChibiMaker(),
   };
 
   bindGlobalKeys();
