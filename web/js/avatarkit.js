@@ -140,9 +140,25 @@ const NULLABLE_FIELDS = new Set(['hair', 'glasses']);
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 /**
+ * 잘못된 파츠 id의 대체값: DEFAULT_LOOK 값이 현재 체형을 지원하면 그것을,
+ * 아니면 해당 카테고리에서 체형을 지원하는 첫 파츠를 고른다. glasses처럼
+ * "없어도 자연스러운" 필드만 null 폴백을 허용한다 — 헤어는 잘못된 id를
+ * 대머리로 떨어뜨리지 않는다(사용자가 명시적으로 null을 고른 경우만 민머리).
+ */
+function fallbackPartId(manifest, category, shape, field) {
+  const def = DEFAULT_LOOK[field];
+  const defItem = getManifestItem(manifest, category, def);
+  if (defItem && defItem.models && defItem.models[shape]) return def;
+  const list = (manifest && manifest.categories && manifest.categories[category]) || [];
+  const first = list.find((it) => it && it.models && it.models[shape]);
+  if (first) return first.id;
+  return field === 'glasses' ? null : def;
+}
+
+/**
  * 임의의 입력을 안전한 Look 객체로 정규화한다. manifest가 주어지면 파츠 id가
  * 실제 존재하고 현재 체형에서 착용 가능한지까지 검증해, 미보유/미지원 id는
- * DEFAULT_LOOK 값(널 허용 필드는 null)으로 대체한다.
+ * 체형을 지원하는 파츠로 대체한다.
  * @param {object} look
  * @param {object|null} [manifest]
  * @returns {object}
@@ -168,7 +184,7 @@ function normalizeLook(look, manifest) {
     if (manifest && val != null) {
       const item = getManifestItem(manifest, category, val);
       if (!item || !item.models || !item.models[out.shape]) {
-        val = NULLABLE_FIELDS.has(field) ? null : DEFAULT_LOOK[field];
+        val = fallbackPartId(manifest, category, out.shape, field);
       }
     }
     out[field] = val;
@@ -274,6 +290,22 @@ function tintClonedMaterial(mesh, look, disposables) {
 
 function rebindToBaseSkeleton(mesh, boneByName) {
   if (!mesh.skeleton) return;
+  // 베이스 리그에 없는 보조 뼈(헤어 Hair_springBone_* 등)는 그대로 두면 버려진
+  // GLB 뼈 트리에 남아 바인드 포즈에 얼어붙는다(걷기 시 트윈테일이 허공에 뜨는
+  // 원인). 누락 체인의 최상단을 이름이 일치하는 베이스 뼈 아래로 통째로 이식해
+  // 머리를 강체로 따라가게 한다. 로컬 트랜스폼은 add()가 보존하고, 웨어러블과
+  // 베이스는 동일 리그 레스트 포즈라 기존 boneInverses가 그대로 유효하다.
+  for (const b of mesh.skeleton.bones) {
+    if (boneByName.has(b.name)) continue;
+    let top = b;
+    while (top.parent && top.parent.isBone && !boneByName.has(top.parent.name)) top = top.parent;
+    const host = top.parent && boneByName.get(top.parent.name);
+    if (!host) continue; // 이식할 접점이 없으면 기존 동작 유지
+    host.add(top);
+    top.traverse((n) => {
+      if (n.isBone && !boneByName.has(n.name)) boneByName.set(n.name, n);
+    });
+  }
   const bones = mesh.skeleton.bones.map((b) => boneByName.get(b.name) || b);
   mesh.bind(new THREE.Skeleton(bones, mesh.skeleton.boneInverses), mesh.bindMatrix);
 }
