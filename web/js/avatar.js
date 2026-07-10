@@ -35,10 +35,33 @@ const DCL_FORWARD_OFFSET = 0;
 // 이미 팔이 몸통 옆으로 내려온 자연스러운 자세다 — 레스트-상대 델타 리타게팅은 이
 // 차이를 좌표축 관례 차이와 구분할 수 없어 팔이 계속 T포즈 근처에 머문다(QA 실측).
 // 상완 본에 로컬 Z축 +90°를 더해 T포즈 기준을 자연스러운 팔 늘어뜨림 쪽으로 보정한다.
+//
+// Avatar_RightForeArm에 추가로 -50°가 들어있는 이유(QA 재실측, 2026-07-10): 손목 이하
+// 트랙을 드롭해도(아래 DCL_HAND_BONE_RE) 기본 룩 idle 포즈에서 오른손이 치마 앞에
+// 파편처럼 박히는 문제가 남아 있었다. 본별 월드 위치를 실측한 결과 Avatar_RightHand가
+// 몸 중심(x≈0)까지 안쪽으로 말려 들어가 있었다(Avatar_LeftHand는 x≈+0.2로 정상 —
+// reanchorRotationTrack의 레스트-상대 델타 변환이 상완(Arm)에는 DCL_ARM_CALIBRATION로
+// 보정되지만 팔뚝(ForeArm)에는 보정이 없어, 미러링된 좌/우 리그에서 팔뚝 쪽만 한쪽이
+// 크게 어긋난 것으로 추정). Avatar_LeftHand의 월드 위치(x≈0.205, y≈0.869, z≈0.112)를
+// 기준으로 Avatar_RightForeArm에 로컬 Z축 회전을 여러 각도 실측 스윕(0°~180°, -90°~0°)해
+// Avatar_RightHand가 그 좌우대칭 위치(x≈-0.205, y≈0.869, z≈0.112)에 가장 가깝게 오는
+// 값을 찾았다 — -50°에서 (x≈-0.201, y≈0.883, z≈0.065)로 수렴, idle/walk 스크린샷으로
+// 양손이 자연스럽게 붙어있음을 확인(cute-01~03, verify-idle/walk-minus50 스크린샷).
 const DCL_ARM_CALIBRATION = new Map([
   ['Avatar_LeftArm', new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2)],
   ['Avatar_RightArm', new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2)],
+  ['Avatar_RightForeArm', new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (-50 * Math.PI) / 180)],
 ]);
+
+// 감독 실측 진단 B: 리타게팅된 RPM 걷기/달리기 클립의 손목 이하(손/손가락) 회전
+// 트랙이 왼손에서만 어긋나 기본 룩의 치마 앞에 손가락이 구겨진 살색 파편으로
+// 박힌다(ShapeA_Hands_BaseMesh를 숨기면 사라지는 것으로 원인 특정 완료). 이
+// 거리에서는 손가락 애니메이션이 어차피 보이지 않으므로, 손목 이하 트랙은
+// 좌우 구분 없이 전부 드롭한다 — 손은 팔뚝(ForeArm) 애니메이션을 따라 부모
+// 본 회전만으로 자연스럽게 따라간다(계층 구조상 자동으로 붙어 있음).
+// 단, 이 드롭만으로는 파편이 완전히 사라지지 않아 위 DCL_ARM_CALIBRATION의
+// Avatar_RightForeArm 보정을 추가로 적용했다(재실측 결과 참고).
+const DCL_HAND_BONE_RE = /Hand|Thumb|Index|Middle|Ring|Pinky/;
 
 // 아바타 목표 신장(m) — 캐릭터별 원본 비례가 달라도 균일 스케일로 맞춘다
 const TARGET_HEIGHT = 1.8;
@@ -695,6 +718,14 @@ function createDclAnimatedAvatar(built, colorHex, nickname) {
       const dot = t.name.lastIndexOf('.');
       const boneName = dot === -1 ? t.name : t.name.slice(0, dot);
       return dclBoneNames.has(boneName);
+    });
+
+    // 손목 이하(손/손가락) 트랙 전부 드롭 — 진단 B, 위 DCL_HAND_BONE_RE 설명 참고.
+    retargeted.tracks = retargeted.tracks.filter((t) => {
+      const dot = t.name.lastIndexOf('.');
+      const boneName = dot === -1 ? t.name : t.name.slice(0, dot);
+      const bare = boneName.startsWith('Avatar_') ? boneName.slice('Avatar_'.length) : boneName;
+      return !DCL_HAND_BONE_RE.test(bare);
     });
 
     retargeted.tracks = retargeted.tracks.filter((t) => {

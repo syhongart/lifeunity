@@ -9,6 +9,7 @@ import {
   DCL_BASE,
   SKIN_TONES,
   HAIR_COLORS,
+  EYE_COLORS,
   DEFAULT_LOOK,
   loadPartsManifest,
   encodeLook,
@@ -1950,26 +1951,42 @@ function buildAvatarMaker() {
   const previewHint = el('div', { className: 'lu-am-preview-hint', text: '드래그해서 회전' });
   const previewBox = el('div', { className: 'lu-am-preview' }, [canvas, previewHint]);
 
-  const previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  previewRenderer.setPixelRatio(Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
-  previewRenderer.setSize(300, 400, false);
-  previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-  previewRenderer.toneMappingExposure = 1.1;
-  previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+  // WebGLRenderer/씬/카메라/조명은 커스터마이저를 처음 열 때(ensurePreviewRenderer())
+  // 지연 생성한다 — initUI() 시점(로비 진입 전, 아직 필요 없을 수도 있는 시점)에
+  // GL 컨텍스트를 미리 만들지 않는다(감독 지적). 이후 재오픈부터는 재사용.
+  let previewRenderer = null;
+  let previewScene = null;
+  let previewCamera = null;
+  let previewRotator = null; // 자동 회전/드래그 회전은 이 그룹만 돌린다
 
-  const previewScene = new THREE.Scene();
-  previewScene.background = new THREE.Color('#f2efe6');
-  const previewCamera = new THREE.PerspectiveCamera(28, 300 / 400, 0.1, 20);
-  previewCamera.position.set(0, 1.15, 3.1);
-  previewCamera.lookAt(0, 0.95, 0);
+  function ensurePreviewRenderer() {
+    if (previewRenderer) return;
+    previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    previewRenderer.setPixelRatio(Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
+    previewRenderer.setSize(300, 400, false);
+    previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    previewRenderer.toneMappingExposure = 1.1;
+    previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
 
-  previewScene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 3.4));
-  const previewKeyLight = new THREE.DirectionalLight(0xffffff, 3.2);
-  previewKeyLight.position.set(1.4, 2.6, 2.0);
-  previewScene.add(previewKeyLight);
+    previewScene = new THREE.Scene();
+    previewScene.background = new THREE.Color('#f2efe6');
+    previewCamera = new THREE.PerspectiveCamera(28, 300 / 400, 0.1, 20);
+    previewCamera.position.set(0, 1.15, 3.1);
+    previewCamera.lookAt(0, 0.95, 0);
 
-  const previewRotator = new THREE.Group(); // 자동 회전/드래그 회전은 이 그룹만 돌린다
-  previewScene.add(previewRotator);
+    // 따뜻한 조명 — 차가운 흰색 광원 금지(감독 진단: 기존 흰색 조명이 "시체" 인상에
+    // 일조). 살짝 노란 키라이트 + 부드러운 웜 필라이트 + 웜 톤 헤미스피어 앰비언트.
+    previewScene.add(new THREE.HemisphereLight(0xfff1d9, 0x2b1f14, 3.0));
+    const previewKeyLight = new THREE.DirectionalLight(0xffd9a0, 3.0);
+    previewKeyLight.position.set(1.4, 2.6, 2.0);
+    previewScene.add(previewKeyLight);
+    const previewFillLight = new THREE.DirectionalLight(0xffe8c8, 1.1);
+    previewFillLight.position.set(-1.8, 1.1, 1.6);
+    previewScene.add(previewFillLight);
+
+    previewRotator = new THREE.Group();
+    previewScene.add(previewRotator);
+  }
 
   // ---- 우측: 탭 + 탭 페이지 ----
   const tabsRow = el('div', { className: 'lu-am-tabs' });
@@ -2006,12 +2023,14 @@ function buildAvatarMaker() {
     if (!makerLook) return;
     saveStoredLook(makerLook);
     try {
-      // 스냅샷 직전에 동기 렌더 — WebGLRenderer는 preserveDrawingBuffer:false라
-      // 직전 rAF 프레임의 드로잉 버퍼가 합성 후 비워져, 클릭 핸들러 시점의
-      // toDataURL()이 빈(투명) 이미지를 반환할 수 있다. 같은 태스크 안에서 다시
-      // 그린 직후 읽으면 실제 아바타가 담긴다.
-      previewRenderer.render(previewScene, previewCamera);
-      saveStoredLookThumb(previewRenderer.domElement.toDataURL('image/png'));
+      if (previewRenderer) {
+        // 스냅샷 직전에 동기 렌더 — WebGLRenderer는 preserveDrawingBuffer:false라
+        // 직전 rAF 프레임의 드로잉 버퍼가 합성 후 비워져, 클릭 핸들러 시점의
+        // toDataURL()이 빈(투명) 이미지를 반환할 수 있다. 같은 태스크 안에서 다시
+        // 그린 직후 읽으면 실제 아바타가 담긴다.
+        previewRenderer.render(previewScene, previewCamera);
+        saveStoredLookThumb(previewRenderer.domElement.toDataURL('image/png'));
+      }
     } catch (_) {
       /* 캔버스 오염 등 — 썸네일 스냅샷 실패는 조용히 무시(저장 자체는 계속 진행) */
     }
@@ -2150,6 +2169,26 @@ function buildAvatarMaker() {
     });
     tabPage.appendChild(hairRow);
 
+    tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: '눈동자 색' }));
+    const eyeRow = el('div', { className: 'lu-swatches' });
+    EYE_COLORS.forEach((hex) => {
+      const swatch = el('button', {
+        type: 'button',
+        className: 'lu-swatch' + (makerLook.eyeColor === hex ? ' lu-selected' : ''),
+        style: `background:${hex};`,
+        title: hex,
+        'aria-label': `눈동자 색 ${hex}`,
+      });
+      swatch.addEventListener('click', () => {
+        makerLook.eyeColor = hex;
+        normalizeMakerLook();
+        scheduleRebuildPreview();
+        renderActiveTab();
+      });
+      eyeRow.appendChild(swatch);
+    });
+    tabPage.appendChild(eyeRow);
+
     tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: '귀여움' }));
     const cuteLabel = el('div', { className: 'lu-am-cute-label' }, [
       el('span', { text: '진지함' }),
@@ -2190,7 +2229,7 @@ function buildAvatarMaker() {
 
   // ---- 프리뷰 조립/재조립 — 파츠 변경 300ms 디바운스 후 dispose→재조립 ----
   function rebuildPreview() {
-    if (!makerLook) return;
+    if (!makerLook || !previewRotator) return; // 렌더러가 아직 지연 생성 전이면 스킵
     if (makerPreviewInstance) {
       previewRotator.remove(makerPreviewInstance.group);
       makerPreviewInstance.dispose();
@@ -2235,7 +2274,7 @@ function buildAvatarMaker() {
     try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* 무시 */ }
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!makerDragging) return;
+    if (!makerDragging || !previewRotator) return;
     const dx = e.clientX - makerDragLastX;
     makerDragLastX = e.clientX;
     previewRotator.rotation.y += dx * 0.012;
@@ -2250,6 +2289,7 @@ function buildAvatarMaker() {
 
   async function open() {
     makerOpen = true;
+    ensurePreviewRenderer(); // 첫 오픈 시점에 지연 생성(이후 재오픈부터는 재사용)
     overlay.classList.add('lu-open');
     startPreviewLoop();
     tabPage.textContent = '';
@@ -2274,7 +2314,7 @@ function buildAvatarMaker() {
     stopPreviewLoop();
     if (makerRebuildTimer) { clearTimeout(makerRebuildTimer); makerRebuildTimer = null; }
     if (makerPreviewInstance) {
-      previewRotator.remove(makerPreviewInstance.group);
+      if (previewRotator) previewRotator.remove(makerPreviewInstance.group);
       makerPreviewInstance.dispose();
       makerPreviewInstance = null;
     }

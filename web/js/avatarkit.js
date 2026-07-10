@@ -40,14 +40,33 @@ export const HAIR_COLORS = [
   '#6fd6b8', // 민트
 ];
 
+// 갈색계 3 + 검정 + 파랑/초록/보라/분홍 = 8종. 눈 텍스처(Mask_Eyes)가 채도0의
+// 회색조 마스크(평균 밝기 ~130/255)라서 그대로 곱하면 탁하게 어두워진다 —
+// 여기 값은 스와치에 보여줄 "실제" 눈동자 색이고, 렌더 시점에 setEyeColor()가
+// 밝기/채도를 보정해서 적용한다(아래 설명 참고).
+export const EYE_COLORS = [
+  '#3d2314', // 다크 브라운
+  '#5a3825', // 미디엄 브라운 (기본값)
+  '#8a5a2f', // 라이트 브라운(헤이즐)
+  '#1a1a1a', // 검정
+  '#3b6bd6', // 파랑
+  '#2f9e5c', // 초록
+  '#8a4fd6', // 보라
+  '#d6549c', // 분홍
+];
+
 /**
  * Look 스키마 (JSDoc 참고용):
  * {
  *   shape: 'male'|'female', hair: id|null, top: id, bottom: id, feet: id,
  *   eyes: id, brows: id, mouth: id, glasses: id|null,
- *   skin: '#rrggbb', hairColor: '#rrggbb', cute: 0~1
+ *   skin: '#rrggbb', hairColor: '#rrggbb', eyeColor: '#rrggbb', cute: 0~1
  * }
  */
+// 기본 프리셋: mouth는 assets/dcl/mouth/*/thumbnail.png 실측 결과 M_Mouth_00이
+// 가장 뚜렷하게 양끝이 올라간 미소형(다른 5종은 거의 일자이거나 기괴한 형태 —
+// Mouth_09/10은 안경/물결 모양으로 마스크 자체가 입 모양이 아님). eyes는
+// F_Eyes_01이 8종 중 가장 크고 또렷한 눈(홍채가 뚜렷한 애니메이션풍) — 유지.
 export const DEFAULT_LOOK = {
   shape: 'female',
   hair: 'F_Hair_TwoTails',
@@ -56,11 +75,12 @@ export const DEFAULT_LOOK = {
   feet: 'F_BunShoes_01',
   eyes: 'F_Eyes_01',
   brows: 'F_Eyebrows_00',
-  mouth: 'F_Mouth_00',
+  mouth: 'M_Mouth_00',
   glasses: null,
   skin: '#f2c8a0',
   hairColor: '#3a2a1e',
-  cute: 0.6,
+  eyeColor: '#5a3825',
+  cute: 0.65,
 };
 
 // ---------------------------------------------------------------------------
@@ -135,6 +155,8 @@ function normalizeLook(look, manifest) {
     skin: typeof src.skin === 'string' && HEX_RE.test(src.skin) ? src.skin : DEFAULT_LOOK.skin,
     hairColor:
       typeof src.hairColor === 'string' && HEX_RE.test(src.hairColor) ? src.hairColor : DEFAULT_LOOK.hairColor,
+    eyeColor:
+      typeof src.eyeColor === 'string' && HEX_RE.test(src.eyeColor) ? src.eyeColor : DEFAULT_LOOK.eyeColor,
     cute: Number.isFinite(src.cute) ? Math.min(1, Math.max(0, src.cute)) : DEFAULT_LOOK.cute,
   };
 
@@ -183,6 +205,44 @@ export function decodeLook(str) {
 // 조립
 // ---------------------------------------------------------------------------
 
+// 눈 마스크(Mask_Eyes)는 채도0의 회색조 텍스처(평균 밝기 ~130/255)라서 재질
+// color를 그대로 곱하면 홍채가 탁하게 어두워진다(감독 실측 진단 A). HSL로
+// 밝기/채도를 끌어올려 곱셈 후에도 눈동자가 선명하게 보이도록 보정한다.
+// (QA 스크린샷 결과에 따라 계수를 조정할 것 — 아래 상수만 건드리면 됨)
+const EYE_TINT_LIGHTEN = 1.9;
+const EYE_TINT_LIGHTEN_OFFSET = 0.16;
+const EYE_TINT_MAX_LIGHTNESS = 0.82;
+const EYE_TINT_SATURATE = 1.2;
+
+function computeEyeTintColor(hex) {
+  const c = new THREE.Color(hex);
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  hsl.l = Math.min(EYE_TINT_MAX_LIGHTNESS, hsl.l * EYE_TINT_LIGHTEN + EYE_TINT_LIGHTEN_OFFSET);
+  hsl.s = Math.min(1, hsl.s * EYE_TINT_SATURATE + 0.05);
+  c.setHSL(hsl.h, hsl.s, hsl.l);
+  return c;
+}
+
+// 입 마스크(Mask_Mouth)는 약한 분홍(224,198,202)이라 색이 거의 없다 — 피부톤에서
+// 혈색이 도는 톤을 HSL로 유도한다(hue를 붉은 쪽으로, lightness를 살짝 낮춤).
+// QA 스크린샷 1차 결과: hue 블렌드가 약하고 채도를 더해서 형광 오렌지 립스틱처럼
+// 튀었다 — hue는 붉은 쪽으로 더 강하게 당기고, 채도는 (원래 피부 채도가 이미 높으므로)
+// 더하지 말고 오히려 낮춰 은은한 자연스러운 혈색 톤으로 보정.
+function computeMouthTintColor(skinHex) {
+  const c = new THREE.Color(skinHex);
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  const REDDISH_HUE = 0.02; // 약 7도 — 붉은 계열
+  const mc = new THREE.Color();
+  mc.setHSL(
+    hsl.h + (REDDISH_HUE - hsl.h) * 0.85,
+    Math.min(1, hsl.s * 0.78),
+    Math.max(0.15, hsl.l - 0.11)
+  );
+  return mc;
+}
+
 function tintClonedMaterial(mesh, look, disposables) {
   const isArray = Array.isArray(mesh.material);
   const mats = isArray ? mesh.material : [mesh.material];
@@ -191,18 +251,21 @@ function tintClonedMaterial(mesh, look, disposables) {
     const c = m.clone();
     disposables.materials.push(c);
     const name = (c.name || '').toLowerCase();
-    if (name.includes('skin')) {
-      try {
+    try {
+      if (name.includes('skin')) {
         c.color.set(look.skin);
-      } catch {
-        /* 색상 파싱 실패 시 원래 재질 색 유지 */
-      }
-    } else if (name.includes('hair')) {
-      try {
+      } else if (name.includes('eyebrows')) {
+        // 눈썹 마스크(평균 밝기 ~207/255)는 헤어 컬러로 틴트(감독 지시)
         c.color.set(look.hairColor);
-      } catch {
-        /* noop */
+      } else if (name.includes('eyes')) {
+        c.color.copy(computeEyeTintColor(look.eyeColor));
+      } else if (name.includes('mouth')) {
+        c.color.copy(computeMouthTintColor(look.skin));
+      } else if (name.includes('hair')) {
+        c.color.set(look.hairColor);
       }
+    } catch {
+      /* 색상 파싱 실패 시 원래 재질 색 유지 */
     }
     return c;
   });
@@ -297,12 +360,23 @@ export async function buildDclAvatar(look) {
       return;
     }
     const root = gltf.scene;
+    root.updateMatrixWorld(true);
+    // 웨어러블 GLB는 베이스와 동일 리그의 Armature 전체(뼈 62개)를 함께 내보낸
+    // 상태다. 뼈는 이름으로 베이스 스켈레톤에 재바인딩하므로 이 GLB 자체의
+    // Armature/Bone 계층은 필요 없다 — SkinnedMesh만 뽑아 group에 직접 붙이고
+    // (attach()로 월드 트랜스폼 보존) 나머지(유령 뼈 트리)는 그대로 버린다
+    // (root 자체를 group에 add하지 않으므로 GC 대상). 실측 진단 C 대응.
+    const skinnedMeshes = [];
     root.traverse((o) => {
-      if (!o.isSkinnedMesh) return;
+      if (o.isSkinnedMesh) skinnedMeshes.push(o);
+    });
+    for (const o of skinnedMeshes) {
       rebindToBaseSkeleton(o, boneByName);
       tintClonedMaterial(o, normalized, disposables);
-    });
-    group.add(root);
+    }
+    for (const o of skinnedMeshes) {
+      group.attach(o);
+    }
     for (const list of hideGroups) {
       for (const m of list) m.visible = false;
     }
@@ -365,11 +439,50 @@ export async function buildDclAvatar(look) {
 
   group.updateMatrixWorld(true);
 
+  // 재질 텍스처 슬롯 이름 — 클론된 재질(및 그 재질이 참조하는 GLB 내장 텍스처)을
+  // dispose 시 함께 해제하기 위해 훑는 대상 목록.
+  const MATERIAL_TEXTURE_SLOTS = [
+    'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap',
+    'alphaMap', 'bumpMap', 'displacementMap', 'lightMap', 'specularMap',
+    'specularColorMap', 'specularIntensityMap', 'sheenColorMap', 'sheenRoughnessMap',
+    'clearcoatMap', 'clearcoatNormalMap', 'clearcoatRoughnessMap',
+    'transmissionMap', 'thicknessMap', 'iridescenceMap', 'iridescenceThicknessMap',
+  ];
+
   return {
     group,
     skeleton,
+    // 감독 결정(2026-07-10): GLTFLoader.loadAsync()는 호출마다 독립된 지오메트리를
+    // 만든다(인스턴스 간 공유 아님 — 실측 확인됨). 이전 계약(파츠별 clone 재질만
+    // 해제, 지오메트리는 공유로 간주해 dispose 금지)은 이 사실과 맞지 않아
+    // 폐기한다 — 인스턴스가 소유한 지오메트리 + GLB 내장 텍스처(클론된 재질의
+    // map/normalMap/… 슬롯)까지 전부 이 dispose()에서 해제한다.
     dispose() {
+      const seenGeometries = new Set();
+      group.traverse((o) => {
+        if (o.geometry && !seenGeometries.has(o.geometry)) {
+          seenGeometries.add(o.geometry);
+          try {
+            o.geometry.dispose();
+          } catch {
+            /* noop */
+          }
+        }
+      });
+
+      const seenTextures = new Set();
       for (const m of disposables.materials) {
+        for (const slot of MATERIAL_TEXTURE_SLOTS) {
+          const t = m[slot];
+          if (t && !seenTextures.has(t)) {
+            seenTextures.add(t);
+            try {
+              t.dispose();
+            } catch {
+              /* noop */
+            }
+          }
+        }
         try {
           m.dispose();
         } catch {
@@ -377,6 +490,8 @@ export async function buildDclAvatar(look) {
         }
       }
       for (const t of disposables.textures) {
+        if (seenTextures.has(t)) continue;
+        seenTextures.add(t);
         try {
           t.dispose();
         } catch {
