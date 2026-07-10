@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import * as SkeletonUtils from '../vendor/SkeletonUtils.js';
 import { buildDclAvatar, decodeLook, retargetClipForDcl } from './avatarkit.js';
+import { buildChibi, decodeChibi, CHIBI_CHAR_PREFIX } from './chibi.js';
 
 // ---------------------------------------------------------------------------
 // 캐릭터 정의 — 로비 선택 UI(ui.js)와 템플릿 로더가 공유하는 단일 진실 소스
@@ -885,6 +886,37 @@ function createDclAvatarInstance(charId, colorHex, nickname) {
   };
 }
 
+/**
+ * 자체 치비 아바타 인스턴스 생성 ('chibi:'+JSON). buildChibi()는 동기(로드 없음)라
+ * 폴백 교체 패턴이 필요 없다 — 실패 시에만 캡슐 폴백.
+ */
+function createChibiAvatarInstance(charId, colorHex, nickname) {
+  const params = decodeChibi(charId); // null이면 기본 룩으로 조립
+  let built;
+  try {
+    built = buildChibi(params || undefined);
+  } catch (err) {
+    console.warn('치비 아바타 생성 실패, 캡슐 폴백 사용:', err);
+    return createFallbackAvatar(colorHex, nickname);
+  }
+  const group = new THREE.Group();
+  group.add(built.group);
+  const label = createNicknameSprite(nickname, colorHex);
+  label.position.y = built.height + 0.42;
+  group.add(label);
+  return {
+    group,
+    update(delta, speed) {
+      built.update(delta, speed);
+    },
+    dispose() {
+      built.dispose();
+      if (label.material.map) label.material.map.dispose();
+      label.material.dispose();
+    },
+  };
+}
+
 // 커스텀 RPM 아바타 charId 프리픽스 — 'rpm:https://models.readyplayer.me/xxx.glb'
 const RPM_URL_PREFIX = 'rpm:';
 
@@ -962,6 +994,10 @@ function createRpmUrlAvatarInstance(url, colorHex, nickname) {
  * @returns {{group: THREE.Group, update: (delta:number, speed:number)=>void, dispose: ()=>void}}
  */
 export function createAvatarInstance(charId, colorHex, nickname) {
+  if (typeof charId === 'string' && charId.startsWith(CHIBI_CHAR_PREFIX)) {
+    return createChibiAvatarInstance(charId, colorHex, nickname);
+  }
+
   if (typeof charId === 'string' && charId.startsWith(DCL_CHAR_PREFIX)) {
     return createDclAvatarInstance(charId, colorHex, nickname);
   }
