@@ -15,6 +15,7 @@ import { startAmbient } from './ambient.js';
 import { PlayerController } from './player.js';
 import { MultiplayerManager } from './multiplayer.js';
 import { preloadAvatarTemplates, createAvatarInstance } from './avatar.js';
+import { NpcCrowd } from './npc.js';
 import { loadNotes, saveNotes, mergeNotes, makeNote } from './guestbook.js';
 import {
   initUI,
@@ -53,6 +54,7 @@ let scene = null;
 let camera = null;
 let player = null;
 let mp = null; // MultiplayerManager — 입장 전에는 null (sendState/update 가드)
+let npcCrowd = null; // AI 관객 — 호스트가 될 때 npcProvider 안에서 지연 생성
 
 // ---------------------------------------------------------------------------
 // 3인칭 '내 모습 보기' (V키 / 터치 독 '시점' 버튼)
@@ -655,6 +657,15 @@ function handleEnter({ nickname, color, char }) {
     mp.onPlayerCount = (n) => setPlayerCount(n);
     mp.onStatus = handleMultiplayerStatus;
     mp.onGuestbook = handleRemoteGuestbook;
+    // AI 관객 — 호스트가 된 클라이언트만 mp.update()가 매 프레임 호출한다.
+    // 작품 배치는 입장 전에 끝나므로 getPlacedArtworks()는 여기서 항상 유효하다.
+    mp.npcProvider = (delta) => {
+      if (!npcCrowd) npcCrowd = new NpcCrowd(getPlacedArtworks(), 4);
+      const states = npcCrowd.update(delta);
+      const remark = npcCrowd.takeChat();
+      if (remark) mp.sendNpcChat(remark.name, remark.text); // 호스트 화면 표시 포함
+      return states;
+    };
     mp.connect();
   } catch (err) {
     console.error('멀티플레이어 초기화 실패:', err);

@@ -24,6 +24,9 @@ export class MultiplayerManager {
     // 콜백 프로퍼티 (외부에서 할당)
     this.onChat = (name, text) => {};
     this.onPlayerCount = (n) => {};
+    // AI 관객(NPC) — 호스트일 때 매 프레임 호출해 상태 맵을 받는 훅 (main.js가 배선)
+    this.npcProvider = null;
+    this._npcStates = null;
     this.onStatus = (statusText) => {};
     this.onGuestbook = (notes) => {};
 
@@ -60,6 +63,13 @@ export class MultiplayerManager {
    */
   sendState(state) {
     this._lastState = state;
+  }
+
+  // NPC 한마디 — 호스트가 자신 화면(onChat)과 게스트 전원에 뿌린다
+  sendNpcChat(name, text) {
+    if (!this.isHost) return;
+    this._broadcast({ type: 'chat', name, text, senderId: null });
+    this.onChat(name, text);
   }
 
   sendChat(text) {
@@ -103,6 +113,20 @@ export class MultiplayerManager {
       } else if (this.hostConn && this.hostConn.open) {
         this.hostConn.send({ type: 'state', x: s.x, y: s.y, z: s.z, ry: s.ry });
       }
+    }
+
+    // ---- AI 관객(NPC) — 호스트만 시뮬레이션, 사람과 동일 파이프라인으로 표시 ----
+    if (this.isHost && this.npcProvider) {
+      this._npcStates = this.npcProvider(delta) || null;
+      if (this._npcStates) {
+        for (const id of Object.keys(this._npcStates)) {
+          this._updateRemoteAvatar(id, this._npcStates[id]);
+        }
+      }
+    } else if (this._npcStates) {
+      // 호스트 지위를 잃으면 자체 NPC를 정리한다 (새 호스트의 states가 대체)
+      for (const id of Object.keys(this._npcStates)) this._removeAvatar(id);
+      this._npcStates = null;
     }
 
     // ---- 원격 아바타 보간 + 애니메이션 ----
@@ -254,6 +278,9 @@ export class MultiplayerManager {
         x: info.x, y: info.y, z: info.z, ry: info.ry,
       };
     }
+    if (this._npcStates) {
+      for (const [id, info] of Object.entries(this._npcStates)) players[id] = info;
+    }
     this._broadcast({ type: 'states', players });
   }
 
@@ -331,7 +358,7 @@ export class MultiplayerManager {
       for (const id of Array.from(this.remoteAvatars.keys())) {
         if (!ids.has(id)) this._removeAvatar(id);
       }
-      this.onPlayerCount(Object.keys(players).length);
+      this.onPlayerCount(Object.values(players).filter((p) => p && !p.npc).length);
     } else if (data.type === 'chat') {
       if (data.senderId && data.senderId === selfId) return; // 자기 메시지 에코 무시
       this.onChat(String(data.name || '게스트'), String(data.text || ''));
