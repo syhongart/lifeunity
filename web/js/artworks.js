@@ -1,4 +1,4 @@
-// artworks.js — LifeUnity Metaverse Museum
+// artworks.js — ARTSHOW Metaverse Museum
 // 작가별 전시 갤러리 JSON을 로드하여 작품(액자 + 플라크 + 작품별 스포트라이트)을
 // 생성하고 근접 작품을 탐색한다.
 // 소유 파일: web/js/artworks.js (이 파일만 수정)

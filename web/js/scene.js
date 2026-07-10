@@ -1,4 +1,4 @@
-// LifeUnity Metaverse — 전시장 건축 + 전역 조명
+// ARTSHOW Metaverse — 전시장 건축 + 전역 조명
 // 루이지애나 미술관(덴마크) 스타일: 통유리 벽 너머로 정원·바다가 보이는 미술관
 //
 // createMuseum(scene, themeName = 'daylight') → { bounds: {minX,maxX,minZ,maxZ} }

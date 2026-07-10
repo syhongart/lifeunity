@@ -1,5 +1,5 @@
 // avatar.js — 원격 플레이어 아바타 생성
-// LifeUnity Metaverse — MoMA급 미니멀 뮤지엄
+// ARTSHOW Metaverse — MoMA급 미니멀 뮤지엄
 //
 // 리깅된 휴머노이드 4종(KayKit Adventurers — web/assets/avatars/{knight,mage,
 // barbarian,rogue}.glb, 스킨 1개 + 애니메이션 76클립 내장)을 우선 사용하고,

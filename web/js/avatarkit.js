@@ -1,5 +1,5 @@
 // avatarkit.js — 자체 호스팅 아바타 커스터마이저 코어
-// LifeUnity Metaverse — Decentraland base-avatars(Apache-2.0) 파츠를 런타임에 조립한다.
+// ARTSHOW Metaverse — Decentraland base-avatars(Apache-2.0) 파츠를 런타임에 조립한다.
 //
 // 이 모듈은 순수 조립 로직만 담당한다(씬 추가/애니메이션/전방 보정은 avatar.js,
 // UI는 ui.js). manifest.json 색인 + 개별 파츠 GLB/PNG를 런타임에 fetch해
