@@ -1,0 +1,1034 @@
+{
+ "generated": "curate-dcl.js",
+ "license": "Apache-2.0 (Decentraland avatar assets)",
+ "categories": {
+  "body_shape": [
+   {
+    "id": "BaseMale",
+    "name": "Man",
+    "models": {
+     "male": "BaseMale.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "body",
+     "male",
+     "man"
+    ]
+   },
+   {
+    "id": "BaseFemale",
+    "name": "Woman",
+    "models": {
+     "female": "BaseFemale.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "body",
+     "male",
+     "man"
+    ]
+   }
+  ],
+  "hair": [
+   {
+    "id": "F_Hair_Anime_01",
+    "name": "Idol",
+    "models": {
+     "female": "Hair_Anime_Fringe.glb",
+     "male": "Hair_Anime_Fringe.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Idol"
+    ]
+   },
+   {
+    "id": "F_Hair_DoubleBun",
+    "name": "Double Bun",
+    "models": {
+     "female": "Hair_DoubleBun.glb",
+     "male": "Hair_DoubleBun.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Double",
+     "Bun"
+    ]
+   },
+   {
+    "id": "F_Hair_TwoTails",
+    "name": "Pigtails",
+    "models": {
+     "female": "Hair_TwoTails.glb",
+     "male": "Hair_TwoTails.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Pigtails"
+    ]
+   },
+   {
+    "id": "F_Hair_PonyTail",
+    "name": "Ponytail",
+    "models": {
+     "female": "Hair_PonyTail.glb",
+     "male": "Hair_PonyTail.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Ponytail"
+    ]
+   },
+   {
+    "id": "F_Hair_ShoulderBobHair",
+    "name": "Shoulder Bob Hair",
+    "models": {
+     "female": "Hair_ShoulderBobHair.glb",
+     "male": "Hair_ShoulderBobHair.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Shoulder",
+     "Bob",
+     "Hair"
+    ]
+   },
+   {
+    "id": "F_Hair_Bun",
+    "name": "Hair Bun",
+    "models": {
+     "female": "Hair_Bun.glb",
+     "male": "Hair_Bun.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "Hair",
+     "Bun"
+    ]
+   },
+   {
+    "id": "M_Hair_ShortHair_01",
+    "name": "Short Hair",
+    "models": {
+     "male": "Hair_ShortHair_01.glb",
+     "female": "Hair_ShortHair_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Short",
+     "Hair"
+    ]
+   },
+   {
+    "id": "M_Hair_Standard_01",
+    "name": "Casual Hair Style",
+    "models": {
+     "male": "M_Hair_Standard_01.glb",
+     "female": "F_Hair_Standard_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Casual",
+     "Hair",
+     "Style"
+    ]
+   },
+   {
+    "id": "M_Hair_Cool_01",
+    "name": "Cool Hair",
+    "models": {
+     "male": "Hair_Cool.glb",
+     "female": "Hair_Cool.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Cool",
+     "Hair"
+    ]
+   },
+   {
+    "id": "M_Hair_BookStyle",
+    "name": "Curtained hair",
+    "models": {
+     "male": "Hair_BookStyle.glb",
+     "female": "Hair_BookStyle.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Curtained",
+     "hair"
+    ]
+   },
+   {
+    "id": "M_Hair_SemiAfro_01",
+    "name": "Small Afro",
+    "models": {
+     "male": "Hair_SemiAfro_01.glb",
+     "female": "Hair_SemiAfro_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Small",
+     "Afro"
+    ]
+   },
+   {
+    "id": "M_Hair_Beatle_01",
+    "name": "Moptop",
+    "models": {
+     "male": "Hair_Beatle.glb",
+     "female": "Hair_Beatle.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "hair",
+     "Moptop"
+    ]
+   }
+  ],
+  "upper_body": [
+   {
+    "id": "uBody_OrangeBasicTShirt",
+    "name": "Orange T-Shirt",
+    "models": {
+     "female": "F_uBody_OrangeBasicTShirt.glb",
+     "male": "M_uBody_OrangeBasicTShirt.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Orange",
+     "T-Shirt"
+    ]
+   },
+   {
+    "id": "uBody_PoloBlueTShirt",
+    "name": "Blue Polo T Shirt",
+    "models": {
+     "female": "F_uBody_PoloBlueTShirt.glb",
+     "male": "M_uBody_PoloBlueTShirt.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Blue",
+     "Polo",
+     "T",
+     "Shirt"
+    ]
+   },
+   {
+    "id": "uBody_DenimDungareesBlue",
+    "name": "Denim Blue Dungarees",
+    "models": {
+     "female": "F_DenimDungareesBlue.glb",
+     "male": "M_DenimDungareesBlue.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Denim",
+     "Blue",
+     "Dungarees"
+    ]
+   },
+   {
+    "id": "uBody_DenimDungareesRed",
+    "name": "Denim Red Dungarees",
+    "models": {
+     "female": "F_DenimDungareesRed.glb",
+     "male": "M_DenimDungareesRed.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Denim",
+     "Red",
+     "Dungarees"
+    ]
+   },
+   {
+    "id": "uBody_SkaterColoredLongSleeve",
+    "name": "Colored Skater Long Sleeve",
+    "models": {
+     "female": "F_uBody_SkaterColoredLongSleeve.glb",
+     "male": "M_uBody_SkaterColoredLongSleeve.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Colored",
+     "Skater",
+     "Long",
+     "Sleeve"
+    ]
+   },
+   {
+    "id": "F_uBody_PinkBasicTShirt",
+    "name": "Simple Pink T-Shirt",
+    "models": {
+     "female": "F_uBody_PinkBasicTShirt.glb",
+     "male": "M_uBody_PinkBasicTShirt.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Simple",
+     "Pink",
+     "T-Shirt"
+    ]
+   },
+   {
+    "id": "F_uBody_YellowLovelyTShirt",
+    "name": "Lovely Yellow Shirt",
+    "models": {
+     "female": "F_uBody_YellowLovelyTShirt.glb",
+     "male": "M_uBody_YellowLovelyTShirt.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Lovely",
+     "Yellow",
+     "Shirt"
+    ]
+   },
+   {
+    "id": "F_uBody_Sweater_01",
+    "name": "Yellow Sweater",
+    "models": {
+     "female": "F_uBody_Sweater_01.glb",
+     "male": "M_uBody_Sweater_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Yellow",
+     "Sweater"
+    ]
+   },
+   {
+    "id": "F_uBody_BeeTShirt",
+    "name": "Bee T-Shirt",
+    "models": {
+     "female": "F_uBody_BeeTShirt.glb",
+     "male": "M_uBody_BeeTShirt.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Bee",
+     "T-Shirt"
+    ]
+   },
+   {
+    "id": "M_uBody_Hoodie_01",
+    "name": "Green Hoodie",
+    "models": {
+     "male": "M_uBody_Hoodie_01.glb",
+     "female": "F_uBody_Hoodie_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Green",
+     "Hoodie"
+    ]
+   },
+   {
+    "id": "M_uBody_Sweater_01",
+    "name": "Blue and Red Sweater",
+    "models": {
+     "male": "M_uBody_Sweater_01.glb",
+     "female": "F_uBody_Sweater_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Blue",
+     "and",
+     "Red",
+     "Sweater"
+    ]
+   },
+   {
+    "id": "M_uBody_BlueTShirt",
+    "name": "Blue T-Shirt",
+    "models": {
+     "male": "M_uBody_BlueTShirt.glb",
+     "female": "F_uBody_BlueTShirt.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "upper",
+     "body",
+     "Blue",
+     "T-Shirt"
+    ]
+   }
+  ],
+  "lower_body": [
+   {
+    "id": "F_lBody_Jeans_01",
+    "name": "Jeans",
+    "models": {
+     "female": "F_lBody_Jeans_01.glb",
+     "male": "M_lBody_Jeans_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "lower",
+     "body",
+     "Jeans"
+    ]
+   },
+   {
+    "id": "F_lBody_SchoolSkirt",
+    "name": "School Skirt",
+    "models": {
+     "female": "F_lBody_SchoolSkirt.glb",
+     "male": "M_lBody_SchoolSkirt.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "lower",
+     "body",
+     "School",
+     "Skirt"
+    ]
+   },
+   {
+    "id": "F_lBody_ShortBlueJeans",
+    "name": "Short Blue Jeans",
+    "models": {
+     "male": "M_lBody_ShortBlueJeans.glb",
+     "female": "M_lBody_ShortBlueJeans.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "lower",
+     "body",
+     "Short",
+     "Blue",
+     "Jeans"
+    ]
+   },
+   {
+    "id": "F_lBody_SportShorts",
+    "name": "Sport Shorts",
+    "models": {
+     "male": "M_lBody_SportShorts.glb",
+     "female": "F_lBody_SportShorts.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "lower",
+     "body",
+     "Sport",
+     "Shorts"
+    ]
+   },
+   {
+    "id": "F_lBody_BrownSkirtDress",
+    "name": "Brown Skirt",
+    "models": {
+     "female": "F_lBody_BrownSkirtDress.glb",
+     "male": "M_lBody_BrownSkirtDress.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "lower",
+     "body",
+     "Brown",
+     "Skirt"
+    ]
+   },
+   {
+    "id": "M_lBody_LongPants_01",
+    "name": "Brown Pants",
+    "models": {
+     "male": "M_lBody_LongPants_01.glb",
+     "female": "F_lBody_LongPants_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "lower",
+     "body",
+     "Brown",
+     "Pants"
+    ]
+   },
+   {
+    "id": "M_lBody_ShortPants_01",
+    "name": "Jean Shorts",
+    "models": {
+     "male": "M_lBody_ShortPants_01.glb",
+     "female": "F_lBody_ShortPants_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "lower_body",
+     "Jean",
+     "Shorts"
+    ]
+   },
+   {
+    "id": "M_lBody_GreyJoggers",
+    "name": "Grey Joggers",
+    "models": {
+     "male": "M_lBody_GreyJoggers.glb",
+     "female": "F_lBody_GreyJoggers.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "lower",
+     "body",
+     "Grey",
+     "Joggers"
+    ]
+   },
+   {
+    "id": "M_lBody_ComfortablePants",
+    "name": "Comfortable Pants",
+    "models": {
+     "male": "M_lBody_ComfortablePants.glb",
+     "female": "F_lBody_ComfortablePants.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "lower",
+     "body",
+     "Comfortable",
+     "Pants"
+    ]
+   },
+   {
+    "id": "lBody_CorduroyPurplePants",
+    "name": "Corduroy Purple Pants",
+    "models": {
+     "female": "F_CorduroyPurplePants.glb",
+     "male": "M_CorduroyPurplePants.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "lower_body",
+     "Corduroy",
+     "Purple",
+     "Pants"
+    ]
+   }
+  ],
+  "feet": [
+   {
+    "id": "Sneakers_01",
+    "name": "Sneakers",
+    "models": {
+     "male": "Sneakers_01.glb",
+     "female": "Sneakers_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "feet",
+     "Sneakers"
+    ]
+   },
+   {
+    "id": "SportBlueShoes",
+    "name": "Sport Blue Shoes",
+    "models": {
+     "male": "M_Feet_SportBlueShoes.glb",
+     "female": "M_Feet_SportBlueShoes.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "feet",
+     "Sport",
+     "Blue",
+     "Shoes"
+    ]
+   },
+   {
+    "id": "Crocs",
+    "name": "Crocs",
+    "models": {
+     "male": "Crocs.glb",
+     "female": "Crocs.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "feet",
+     "Crocs"
+    ]
+   },
+   {
+    "id": "BearSlippers_01",
+    "name": "Bear Slippers",
+    "models": {
+     "male": "BearSlippers_01.glb",
+     "female": "BearSlippers_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "feet",
+     "Bear",
+     "Slippers"
+    ]
+   },
+   {
+    "id": "F_Feet_SportColorShoes",
+    "name": "Sport Colored Shoes",
+    "models": {
+     "female": "F_Feet_SportColorShoes.glb",
+     "male": "F_Feet_SportColorShoes.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "feet",
+     "Sport",
+     "Colored",
+     "Shoes"
+    ]
+   },
+   {
+    "id": "F_BunShoes_01",
+    "name": "Bun shoes",
+    "models": {
+     "female": "F_BunShoes_01.glb",
+     "male": "F_BunShoes_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "feet",
+     "Bun",
+     "shoes"
+    ]
+   },
+   {
+    "id": "M_Feet_MountainShoes",
+    "name": "Mountain Boots",
+    "models": {
+     "male": "M_Feet_MountainShoes.glb",
+     "female": "M_Feet_MountainShoes.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "feet",
+     "Mountain",
+     "Boots"
+    ]
+   },
+   {
+    "id": "ClassicShoes",
+    "name": "Classic Shoes",
+    "models": {
+     "male": "M_Feet_ClassicShoes.glb",
+     "female": "M_Feet_ClassicShoes.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "feet",
+     "Classic",
+     "Shoes"
+    ]
+   }
+  ],
+  "eyes": [
+   {
+    "id": "F_Eyes_00",
+    "name": "f_Eyes_00",
+    "models": {
+     "female": "F_Eyes_00.png",
+     "male": "F_Eyes_00.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "eyes"
+    ]
+   },
+   {
+    "id": "F_Eyes_01",
+    "name": "f_Eyes_01",
+    "models": {
+     "female": "F_Eyes_01.png",
+     "male": "F_Eyes_01.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "eyes"
+    ]
+   },
+   {
+    "id": "F_Eyes_02",
+    "name": "f_Eyes_02",
+    "models": {
+     "female": "F_Eyes_02.png",
+     "male": "F_Eyes_02.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "eyes"
+    ]
+   },
+   {
+    "id": "F_Eyes_05",
+    "name": "f_Eyes_05",
+    "models": {
+     "female": "F_Eyes_05.png",
+     "male": "F_Eyes_05.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "eyes"
+    ]
+   },
+   {
+    "id": "M_Eyes_00",
+    "name": "Eyes_00",
+    "models": {
+     "male": "M_Eyes_00.png",
+     "female": "M_Eyes_00.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "eyes"
+    ]
+   },
+   {
+    "id": "M_Eyes_01",
+    "name": "Eyes_01",
+    "models": {
+     "male": "M_Eyes_01.png",
+     "female": "M_Eyes_01.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyes",
+     "01"
+    ]
+   },
+   {
+    "id": "Eyes_12",
+    "name": "Eyes_12",
+    "models": {
+     "female": "Eyes_12.png",
+     "male": "Eyes_12.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyes"
+    ]
+   },
+   {
+    "id": "Eyes_16",
+    "name": "Eyes_16",
+    "models": {
+     "female": "Eyes_16.png",
+     "male": "Eyes_16.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyes"
+    ]
+   }
+  ],
+  "eyebrows": [
+   {
+    "id": "F_Eyebrows_00",
+    "name": "f_EyeBrows_00",
+    "models": {
+     "female": "F_Eyebrows_00.png",
+     "male": "F_Eyebrows_00.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyebrows"
+    ]
+   },
+   {
+    "id": "F_Eyebrows_01",
+    "name": "f_EyeBrows_01",
+    "models": {
+     "female": "F_Eyebrows_01.png",
+     "male": "F_Eyebrows_01.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyebrows"
+    ]
+   },
+   {
+    "id": "M_Eyebrows_00",
+    "name": "EyeBrows_00",
+    "models": {
+     "male": "M_EyeBrows_00.png",
+     "female": "M_EyeBrows_00.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyebrows"
+    ]
+   },
+   {
+    "id": "M_Eyebrows_01",
+    "name": "EyeBrows_01",
+    "models": {
+     "male": "M_EyeBrows_01.png",
+     "female": "M_EyeBrows_01.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyebrows",
+     "01"
+    ]
+   },
+   {
+    "id": "Eyebrows_08",
+    "name": "Eyebrows_8",
+    "models": {
+     "female": "Eyebrows_08.png",
+     "male": "Eyebrows_08.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyebrows"
+    ]
+   },
+   {
+    "id": "Eyebrows_09",
+    "name": "Eyebrows_09",
+    "models": {
+     "female": "Eyebrows_09.png",
+     "male": "Eyebrows_09.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyebrows"
+    ]
+   }
+  ],
+  "mouth": [
+   {
+    "id": "F_Mouth_00",
+    "name": "f_Mouth_00",
+    "models": {
+     "female": "F_Mouth_00.png",
+     "male": "F_Mouth_00.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "mouth"
+    ]
+   },
+   {
+    "id": "F_Mouth_01",
+    "name": "f_Mouth_01",
+    "models": {
+     "female": "F_Mouth_01.png",
+     "male": "F_Mouth_01.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "mouth"
+    ]
+   },
+   {
+    "id": "M_Mouth_00",
+    "name": "Mouth_00",
+    "models": {
+     "male": "M_Mouth_00.png",
+     "female": "M_Mouth_00.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "mouth"
+    ]
+   },
+   {
+    "id": "M_Mouth_01",
+    "name": "Mouth_01",
+    "models": {
+     "male": "M_Mouth_01.png",
+     "female": "M_Mouth_01.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "mouth"
+    ]
+   },
+   {
+    "id": "Mouth_09",
+    "name": "Mouth_09",
+    "models": {
+     "female": "Mouth_09.png",
+     "male": "Mouth_09.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "mouth"
+    ]
+   },
+   {
+    "id": "Mouth_10",
+    "name": "Mouth_10",
+    "models": {
+     "female": "Mouth_10.png",
+     "male": "Mouth_10.png"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "face",
+     "mouth"
+    ]
+   }
+  ],
+  "eyewear": [
+   {
+    "id": "RetroGlasses",
+    "name": "Retro Sunglasses",
+    "models": {
+     "male": "F_Eyewear_RetroGlasses.glb",
+     "female": "F_Eyewear_RetroGlasses.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "accesories",
+     "male",
+     "man",
+     "female",
+     "Woman"
+    ]
+   },
+   {
+    "id": "RoundSunglasses_01",
+    "name": "Rounded Sun Glasses",
+    "models": {
+     "male": "RoundSunglasses_01.glb",
+     "female": "RoundSunglasses_01.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "accesories",
+     "male",
+     "man",
+     "female",
+     "woman"
+    ]
+   },
+   {
+    "id": "F_Heart",
+    "name": "Heart Shaped Sunglasses",
+    "models": {
+     "female": "F_Eyewear_Heart.glb",
+     "male": "F_Eyewear_Heart.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyewear",
+     "Heart",
+     "Shaped",
+     "Sunglasses"
+    ]
+   },
+   {
+    "id": "F_CatStyle",
+    "name": "Cat Style Glasses",
+    "models": {
+     "female": "F_Eyewear_CatStyle.glb",
+     "male": "F_Eyewear_CatStyle.glb"
+    },
+    "thumb": "thumbnail.png",
+    "tags": [
+     "unisex",
+     "eyewear",
+     "Cat",
+     "Style",
+     "Glasses"
+    ]
+   }
+  ]
+ }
+}
