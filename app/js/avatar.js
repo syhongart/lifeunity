@@ -1,5 +1,5 @@
 // avatar.js — 원격 플레이어 아바타 생성
-// LifeUnity Metaverse — MoMA급 미니멀 뮤지엄
+// ARTSHOW Metaverse — MoMA급 미니멀 뮤지엄
 //
 // 리깅된 휴머노이드 4종(KayKit Adventurers — web/assets/avatars/{knight,mage,
 // barbarian,rogue}.glb, 스킨 1개 + 애니메이션 76클립 내장)을 우선 사용하고,
@@ -27,9 +27,10 @@ const DEFAULT_CHAR_ID = 'knight';
 const CHAR_FORWARD_OFFSET = Math.PI;
 
 // DCL(Decentraland base-avatars) 커스텀 아바타 전방 보정 — KayKit과 별도 상수.
-// QA 실측: DCL GLB 원본은 이미 +Z를 바라봐(KayKit 원본은 -Z를 바라봐 π 보정이 필요했던 것과 반대),
-// 카메라가 +Z에서 원점을 바라볼 때 바로 정면이 보인다 — 보정 불필요(0).
-const DCL_FORWARD_OFFSET = 0;
+// DCL 원본도 +Z를 바라보게 저작돼 있고, 플레이어 yaw=0의 이동 방향은 -Z다.
+// 프리셋과 동일 조건 QA에서 프리셋은 등(-Z 정면), DCL은 얼굴(+Z 정면)을 보여
+// 180° 불일치 확인 — 보정 없으면 원격 커스텀 아바타가 뒤로 걷는 문워크가 된다.
+const DCL_FORWARD_OFFSET = Math.PI;
 
 // DCL 리그의 바인드 포즈는 T포즈(팔이 수평)인데 RPM/Mixamo idle·walk 클립의 "레스트"는
 // 이미 팔이 몸통 옆으로 내려온 자연스러운 자세다 — 레스트-상대 델타 리타게팅은 이

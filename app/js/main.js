@@ -1,4 +1,4 @@
-// main.js — LifeUnity Museum 통합 엔트리 포인트
+// main.js — ARTSHOW Museum 통합 엔트리 포인트
 // 소유: 통합 담당. 다른 모듈의 공개 API 계약을 그대로 사용한다.
 
 import * as THREE from 'three';
@@ -341,7 +341,7 @@ function capturePhoto() {
       showShareModal({
         blob: dataUrlToBlob(outDataUrl),
         dataUrl: outDataUrl,
-        galleryName: (galleryInfo && galleryInfo.name) || 'LIFEUNITY 전시',
+        galleryName: (galleryInfo && galleryInfo.name) || 'ARTSHOW 전시',
         shareUrl: getShareUrl(),
       });
     };
@@ -364,7 +364,7 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: 'image/png' });
 }
 
-// 캡처 이미지 하단에 그라디언트 + 전시명(좌) + LIFEUNITY 브랜드/URL(우) 워터마크를 합성한다.
+// 캡처 이미지 하단에 그라디언트 + 전시명(좌) + ARTSHOW 브랜드/URL(우) 워터마크를 합성한다.
 function drawWatermark(ctx, w, h, galleryName) {
   const bandHeight = Math.max(90, Math.round(h * 0.14));
   const grad = ctx.createLinearGradient(0, h - bandHeight, 0, h);
@@ -382,17 +382,17 @@ function drawWatermark(ctx, w, h, galleryName) {
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(255,255,255,0.95)';
   ctx.font = `300 ${Math.round(18 * s)}px Helvetica, Arial, sans-serif`;
-  ctx.fillText(galleryName || 'LIFEUNITY 전시', pad, h - pad - 6 * s);
+  ctx.fillText(galleryName || 'ARTSHOW 전시', pad, h - pad - 6 * s);
 
-  // 우하단 — LIFEUNITY(골드, letter-spacing) + 사이트 URL
+  // 우하단 — ARTSHOW(골드, letter-spacing) + 사이트 URL
   ctx.fillStyle = '#d4af37';
   ctx.font = `300 ${Math.round(16 * s)}px Helvetica, Arial, sans-serif`;
-  drawLetterSpacedRight(ctx, 'LIFEUNITY', w - pad, h - pad - 22 * s, 2.5 * s);
+  drawLetterSpacedRight(ctx, 'ARTSHOW', w - pad, h - pad - 22 * s, 2.5 * s);
 
   ctx.textAlign = 'right';
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
   ctx.font = `300 ${Math.round(12 * s)}px Helvetica, Arial, sans-serif`;
-  ctx.fillText('syhongart.github.io/lifeunity', w - pad, h - pad - 4 * s);
+  ctx.fillText('syhongart.github.io/artshow', w - pad, h - pad - 4 * s);
 }
 
 // canvas 2D는 표준 letter-spacing을 지원하지 않는 브라우저가 많아, 글자를 하나씩
