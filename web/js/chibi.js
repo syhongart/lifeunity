@@ -11,6 +11,7 @@
 // - 전방 +Z 저작: KayKit/DCL과 동일하게 π 래퍼로 감싸 게임 관례(yaw=0 → -Z)에 맞춘다.
 
 import * as THREE from 'three';
+import { mergeGeometries } from '../utils/BufferGeometryUtils.js';
 
 // ---------------------------------------------------------------------------
 // 파라미터 정의 (UI와 공유하는 단일 진실 소스)
@@ -451,23 +452,25 @@ export function buildChibi(params) {
   );
   addOutline(shell, 1.04, mats);
   hairRoot.add(shell);
-  // 뒷머리 커튼 (얼굴 개구부 제외한 옆·뒤)
+  // 뒷머리 커튼 + 앞머리(뱅) — 같은 재질의 정적 파츠라 지오메트리 병합으로
+  // 1드로우콜에 그린다 (아바타당 3~4콜 절약, 관객 7명이면 25콜+).
+  const staticHairGeos = [];
   if (p.hairStyle !== 'short') {
     const FRONT_OPEN = 1.95;
-    const curtain = new THREE.Mesh(
-      mkGeo(
-        new THREE.SphereGeometry(HAIR_R * 0.995, 32, 16, Math.PI / 2 + FRONT_OPEN / 2, Math.PI * 2 - FRONT_OPEN, Math.PI * 0.3, Math.PI * (p.hairStyle === 'bob' ? 0.42 : 0.34))
-      ),
-      hairMat
+    staticHairGeos.push(
+      new THREE.SphereGeometry(HAIR_R * 0.995, 32, 16, Math.PI / 2 + FRONT_OPEN / 2, Math.PI * 2 - FRONT_OPEN, Math.PI * 0.3, Math.PI * (p.hairStyle === 'bob' ? 0.42 : 0.34))
     );
-    hairRoot.add(curtain);
   }
-  // 앞머리 (뱅) — 이마 위 납작 구 3개
   for (const [bx, bs] of [[-0.13, 0.105], [0.0, 0.12], [0.13, 0.105]]) {
-    const bang = new THREE.Mesh(mkGeo(new THREE.SphereGeometry(bs, 14, 10)), hairMat);
-    bang.position.set(bx, 0.21, 0.235);
-    bang.scale.set(1, 0.52, 0.5);
-    hairRoot.add(bang);
+    const bang = new THREE.SphereGeometry(bs, 14, 10);
+    bang.scale(1, 0.52, 0.5);
+    bang.translate(bx, 0.21, 0.235);
+    staticHairGeos.push(bang);
+  }
+  if (staticHairGeos.length) {
+    const mergedHair = new THREE.Mesh(mkGeo(mergeGeometries(staticHairGeos)), hairMat);
+    staticHairGeos.forEach((g) => g.dispose());
+    hairRoot.add(mergedHair);
   }
 
   const tailProfile = lathePoints([[0.015, 0.03], [0.075, -0.03], [0.085, -0.14], [0.055, -0.26], [0.008, -0.36]]);

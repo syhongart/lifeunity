@@ -4,6 +4,7 @@
 // 소유 파일: web/js/artworks.js (이 파일만 수정)
 
 import * as THREE from 'three';
+import { mergeGeometries } from '../utils/BufferGeometryUtils.js';
 import { BUILDING, EYE_HEIGHT } from './config.js';
 
 // ---------------------------------------------------------------------------
@@ -470,35 +471,18 @@ function buildFrame(art, textureLoader) {
   // 프레임 4변 (박스). 개구부는 artW x artH.
   const outerW = artW + FRAME_BORDER * 2;
 
-  const topBar = new THREE.Mesh(
-    new THREE.BoxGeometry(outerW, FRAME_BORDER, FRAME_DEPTH),
-    frameMat
-  );
-  topBar.position.set(0, artH / 2 + FRAME_BORDER / 2, 0);
-
-  const bottomBar = new THREE.Mesh(
-    new THREE.BoxGeometry(outerW, FRAME_BORDER, FRAME_DEPTH),
-    frameMat
-  );
-  bottomBar.position.set(0, -(artH / 2 + FRAME_BORDER / 2), 0);
-
-  const leftBar = new THREE.Mesh(
-    new THREE.BoxGeometry(FRAME_BORDER, artH, FRAME_DEPTH),
-    frameMat
-  );
-  leftBar.position.set(-(artW / 2 + FRAME_BORDER / 2), 0, 0);
-
-  const rightBar = new THREE.Mesh(
-    new THREE.BoxGeometry(FRAME_BORDER, artH, FRAME_DEPTH),
-    frameMat
-  );
-  rightBar.position.set(artW / 2 + FRAME_BORDER / 2, 0, 0);
-
-  for (const bar of [topBar, bottomBar, leftBar, rightBar]) {
-    bar.castShadow = true;
-    bar.receiveShadow = true;
-    group.add(bar);
-  }
+  // 4변 막대를 지오메트리 병합으로 1드로우콜에 — 작품 14점 × 3콜 절약
+  const barGeos = [
+    new THREE.BoxGeometry(outerW, FRAME_BORDER, FRAME_DEPTH).translate(0, artH / 2 + FRAME_BORDER / 2, 0),
+    new THREE.BoxGeometry(outerW, FRAME_BORDER, FRAME_DEPTH).translate(0, -(artH / 2 + FRAME_BORDER / 2), 0),
+    new THREE.BoxGeometry(FRAME_BORDER, artH, FRAME_DEPTH).translate(-(artW / 2 + FRAME_BORDER / 2), 0, 0),
+    new THREE.BoxGeometry(FRAME_BORDER, artH, FRAME_DEPTH).translate(artW / 2 + FRAME_BORDER / 2, 0, 0),
+  ];
+  const frameBars = new THREE.Mesh(mergeGeometries(barGeos), frameMat);
+  barGeos.forEach((g) => g.dispose());
+  frameBars.castShadow = true;
+  frameBars.receiveShadow = true;
+  group.add(frameBars);
 
   // 캔버스 백킹 (프레임 안쪽 뒷판)
   const backing = new THREE.Mesh(

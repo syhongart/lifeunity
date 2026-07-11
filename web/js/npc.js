@@ -48,6 +48,23 @@ const FEATURED_WEIGHT = 3;     // 인기작(대표작) 선택 가중치 — 관�
 const FEATURED_VIEW_MULT = 1.7; // 인기작 감상 시간 배수
 const GREET_DIST = 2.3;        // 사람 접근 인사 거리(m)
 const GREET_COOLDOWN = 60;     // NPC별 인사 쿨다운(초)
+const CONVO_COOLDOWN = 40;     // 짝 대화 전체 쿨다운(초)
+const SLOT_SPACING = 0.62;     // 같은 작품 관람 슬롯 간격(m)
+
+// 같은 작품 앞에 모인 관객들의 소소한 대화 — [말 거는 쪽, 답하는 쪽]
+const CONVOS = [
+  [(t) => `『${t}』 색이 참 좋지 않아요?`, () => '그쵸, 한참 보게 돼요'],
+  [(t) => `저 『${t}』 보러 두 번째 와요`, () => '오… 그 마음 알 것 같아요'],
+  [() => '이 방 조명이 참 좋네요', () => '작품이 더 살아 보여요'],
+  [(t) => `『${t}』는 실물이 훨씬 낫네요`, () => '사진으론 다 못 담죠'],
+  [(t) => `『${t}』 앞에만 오면 발이 멈춰요`, () => '저도요, 신기하죠'],
+];
+// 꼬마악마가 답하는 쪽이면 까칠하게 받아친다
+const IMP_REPLIES = [
+  '흥, 보는 눈은 있으시네요',
+  '그 정도로 감동하다니… 순수하시긴',
+  '뭐, 나쁘진 않죠. 인정하긴 싫지만',
+];
 
 const GREETINGS = [
   '안녕하세요! 같이 봐요 ☺️',
@@ -161,7 +178,6 @@ export class NpcCrowd {
     for (let i = 0; i < n; i++) {
       const floorArts = floors[i % floors.length];
       const art = rand(floorArts);
-      const pose = this._posedAt(art);
       this.npcs.push({
         id: `npc-${i + 1}`,
         nickname: NPC_NAMES[i],
@@ -173,22 +189,24 @@ export class NpcCrowd {
         state: 'view',
         viewLeft: randRange(2, VIEW_TIME_MAX), // 시작 시점 분산
         speed: randRange(WALK_SPEED_MIN, WALK_SPEED_MAX),
-        x: pose.x,
-        y: pose.y,
-        z: pose.z,
-        ry: pose.ry,
-        tx: pose.x,
-        tz: pose.z,
-        try_: pose.ry,
+        x: 0, y: 0, z: 0, ry: 0, tx: 0, tz: 0, try_: 0,
+        slot: 0,
+        faceUntil: 0,
+        facePt: null,
         greetCd: randRange(0, 20), // 입장 직후 일제히 인사하지 않게 분산
         hurtCd: 0,
       });
+      const npc = this.npcs[this.npcs.length - 1];
+      const pose = this._posedAt(art, npc);
+      npc.x = npc.tx = pose.x;
+      npc.y = pose.y;
+      npc.z = npc.tz = pose.z;
+      npc.ry = npc.try_ = pose.ry;
     }
 
     // 꼬마악마 — 작품이 가장 많은 층에 상주하는 심술 평론가 (+1명, 별도 정원)
     const impFloor = floors.reduce((a, b) => (b.length > a.length ? b : a), floors[0]);
     const impArt = rand(impFloor);
-    const impPose = this._posedAt(impArt);
     this.npcs.push({
       id: 'npc-imp',
       nickname: IMP_NAME,
@@ -200,32 +218,56 @@ export class NpcCrowd {
       state: 'view',
       viewLeft: randRange(4, VIEW_TIME_MAX),
       speed: randRange(WALK_SPEED_MIN, WALK_SPEED_MAX),
-      x: impPose.x,
-      y: impPose.y,
-      z: impPose.z,
-      ry: impPose.ry,
-      tx: impPose.x,
-      tz: impPose.z,
-      try_: impPose.ry,
+      x: 0, y: 0, z: 0, ry: 0, tx: 0, tz: 0, try_: 0,
+      slot: 0,
+      faceUntil: 0,
+      facePt: null,
       greetCd: randRange(0, 15),
       hurtCd: 0,
     });
+    const imp = this.npcs[this.npcs.length - 1];
+    const impPose = this._posedAt(impArt, imp);
+    imp.x = imp.tx = impPose.x;
+    imp.y = impPose.y;
+    imp.z = imp.tz = impPose.z;
+    imp.ry = imp.try_ = impPose.ry;
+
+    this._t = 0;             // 누적 시뮬레이션 시간(초) — 대화 타이머용
+    this._convoCd = 15;      // 첫 대화는 입장 15초 후부터
+    this._pendingReplies = [];
   }
 
-  /** 감상 위치 + 겹침 방지용 소폭 좌우 오프셋(벽 접선 방향) */
-  _posedAt(art) {
+  /**
+   * 감상 위치 — 같은 작품을 보는 관객끼리 겹치지 않게 슬롯(가로 간격 + 지그재그
+   * 깊이)을 배정한다. 실측 제보: 랜덤 오프셋만으로는 3명이 한 점에 포개졌음.
+   */
+  _slotFor(art, self) {
+    const used = new Set();
+    for (const n of this.npcs) {
+      if (n !== self && n.art === art) used.add(n.slot);
+    }
+    for (const c of [0, -1, 1, -2, 2]) {
+      if (!used.has(c)) return c;
+    }
+    return Math.floor(Math.random() * 5) - 2;
+  }
+
+  _posedAt(art, self) {
     const pose = getViewingPose(art);
-    const off = randRange(-0.55, 0.55);
-    // 접선 = 법선을 90° 회전 → (cos(rotY), -sin(rotY))
-    pose.x += Math.cos(art.rotY) * off;
-    pose.z += -Math.sin(art.rotY) * off;
+    const slot = this._slotFor(art, self);
+    if (self) self.slot = slot;
+    const off = slot * SLOT_SPACING;
+    const depth = (Math.abs(slot) % 2) * 0.45; // 옆 슬롯은 반 발짝 뒤 — 지그재그
+    // 접선 = 법선을 90° 회전 → (cos(rotY), -sin(rotY)) / 깊이 = 법선 방향
+    pose.x += Math.cos(art.rotY) * off + Math.sin(art.rotY) * depth;
+    pose.z += -Math.sin(art.rotY) * off + Math.cos(art.rotY) * depth;
     return pose;
   }
 
   _pickNext(npc) {
     const candidates = npc.floorArts.filter((a) => a !== npc.art);
     npc.art = candidates.length ? weightedPick(candidates) : npc.art;
-    const pose = this._posedAt(npc.art);
+    const pose = this._posedAt(npc.art, npc);
     npc.tx = pose.x;
     npc.tz = pose.z;
     npc.try_ = pose.ry;
@@ -240,7 +282,18 @@ export class NpcCrowd {
    */
   update(delta, humans) {
     const d = Math.min(delta || 0, 0.1);
+    this._t += d;
     this._chatCooldown = Math.max(0, this._chatCooldown - d);
+    this._convoCd = Math.max(0, this._convoCd - d);
+
+    // 예약된 대답 처리 (짝 대화의 두 번째 대사)
+    while (this._pendingReplies.length && this._pendingReplies[0].at <= this._t) {
+      const r = this._pendingReplies.shift();
+      this._chatQueue.push({ name: r.name, text: r.text });
+    }
+    // 짝 대화 시작 — 같은 작품을 보는 두 관객이 소소하게 한마디씩
+    if (this._convoCd <= 0) this._tryStartConvo();
+
     const out = {};
     for (const npc of this.npcs) {
       npc.greetCd = Math.max(0, npc.greetCd - d);
@@ -256,8 +309,12 @@ export class NpcCrowd {
             this._chatCooldown = CHAT_COOLDOWN * 0.5; // 인사는 조금 더 자주 허용
             this._chatQueue.push({ name: npc.nickname, text: rand(npc.persona === 'imp' ? IMP_GREETINGS : GREETINGS) });
           }
+        } else if (npc.facePt && this._t < npc.faceUntil) {
+          // 대화 중 — 상대를 마주본다
+          npc.ry = Math.atan2(-(npc.facePt.x - npc.x), -(npc.facePt.z - npc.z));
         } else {
-          npc.ry = npc.try_; // 사람이 떠나면 다시 작품을 본다
+          npc.facePt = null;
+          npc.ry = npc.try_; // 다시 작품을 본다
         }
         if (npc.viewLeft <= 0) this._pickNext(npc);
       } else {
@@ -288,6 +345,40 @@ export class NpcCrowd {
       };
     }
     return out;
+  }
+
+  /** 같은 작품 앞의 두 관객을 골라 대화를 시작한다 */
+  _tryStartConvo() {
+    const viewers = this.npcs.filter((n) => n.state === 'view' && n.viewLeft > 5);
+    for (let i = 0; i < viewers.length; i++) {
+      for (let j = i + 1; j < viewers.length; j++) {
+        const a = viewers[i];
+        const b = viewers[j];
+        if (a.art !== b.art) continue;
+        if (Math.hypot(a.x - b.x, a.z - b.z) > 3) continue;
+        // 말 거는 쪽은 악마가 아닌 쪽 우선 (악마는 받아치는 게 어울린다)
+        const [talker, replier] = a.persona === 'imp' ? [b, a] : [a, b];
+        const convo = rand(CONVOS);
+        const title = (talker.art && talker.art.title) || '이 작품';
+        this._chatQueue.push({ name: talker.nickname, text: convo[0](title) });
+        this._pendingReplies.push({
+          at: this._t + randRange(2.5, 5),
+          name: replier.nickname,
+          text: replier.persona === 'imp' ? rand(IMP_REPLIES) : convo[1](title),
+        });
+        // 서로 마주보기 (대화 시간 동안)
+        talker.facePt = { x: replier.x, z: replier.z };
+        talker.faceUntil = this._t + 7;
+        replier.facePt = { x: talker.x, z: talker.z };
+        replier.faceUntil = this._t + 8;
+        // 둘 다 감상 시간을 조금 연장 — 대화 중 자리 뜨지 않게
+        talker.viewLeft = Math.max(talker.viewLeft, 9);
+        replier.viewLeft = Math.max(replier.viewLeft, 10);
+        this._convoCd = CONVO_COOLDOWN;
+        this._chatCooldown = Math.max(this._chatCooldown, 8);
+        return;
+      }
+    }
   }
 
   _nearestHuman(npc, humans) {
