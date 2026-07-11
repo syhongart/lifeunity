@@ -60,6 +60,30 @@ let mp = null; // MultiplayerManager — 입장 전에는 null (sendState/update
 let npcCrowd = null; // AI 관객 — 호스트가 될 때 npcProvider 안에서 지연 생성
 let stats = null; // 작가 리포트 (전시별 방문·감상 통계 — stats.js)
 const visitorLog = new VisitorLog(); // 랜딩 "최근 관람객" 피드
+// 적응형 저사양 모드 — 실측 FPS가 낮으면 화면에서 먼 AI 관객을 잠시 숨긴다.
+// (시뮬레이션·다른 접속자에게는 영향 없음 — 순수 로컬 렌더 절약)
+let liteMode = false;
+let liteToggleCooldown = 0;
+let liteCullAccum = 0;
+const LITE_ENTER_FPS = 24;
+const LITE_EXIT_FPS = 45;
+const LITE_VISIBLE_NPCS = 3;
+
+function applyNpcCulling() {
+  if (!mp) return;
+  const npcs = [];
+  for (const [rid, av] of mp.remoteAvatars) {
+    if (rid.startsWith('npc-')) npcs.push(av);
+  }
+  if (!liteMode) {
+    for (const av of npcs) av.group.visible = true;
+    return;
+  }
+  npcs.sort((a, b) => a.group.position.distanceTo(camera.position) - b.group.position.distanceTo(camera.position));
+  npcs.forEach((av, i) => {
+    av.group.visible = i < LITE_VISIBLE_NPCS;
+  });
+}
 const photoWall = new PhotoWall(); // 랜딩 "라이브 포토월" 피드
 let statsDwellTimer = null;
 
@@ -890,9 +914,29 @@ function animate() {
     fpsFrames += 1;
     fpsElapsed += delta;
     if (fpsElapsed >= 0.5) {
-      setFPS(Math.round(fpsFrames / fpsElapsed));
+      const fpsNow = fpsFrames / fpsElapsed;
+      setFPS(Math.round(fpsNow));
       fpsFrames = 0;
       fpsElapsed = 0;
+      // 저사양 자동 전환 (히스테리시스 + 10초 재전환 금지로 깜빡임 방지)
+      liteToggleCooldown = Math.max(0, liteToggleCooldown - 0.5);
+      if (liteToggleCooldown === 0 && entered) {
+        if (!liteMode && fpsNow < LITE_ENTER_FPS) {
+          liteMode = true;
+          liteToggleCooldown = 10;
+          setStatus('원활한 관람을 위해 먼 곳의 관객을 잠시 숨깁니다');
+        } else if (liteMode && fpsNow > LITE_EXIT_FPS) {
+          liteMode = false;
+          liteToggleCooldown = 10;
+          applyNpcCulling();
+        }
+      }
+    }
+    // 저사양 모드 컬링 — 2초마다 가까운 관객 3명만 표시
+    liteCullAccum += delta;
+    if (liteCullAccum >= 2) {
+      liteCullAccum = 0;
+      if (liteMode) applyNpcCulling();
     }
 
     if (thirdPerson && selfAvatar) {
