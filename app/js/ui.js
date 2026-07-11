@@ -15,6 +15,7 @@ import {
   encodeLook,
   decodeLook,
 } from './avatarkit.js';
+import { getPlacedArtworks } from './artworks.js';
 import {
   DEFAULT_CHIBI,
   CHIBI_HAIR_STYLES,
@@ -801,9 +802,48 @@ function injectStyles() {
 }
 #lu-controls-toggle:active { border-color: var(--lu-gold); color: var(--lu-gold); }
 #lu-dock {
-  position: fixed; right: 14px; bottom: 96px; z-index: 520;
+  /* UX 감사 §2: 엄지 호 안으로 압축 + safe-area 대응 */
+  position: fixed; right: 14px;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  z-index: 520;
   display: flex; flex-direction: column; gap: 10px;
 }
+.lu-dock-btn.lu-gold {
+  border-color: var(--lu-gold);
+  color: var(--lu-gold);
+  box-shadow: 0 0 14px rgba(212,175,55,0.35);
+}
+.lu-dock-btn.lu-on {
+  border-color: var(--lu-gold);
+  background: rgba(212,175,55,0.22);
+  color: #ffe9b0;
+}
+#lu-more-sheet {
+  position: fixed; left: 0; right: 0;
+  bottom: 0; z-index: 640;
+  padding: 14px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: rgba(12,12,14,0.92);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(255,255,255,0.14);
+  border-radius: 18px 18px 0 0;
+  transform: translateY(105%);
+  transition: transform 0.25s ease;
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+}
+#lu-more-sheet.lu-open { transform: translateY(0); }
+#lu-more-sheet .lu-sheet-btn {
+  min-width: 72px; padding: 12px 10px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.16); border-radius: 12px;
+  color: rgba(255,255,255,0.9); font-family: var(--lu-font);
+  font-size: 12.5px; letter-spacing: 0.06em; cursor: pointer;
+}
+#lu-more-backdrop {
+  position: fixed; inset: 0; z-index: 630; display: none;
+}
+#lu-more-backdrop.lu-open { display: block; }
+#lu-lightbox { touch-action: none; }
+.lu-lightbox-media { transition: transform 0.08s linear; will-change: transform; }
 .lu-dock-btn {
   width: 52px; height: 52px;
   display: flex; align-items: center; justify-content: center;
@@ -1598,23 +1638,23 @@ function buildMobileDock() {
   // 터치 기기 전용 액션 독 — 키보드 단축키(M/T)의 대체 진입점
   if (!IS_TOUCH) return null;
 
-  const chatBtn = el('button', {
-    className: 'lu-dock-btn', type: 'button', 'aria-label': '채팅 열기/닫기',
-    text: '채팅',
-  });
-  chatBtn.addEventListener('click', () => {
+  // UX 감사 §2 IA: 1차 노출은 [투어][캡처(골드 강조)][더보기]만 — 엄지 호 안 3버튼.
+  // 목록/내 모습/채팅/조작법은 더보기 시트로. 채팅은 접속자 ≥2일 때만 독에 동적 승격.
+  function toggleChat() {
     const wrap = els && els.chat && els.chat.wrap;
     if (!wrap) return;
     const collapsed = wrap.classList.toggle('lu-chat-collapsed');
     if (!collapsed && els.chat.input) els.chat.input.focus();
     else if (els.chat.input) els.chat.input.blur();
-  });
+    chatBtn.classList.toggle('lu-on', !collapsed);
+  }
 
-  const listBtn = el('button', {
-    className: 'lu-dock-btn', type: 'button', 'aria-label': '작품 목록',
-    text: '목록',
+  const chatBtn = el('button', {
+    className: 'lu-dock-btn', type: 'button', 'aria-label': '채팅 열기/닫기',
+    text: '채팅',
   });
-  listBtn.addEventListener('click', () => toggleArtworkList());
+  chatBtn.style.display = 'none'; // 접속자 ≥2에서 setPlayerCount가 노출
+  chatBtn.addEventListener('click', toggleChat);
 
   const tourBtn = el('button', {
     className: 'lu-dock-btn', type: 'button', 'aria-label': '투어 시작/종료',
@@ -1625,25 +1665,65 @@ function buildMobileDock() {
   });
 
   const captureBtn = el('button', {
-    className: 'lu-dock-btn', type: 'button', 'aria-label': '사진 촬영',
+    className: 'lu-dock-btn lu-gold', type: 'button', 'aria-label': '사진 촬영',
     text: '캡처',
   });
   captureBtn.addEventListener('click', () => {
     if (typeof actionHandlers.onCapture === 'function') actionHandlers.onCapture();
   });
 
-  const selfViewBtn = el('button', {
-    className: 'lu-dock-btn', type: 'button', 'aria-label': '내 모습 보기',
-    text: '시점',
-  });
-  selfViewBtn.addEventListener('click', () => {
-    if (typeof actionHandlers.onSelfView === 'function') actionHandlers.onSelfView();
+  const moreBtn = el('button', {
+    className: 'lu-dock-btn', type: 'button', 'aria-label': '더보기',
+    text: '⋯',
   });
 
+  // ---- 더보기 시트 ----
+  const backdrop = el('div', { id: 'lu-more-backdrop' });
+  const sheet = el('div', { id: 'lu-more-sheet' });
+  function closeSheet() {
+    sheet.classList.remove('lu-open');
+    backdrop.classList.remove('lu-open');
+  }
+  function sheetBtn(label, fn) {
+    const b = el('button', { className: 'lu-sheet-btn', type: 'button', text: label });
+    b.addEventListener('click', () => {
+      closeSheet();
+      fn();
+    });
+    return b;
+  }
+  sheet.append(
+    sheetBtn('작품 목록', () => toggleArtworkList()),
+    sheetBtn('내 모습', () => {
+      if (typeof actionHandlers.onSelfView === 'function') actionHandlers.onSelfView();
+    }),
+    sheetBtn('채팅', toggleChat),
+    sheetBtn('조작법', () => {
+      const panel = document.getElementById('lu-controls');
+      if (panel) panel.classList.toggle('lu-collapsed');
+    })
+  );
+  backdrop.addEventListener('click', closeSheet);
+  moreBtn.addEventListener('click', () => {
+    const open = sheet.classList.toggle('lu-open');
+    backdrop.classList.toggle('lu-open', open);
+  });
+  document.body.appendChild(backdrop);
+  document.body.appendChild(sheet);
+
   // 방명록은 화면 왼쪽 책갈피 탭(#lu-gbtab)이 담당하므로 독 버튼은 두지 않는다
-  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [chatBtn, listBtn, tourBtn, selfViewBtn, captureBtn]);
+  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [chatBtn, tourBtn, captureBtn, moreBtn]);
   document.body.appendChild(dock);
+  dockRefs = { chatBtn, tourBtn, selfBtn: null, dock };
   return dock;
+}
+
+// 독 활성 상태 표시 — main.js가 투어/3인칭 토글 시점에 호출한다
+let dockRefs = null;
+export function setDockActive(key, on) {
+  if (!dockRefs) return;
+  if (key === 'tour' && dockRefs.tourBtn) dockRefs.tourBtn.classList.toggle('lu-on', !!on);
+  // 'self'는 시트 안 버튼이라 상태 뱃지 대상 아님 — 상태바 문구가 담당
 }
 
 function buildTopRight() {
@@ -1752,7 +1832,108 @@ function buildLightbox() {
     if (e.target === overlay || e.target === stage) hideLightbox();
   });
 
-  return { overlay, closeBtn, stage, title: titleEl, meta: metaEl, rule: ruleEl, desc: descEl };
+  // ---- 감상 제스처 (UX 감사 §4): 핀치 줌 · 팬 · 더블탭 줌 · 스와이프 넘김/닫기 ----
+  const pointers = new Map();
+  let zScale = 1;
+  let zTx = 0;
+  let zTy = 0;
+  let pinch0 = 0;
+  let scale0 = 1;
+  let lastTapT = 0;
+  let lastTapX = 0;
+  let lastTapY = 0;
+  let swipe0 = null;
+
+  function mediaEl() {
+    return stage.querySelector('.lu-lightbox-media');
+  }
+  function applyZoom() {
+    const media = mediaEl();
+    if (media) media.style.transform = `translate(${zTx}px, ${zTy}px) scale(${zScale})`;
+  }
+  function resetZoom() {
+    zScale = 1;
+    zTx = 0;
+    zTy = 0;
+    applyZoom();
+  }
+
+  overlay.addEventListener('pointerdown', (e) => {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 1) swipe0 = { x: e.clientX, y: e.clientY, t: performance.now() };
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinch0 = Math.hypot(a.x - b.x, a.y - b.y);
+      scale0 = zScale;
+    }
+  });
+  overlay.addEventListener('pointermove', (e) => {
+    const pt = pointers.get(e.pointerId);
+    if (!pt) return;
+    const dx = e.clientX - pt.x;
+    const dy = e.clientY - pt.y;
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    if (pointers.size === 2 && pinch0 > 0) {
+      const [a, b] = [...pointers.values()];
+      zScale = Math.min(4, Math.max(1, scale0 * (Math.hypot(a.x - b.x, a.y - b.y) / pinch0)));
+      if (zScale === 1) { zTx = 0; zTy = 0; }
+      applyZoom();
+    } else if (pointers.size === 1 && zScale > 1) {
+      zTx += dx;
+      zTy += dy;
+      applyZoom();
+    }
+  });
+  function endPointer(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size !== 0 || !swipe0) return;
+    const dt = performance.now() - swipe0.t;
+    const dx = e.clientX - swipe0.x;
+    const dy = e.clientY - swipe0.y;
+    swipe0 = null;
+    if (zScale === 1 && dt < 600) {
+      if (Math.abs(dx) > 64 && Math.abs(dy) < 56) {
+        navLightbox(dx < 0 ? 1 : -1); // 왼쪽으로 쓸면 다음 작품
+        return;
+      }
+      if (dy > 84 && Math.abs(dx) < 60) {
+        hideLightbox(); // 아래로 쓸어 닫기 — 모바일 시트 관용구
+        return;
+      }
+    }
+    // 더블탭 줌 토글 (이동 거의 없는 짧은 탭 2연속)
+    if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && dt < 350) {
+      const now = performance.now();
+      if (now - lastTapT < 320 && Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 44) {
+        if (zScale > 1) {
+          resetZoom();
+        } else {
+          zScale = 2.4;
+          applyZoom();
+        }
+        lastTapT = 0;
+        return;
+      }
+      lastTapT = now;
+      lastTapX = e.clientX;
+      lastTapY = e.clientY;
+    }
+  }
+  overlay.addEventListener('pointerup', endPointer);
+  overlay.addEventListener('pointercancel', (e) => pointers.delete(e.pointerId));
+
+  return { overlay, closeBtn, stage, title: titleEl, meta: metaEl, rule: ruleEl, desc: descEl, resetZoom };
+}
+
+// 라이트박스 이전/다음 작품 — 배치 순서 기준 순환
+let lightboxCurrentArt = null;
+function navLightbox(dir) {
+  const list = getPlacedArtworks();
+  if (!lightboxCurrentArt || list.length < 2) return;
+  const idx = list.indexOf(lightboxCurrentArt);
+  const next = list[((idx === -1 ? 0 : idx) + dir + list.length) % list.length];
+  showLightbox(next);
 }
 
 // 썸네일 로드 실패(또는 비디오 전용 작품 등 imageUrl 부재) 시 사용할 중립 회색 placeholder
@@ -2889,6 +3070,8 @@ export function addChatMessage(name, text, isSelf) {
 export function setPlayerCount(n) {
   if (!els) return;
   els.topRight.count.textContent = String(n);
+  // 접속자 ≥2일 때만 독에 채팅 버튼 노출 (혼자일 땐 인지 부하 절감 — UX 감사 §2)
+  if (dockRefs && dockRefs.chatBtn) dockRefs.chatBtn.style.display = n >= 2 ? '' : 'none';
 }
 
 export function setStatus(text) {
@@ -2982,6 +3165,8 @@ function clearLightboxMedia() {
 
 export function showLightbox(art) {
   if (!els || !art) return;
+  lightboxCurrentArt = art;
+  if (els.lightbox.resetZoom) els.lightbox.resetZoom();
   if (lightboxCloseTimer) {
     clearTimeout(lightboxCloseTimer);
     lightboxCloseTimer = null;
