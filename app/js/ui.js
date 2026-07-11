@@ -100,10 +100,11 @@ function readStoredChar() {
   try {
     const saved = localStorage.getItem(LU_CHAR_STORAGE_KEY);
     if (saved === CUSTOM_CHAR_ID && readStoredLook()) return CUSTOM_CHAR_ID;
-    if (saved === CHIBI_SEL_ID && readStoredChibi()) return CHIBI_SEL_ID;
-    return CHARACTERS.some((c) => c.id === saved) ? saved : CHARACTERS[0].id;
+    if (saved === CHIBI_SEL_ID) return CHIBI_SEL_ID; // 저장 룩 없어도 기본 치비로 입장 가능
+    if (CHARACTERS.some((c) => c.id === saved)) return saved;
+    return CHIBI_SEL_ID; // 신규 방문 기본값 — 오리지널 치비
   } catch (_) {
-    return CHARACTERS[0].id; // 프라이빗 모드 등 localStorage 접근 불가 시 기본값
+    return CHIBI_SEL_ID; // 프라이빗 모드 등 localStorage 접근 불가 시 기본값
   }
 }
 let selectedChar = readStoredChar();
@@ -291,13 +292,15 @@ function injectStyles() {
   gap: 8px; margin-top: 4px;
 }
 .lu-char-btn {
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 12px; letter-spacing: 0.04em;
-  color: #444; background: #fafafa;
-  border: 1px solid #eee; border-radius: 2px;
-  padding: 8px 14px; cursor: pointer;
-  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+  font-family: var(--lu-font); font-weight: 500;
+  font-size: 12.5px; letter-spacing: 0.03em;
+  color: #4a453c; background: #fffdf9;
+  border: 1px solid #e6dfcf; border-radius: 12px;
+  padding: 10px 15px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(23,20,15,0.04);
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease, transform 0.15s ease;
 }
+.lu-char-btn:hover { transform: translateY(-1px); }
 .lu-char-btn:hover { border-color: rgba(0,0,0,0.25); }
 .lu-char-btn.lu-selected {
   border-color: var(--lu-gold);
@@ -473,14 +476,15 @@ function injectStyles() {
 
 #lu-enter-btn {
   width: 100%; margin-top: 30px;
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 13px; letter-spacing: 0.3em; text-indent: 0.3em;
-  color: #fff; background: #111;
-  border: 1px solid #111;
-  padding: 14px 0; cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease;
+  font-family: var(--lu-font); font-weight: 600;
+  font-size: 14px; letter-spacing: 0.24em; text-indent: 0.24em;
+  color: #17140f; background: var(--lu-gold);
+  border: 1px solid var(--lu-gold); border-radius: 999px;
+  padding: 15px 0; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(212,175,55,0.35);
+  transition: transform 0.15s ease, box-shadow 0.25s ease;
 }
-#lu-enter-btn:hover { background: var(--lu-gold); border-color: var(--lu-gold); color: #111; }
+#lu-enter-btn:hover { transform: translateY(-1px); box-shadow: 0 9px 26px rgba(212,175,55,0.45); }
 
 /* ------------------------------ 전시 선택 ------------------------------ */
 .lu-picker-note {
@@ -1441,7 +1445,7 @@ function buildLobby() {
   authBox.appendChild(loggedWrap);
 
   const orDivider = el('div', { className: 'lu-auth-or' }, [
-    el('span', { text: '또는 게스트로 입장' }),
+    el('span', { text: '소셜 계정 연동 (준비 중)' }),
   ]);
 
   // 닉네임
@@ -1530,13 +1534,15 @@ function buildLobby() {
   }
   syncChibiButtonVisual();
   chibiBtn.addEventListener('click', () => {
-    if (readStoredChibi() && selectedChar !== CHIBI_SEL_ID) {
-      selectChar(CHIBI_SEL_ID, chibiBtn);
+    if (selectedChar !== CHIBI_SEL_ID) {
+      selectChar(CHIBI_SEL_ID, chibiBtn); // 1클릭: 선택 (저장 룩 없으면 기본 치비)
     } else {
-      openChibiMaker();
+      openChibiMaker(); // 재클릭: 꾸미기
     }
   });
-  charsRow.appendChild(chibiBtn);
+  // 치비(오리지널) → 커스텀 → 클래식 프리셋 순서로 노출
+  charsRow.prepend(customBtn);
+  charsRow.prepend(chibiBtn);
 
   const editLink = el('button', {
     className: 'lu-char-edit-link',
@@ -1581,11 +1587,11 @@ function buildLobby() {
 
   const card = el('div', { className: 'lu-lobby-card' }, [
     title, sub, rule,
-    authBox, orDivider,
     nickLabel, nickInput, nickHint,
     charLabel, charsRow, editLink,
     swatchLabel, swatches,
     enterBtn,
+    orDivider, authBox,
     pickerBox,
     divider, studioLink,
   ]);
