@@ -22,6 +22,11 @@ ARTSHOW는 **웹 브라우저만으로 접속하는 3D 가상 전시 플랫폼**
 - **방명록·도슨트 투어·사진 촬영**: G키 방명록, T키 자동 투어, P키 SNS용 캡처
 - **시간 연동 테마**: 접속 시각에 따라 아침/낮/석양/밤 조명 자동 전환
 
+## 크레딧
+
+- 밤하늘 은하수 파노라마: [ESO/S. Brunier](https://www.eso.org/public/images/eso0932a/) (CC BY 4.0)
+- 낮/석양 하늘 HDRI: [Poly Haven](https://polyhaven.com) (CC0)
+
 ## 기술 스택
 
 - **3D 렌더링**: Three.js r160 (ES 모듈, 빌드 도구 없음)

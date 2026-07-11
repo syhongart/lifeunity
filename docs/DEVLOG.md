@@ -30,6 +30,12 @@
 - 정오(알프스 하늘+구름)/석양(웜 글로우)/밤(crisp 별) 3시간대 스크린샷 검증.
   자산 +4.9MB(HDR 3장), 드로우콜 +4(돔 3+별 1).
 
+### 후속 (감독 지시 "별을 빼고 은하수 있는 HDRI를 쓰지")
+- 포인트 별 제거. 밤 하늘을 **ESO 은하수 4096×2048 파노라마**(CC BY 4.0,
+  ESO/S. Brunier — typpo/spacekit GitHub 미러)로 교체. dikhololo_night.hdr
+  삭제(-1.7MB, +2.5MB jpg). loadHdriInto가 .hdr(RGBELoader)/.jpg(TextureLoader
+  +SRGB)를 확장자로 분기. 밤하늘 별밀도가 실측 사진 수준으로.
+
 ---
 
 ## 2026-07-11 · 기본 전시 cycle 테마 전환 + 잠복 버그 수정 (fog 널 가드)
