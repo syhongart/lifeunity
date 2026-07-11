@@ -13,6 +13,7 @@
 // 작품별 스포트라이트는 artworks.js 담당이므로 여기서 만들지 않는다.
 
 import * as THREE from 'three';
+import { RGBELoader } from '../vendor/RGBELoader.js';
 import { mergeGeometries } from '../utils/BufferGeometryUtils.js';
 import { ROOM, BUILDING } from './config.js';
 
@@ -293,6 +294,7 @@ function applyCycleFrame(cs, frame) {
     cs.skyDomes.daylight.material.opacity = frame.domeDay;
     cs.skyDomes.sunset.material.opacity = frame.domeSunset;
     cs.skyDomes.night.material.opacity = frame.domeNight;
+    if (cs.skyDomes.stars) cs.skyDomes.stars.material.opacity = frame.domeNight;
   }
 }
 
@@ -725,6 +727,67 @@ function renderSkyTexture(sky) {
   return tex;
 }
 
+// HDRI 하늘 (Poly Haven CC0, drei-assets 1k 미러) — 프로시저럴 캔버스 하늘을
+// 즉시 표시용 플레이스홀더로 쓰고, .hdr 로드가 끝나면 맵만 교체한다
+// (로드 실패 시 기존 하늘 유지 — 네트워크 무관 폴백).
+const SKY_HDRI = {
+  daylight: './assets/sky/day.hdr',
+  sunset: './assets/sky/sunset.hdr',
+  night: './assets/sky/night.hdr',
+};
+function loadHdriInto(mat, key) {
+  new RGBELoader().load(
+    SKY_HDRI[key],
+    (tex) => {
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      mat.map = tex;
+      mat.needsUpdate = true;
+    },
+    undefined,
+    () => { /* 실패 — 프로시저럴 하늘 유지 */ }
+  );
+}
+
+// 또렷한 3D 포인트 별 — 캔버스 돔 별은 천정 UV 수축으로 찌그러졌고(감독 제보
+// "별 이상해"), 1k HDRI의 별은 뭉개진다. 셀레스철 구 위 Points는 해상도와
+// 무관하게 픽셀 단위로 또렷하다. 밝기/색 변주는 버텍스 컬러로.
+function makeStarField() {
+  const rand = makeRand(24680);
+  const N = 900;
+  const pos = new Float32Array(N * 3);
+  const col = new Float32Array(N * 3);
+  const R = 430;
+  for (let i = 0; i < N; i++) {
+    const az = rand() * Math.PI * 2;
+    const el = Math.asin(0.03 + rand() * 0.96); // 지평선 살짝 위 ~ 천정
+    pos[i * 3] = Math.cos(el) * Math.cos(az) * R;
+    pos[i * 3 + 1] = Math.sin(el) * R - 70; // 돔과 같은 y 오프셋
+    pos[i * 3 + 2] = Math.cos(el) * Math.sin(az) * R;
+    const b = 0.35 + rand() * 0.65; // 밝기 변주
+    const warm = rand() < 0.18;     // 18%는 웜톤 별
+    col[i * 3] = b;
+    col[i * 3 + 1] = b * (warm ? 0.88 : 0.97);
+    col[i * 3 + 2] = b * (warm ? 0.75 : 1.0);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const mat = new THREE.PointsMaterial({
+    size: 1.7,
+    sizeAttenuation: false, // 항상 픽셀 단위 — 거리 무관 또렷함
+    vertexColors: true,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    fog: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const pts = new THREE.Points(geo, mat);
+  pts.renderOrder = -1;
+  return pts;
+}
+
 function createSky(scene, theme, isCycle) {
   if (isCycle) {
     // daylight/sunset/night 3장의 텍스처를 미리(딱 한 번) 만들어 겹쳐 놓고,
@@ -746,20 +809,32 @@ function createSky(scene, theme, isCycle) {
     const domeNight = makeDome(THEMES.night.sky, 450);
     const domeSunset = makeDome(THEMES.sunset.sky, 448);
     const domeDaylight = makeDome(THEMES.daylight.sky, 446);
-    for (const d of [domeNight, domeSunset, domeDaylight]) d.position.y = -20;
+    for (const d of [domeNight, domeSunset, domeDaylight]) d.position.y = -70; // HDRI 지면부 숨김
     domeNight.renderOrder = -3;
     domeSunset.renderOrder = -2;
     domeDaylight.renderOrder = -1;
     scene.add(domeNight, domeSunset, domeDaylight);
-    return { daylight: domeDaylight, sunset: domeSunset, night: domeNight };
+    loadHdriInto(domeDaylight.material, 'daylight');
+    loadHdriInto(domeSunset.material, 'sunset');
+    loadHdriInto(domeNight.material, 'night');
+    const stars = makeStarField();
+    scene.add(stars);
+    return { daylight: domeDaylight, sunset: domeSunset, night: domeNight, stars };
   }
 
+  const themeKey = theme === THEMES.sunset ? 'sunset' : theme === THEMES.night ? 'night' : 'daylight';
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(450, 32, 16),
     new THREE.MeshBasicMaterial({ map: renderSkyTexture(theme.sky), side: THREE.BackSide, fog: false })
   );
-  dome.position.y = -20; // 수평선을 낮춰 지평선 근처까지 그라디언트가 오도록
+  dome.position.y = -70; // HDRI 사진의 지면부가 잔디/바다 라인 아래로 잠기게
   scene.add(dome);
+  loadHdriInto(dome.material, themeKey);
+  if (themeKey === 'night') {
+    const stars = makeStarField();
+    stars.material.opacity = 1;
+    scene.add(stars);
+  }
   return null;
 }
 
