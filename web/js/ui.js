@@ -1860,7 +1860,11 @@ function buildGuestbookPanel() {
   const submitBtn = el('button', { id: 'lu-gbook-submit', type: 'button', text: '남기기' });
   submitBtn.disabled = true;
   const footerRow = el('div', { className: 'lu-gbook-footer-row' }, [count, submitBtn]);
-  const footer = el('div', { id: 'lu-guestbook-footer' }, [input, footerRow]);
+  const statsLine = el('div', {
+    id: 'lu-gbook-stats',
+    style: 'font-size:11px;letter-spacing:0.04em;color:rgba(255,255,255,0.45);padding:6px 2px 0;',
+  });
+  const footer = el('div', { id: 'lu-guestbook-footer' }, [input, footerRow, statsLine]);
 
   // 책갈피 탭 — 패널이 닫혀 있어도 화면 왼쪽 가장자리에 살짝 나와 있고,
   // 패널의 자식이므로 열릴 때 패널과 함께 미끄러진다
@@ -3132,6 +3136,12 @@ export function setTourHandlers({ onPrev, onNext, onExit, onToggleAuto } = {}) {
 
 // onSubmit(text) — 입력창에서 [남기기] 또는 Ctrl/Cmd+Enter로 제출된 본문(트림·120자 이내).
 // 닉네임 결합(makeNote) 및 저장/브로드캐스트는 main.js 담당.
+/** 방명록 패널 하단 통계 요약 한 줄 갱신 (작가 리포트 — main.js가 주기 호출) */
+export function setGuestbookStats(text) {
+  const line = document.getElementById('lu-gbook-stats');
+  if (line) line.textContent = text || '';
+}
+
 export function initGuestbook({ onSubmit } = {}) {
   onGuestbookSubmit = typeof onSubmit === 'function' ? onSubmit : null;
 }

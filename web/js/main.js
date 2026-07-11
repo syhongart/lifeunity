@@ -17,6 +17,7 @@ import { MultiplayerManager } from './multiplayer.js';
 import { preloadAvatarTemplates, createAvatarInstance } from './avatar.js';
 import { NpcCrowd } from './npc.js';
 import { loadNotes, saveNotes, mergeNotes, makeNote } from './guestbook.js';
+import { GalleryStats } from './stats.js';
 import {
   initUI,
   showLoading,
@@ -44,6 +45,7 @@ import {
   toggleGuestbook,
   isGuestbookOpen,
   setGuestbookNotes,
+  setGuestbookStats,
   showShareModal,
   isShareModalOpen,
   flashShutter,
@@ -55,6 +57,8 @@ let camera = null;
 let player = null;
 let mp = null; // MultiplayerManager — 입장 전에는 null (sendState/update 가드)
 let npcCrowd = null; // AI 관객 — 호스트가 될 때 npcProvider 안에서 지연 생성
+let stats = null; // 작가 리포트 (전시별 방문·감상 통계 — stats.js)
+let statsDwellTimer = null;
 
 // ---------------------------------------------------------------------------
 // 3인칭 '내 모습 보기' (V키 / 터치 독 '시점' 버튼)
@@ -704,6 +708,19 @@ function handleEnter({ nickname, color, char }) {
     // 디렉터리 전시는 id, 공유 링크(#gd=/#gz=) 전시는 해시 데이터의 djb2 요약을 쓴다.
     const roomSuffix = (galleryInfo && galleryInfo.id) || 'link-' + djb2(window.location.hash || '');
     mp = new MultiplayerManager(scene, { nickname, color, char, roomId: `${PEER_ROOM_ID}-${roomSuffix}` });
+    // 작가 리포트 — 방문자·인기작(체류) 통계. 전시 키는 룸 suffix와 동일 규약.
+    stats = new GalleryStats(roomSuffix);
+    mp.onVisitor = (id) => stats.addVisit(id);
+    if (statsDwellTimer) clearInterval(statsDwellTimer);
+    statsDwellTimer = setInterval(() => {
+      if (!mp || !stats) return;
+      const humans = [];
+      for (const [rid, av] of mp.remoteAvatars) {
+        if (!rid.startsWith('npc-')) humans.push({ x: av.group.position.x, z: av.group.position.z });
+      }
+      stats.addDwell(humans, getPlacedArtworks(), 2);
+      setGuestbookStats(stats.summary(guestbookNotes.length));
+    }, 2000);
     // onChat은 원격 메시지 전용 (자기 메시지는 handleChatSend가 로컬 표시,
     // 에코는 senderId 필터로 차단됨) — 닉네임이 겹쳐도 안전
     mp.onChat = (name, text) => addChatMessage(name, text, false);

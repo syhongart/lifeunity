@@ -37,6 +37,7 @@ export class MultiplayerManager {
     // 모든 클라이언트가 같은 hit 이벤트를 받아 같은 감쇠를 돌리므로 대체로 일치한다.
     this._wounds = new Map();
     this.onSelfHit = (level) => {}; // 내가 맞았을 때 (main.js가 화면 연출)
+    this.onVisitor = (id, info) => {}; // 새 사람 방문자 관측 (통계용 — NPC 제외)
     this.onNpcHit = (id, level) => {}; // NPC가 맞았을 때 (호스트 전용 — 아파하는 채팅)
     this.onStatus = (statusText) => {};
     this.onGuestbook = (notes) => {};
@@ -504,6 +505,7 @@ export class MultiplayerManager {
       };
       this.remoteAvatars.set(id, av);
       if (this.isHost) this._updateCount();
+      if (!info.npc && !id.startsWith('npc-')) this.onVisitor(id, info);
     }
 
     av.targetPos.set(
