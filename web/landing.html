@@ -431,14 +431,133 @@
     letter-spacing: 0.04em;
     color: #8a8a90;
   }
+
+  /* ================= 2026 리프레시 오버레이 =================
+     기존 규칙을 지우지 않고 위에 얹는 현대화 레이어 — 큰 타이포(clamp),
+     글래스 내비, 포토월/관람객 피드, 모바일 우선 그리드. */
+  html { scroll-behavior: smooth; }
+  section[id] { scroll-margin-top: 72px; }
+
+  .topnav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; gap: 26px;
+    padding: 14px clamp(16px, 4vw, 40px);
+    background: rgba(10,10,11,0.55);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .topnav .nav-logo {
+    font-weight: 700; letter-spacing: 0.14em; color: #fff;
+    text-decoration: none; font-size: 15px;
+  }
+  .topnav .nav-logo .dot { color: var(--gold); }
+  .topnav .nav-links { display: flex; gap: 22px; margin-left: 6px; }
+  .topnav .nav-links a {
+    color: rgba(255,255,255,0.72); text-decoration: none; font-size: 13.5px;
+    letter-spacing: 0.04em; transition: color 0.2s;
+  }
+  .topnav .nav-links a:hover { color: #fff; }
+  .topnav .nav-cta {
+    margin-left: auto;
+    padding: 9px 20px; border-radius: 999px;
+    background: var(--gold); color: #16130a; font-size: 13.5px; font-weight: 600;
+    text-decoration: none; letter-spacing: 0.03em;
+    box-shadow: 0 4px 18px rgba(212,175,55,0.35);
+    transition: transform 0.15s ease, box-shadow 0.2s;
+  }
+  .topnav .nav-cta:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(212,175,55,0.45); }
+  @media (max-width: 720px) {
+    .topnav { gap: 12px; padding: 12px 16px; }
+    .topnav .nav-links { display: none; }
+  }
+
+  .hero h1 { font-size: clamp(44px, 9vw, 96px); letter-spacing: 0.06em; }
+  .hero .tagline-ko { font-size: clamp(15px, 2.4vw, 19px); }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 16px; border-radius: 999px; margin-bottom: 18px;
+    border: 1px solid rgba(212,175,55,0.45); color: var(--gold);
+    font-size: 12.5px; letter-spacing: 0.12em;
+    background: rgba(212,175,55,0.08);
+  }
+  .hero-badge .pulse {
+    width: 7px; height: 7px; border-radius: 50%; background: #7ddf8a;
+    box-shadow: 0 0 0 0 rgba(125,223,138,0.6); animation: lp-pulse 2s infinite;
+  }
+  @keyframes lp-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(125,223,138,0.55); }
+    70% { box-shadow: 0 0 0 9px rgba(125,223,138,0); }
+    100% { box-shadow: 0 0 0 0 rgba(125,223,138,0); }
+  }
+  .btn { border-radius: 999px !important; }
+
+  /* ---------- 라이브 포토월 & 최근 관람객 ---------- */
+  .community {
+    background: var(--bg-dark); color: var(--text-light);
+    padding: clamp(64px, 10vw, 120px) 0;
+  }
+  .community .section-inner { max-width: 1080px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
+  .community h2 { font-size: clamp(26px, 4.4vw, 40px); margin: 8px 0 6px; }
+  .community .sub { color: rgba(255,255,255,0.55); font-size: 14.5px; margin-bottom: 30px; }
+
+  .visitor-strip {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 34px;
+  }
+  .visitor-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 999px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    font-size: 13px; color: rgba(255,255,255,0.85);
+  }
+  .visitor-chip .vdot { width: 8px; height: 8px; border-radius: 50%; }
+  .visitor-chip .vtime { color: rgba(255,255,255,0.4); font-size: 11.5px; }
+
+  .photo-grid {
+    display: grid; gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+  .photo-card {
+    background: #fffdf7; border-radius: 6px; padding: 10px 10px 14px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+    transform: rotate(var(--tilt, 0deg));
+    transition: transform 0.25s ease;
+  }
+  .photo-card:hover { transform: rotate(0deg) translateY(-4px) scale(1.02); }
+  .photo-card img {
+    display: block; width: 100%; border-radius: 3px;
+    aspect-ratio: 4 / 3; object-fit: cover; background: #ddd6c6;
+  }
+  .photo-card .pmeta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-top: 10px; color: #4a453c; font-size: 12.5px;
+  }
+  .photo-card .pmeta .pname { font-weight: 600; color: #1c1a16; }
+  .photo-card .pmeta .ptime { color: #8a8172; font-size: 11px; }
+  .feed-empty {
+    border: 1px dashed rgba(255,255,255,0.2); border-radius: 14px;
+    padding: 34px 20px; text-align: center; color: rgba(255,255,255,0.5);
+    font-size: 14px; line-height: 1.8;
+  }
 </style>
 </head>
 <body>
 
   <!-- ============ HERO ============ -->
+  <nav class="topnav" aria-label="주 메뉴">
+    <a class="nav-logo" href="#top">ARTSHOW<span class="dot">.</span></a>
+    <div class="nav-links">
+      <a href="#exhibitions">전시</a>
+      <a href="#photowall">포토월</a>
+      <a href="#pricing">요금제</a>
+      <a href="./guide.html">가이드</a>
+    </div>
+    <a class="nav-cta" href="./app/">입장하기</a>
+  </nav>
+
   <section class="hero" id="top">
     <canvas id="heroCanvas" aria-hidden="true"></canvas>
     <div class="hero-content">
+      <div class="hero-badge"><span class="pulse"></span>베타 오픈 — 무료로 시작하세요</div>
       <div class="eyebrow">3D Virtual Exhibition Platform</div>
       <h1>ARTSHOW<span class="dot">.</span></h1>
       <div class="tagline-en">Your Museum, One Link</div>
@@ -521,6 +640,17 @@
   </section>
 
   <!-- ============ RECRUIT ============ -->
+  <!-- ============ COMMUNITY: 최근 관람객 + 라이브 포토월 ============ -->
+  <section class="community" id="photowall">
+    <div class="section-inner">
+      <div class="eyebrow reveal" style="color:var(--gold);">Live from the Museum</div>
+      <h2 class="reveal">지금, 전시장의 흔적들</h2>
+      <p class="sub reveal">관람객들이 다녀간 기록과 전시장에서 직접 찍은 사진이 이 자리에 쌓입니다.</p>
+      <div id="visitorStrip" class="visitor-strip reveal"></div>
+      <div id="photoGrid" class="photo-grid reveal"></div>
+    </div>
+  </section>
+
   <section class="recruit">
     <div class="section-inner">
       <div class="eyebrow reveal">For Artists</div>
@@ -816,6 +946,78 @@
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') btn.click(); });
     renderState();
   })();
+</script>
+<script type="module">
+  // 커뮤니티 피드 렌더 — feed.js(로컬 우선 스토어)를 그대로 읽는다.
+  // 사용자 입력(닉네임/전시명)은 전부 textContent 경유 — 마크업 주입 차단.
+  import { PhotoWall, VisitorLog } from './app/js/feed.js';
+
+  const timeAgo = (ts) => {
+    const s = Math.max(1, Math.round((Date.now() - ts) / 1000));
+    if (s < 60) return '방금';
+    if (s < 3600) return Math.floor(s / 60) + '분 전';
+    if (s < 86400) return Math.floor(s / 3600) + '시간 전';
+    return Math.floor(s / 86400) + '일 전';
+  };
+  const CHIP_COLORS = ['#e07a5f', '#81b29a', '#f2cc8f', '#8e7dbe', '#6a8caf', '#d68fb8'];
+
+  const strip = document.getElementById('visitorStrip');
+  const grid = document.getElementById('photoGrid');
+  if (strip && grid) {
+    const visitors = new VisitorLog().list().slice(0, 8);
+    if (visitors.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'visitor-chip';
+      empty.textContent = '오늘의 첫 관람객이 되어보세요 ✨';
+      strip.appendChild(empty);
+    } else {
+      visitors.forEach((v, i) => {
+        const chip = document.createElement('span');
+        chip.className = 'visitor-chip';
+        const dot = document.createElement('span');
+        dot.className = 'vdot';
+        dot.style.background = CHIP_COLORS[i % CHIP_COLORS.length];
+        const label = document.createElement('span');
+        label.textContent = v.g ? `${v.name} · ${v.g}` : v.name;
+        const time = document.createElement('span');
+        time.className = 'vtime';
+        time.textContent = timeAgo(v.ts);
+        chip.append(dot, label, time);
+        strip.appendChild(chip);
+      });
+    }
+
+    const photos = new PhotoWall().list();
+    if (photos.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'feed-empty';
+      empty.style.gridColumn = '1 / -1';
+      empty.textContent = '아직 올라온 사진이 없어요 — 전시장에서 P키(모바일: 캡처 버튼)로 첫 장면을 남겨보세요 📸';
+      grid.appendChild(empty);
+    } else {
+      photos.forEach((ph, i) => {
+        const card = document.createElement('figure');
+        card.className = 'photo-card';
+        card.style.setProperty('--tilt', ((i % 3) - 1) * 1.4 + 'deg');
+        card.style.margin = '0';
+        const img = document.createElement('img');
+        img.src = ph.thumb;
+        img.alt = `${ph.name}님의 관람 사진`;
+        img.loading = 'lazy';
+        const meta = document.createElement('figcaption');
+        meta.className = 'pmeta';
+        const name = document.createElement('span');
+        name.className = 'pname';
+        name.textContent = ph.name;
+        const time = document.createElement('span');
+        time.className = 'ptime';
+        time.textContent = (ph.g ? ph.g + ' · ' : '') + timeAgo(ph.ts);
+        meta.append(name, time);
+        card.append(img, meta);
+        grid.appendChild(card);
+      });
+    }
+  }
 </script>
 </body>
 </html>
