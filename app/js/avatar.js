@@ -302,6 +302,10 @@ function createNicknameSprite(nickname, colorHex) {
     map: texture,
     transparent: true,
     depthWrite: false,
+    // 라벨은 순수 오버레이 — 투명 픽셀이 깊이를 기록하면 뒤에 그려지는
+    // 블롭 그림자(renderOrder 1)가 빌보드 사각형 영역에서 통째로 지워진다
+    // (QA 이분 탐색으로 확정된 가림 사고).
+    depthWrite: false,
   });
 
   const sprite = new THREE.Sprite(material);
@@ -993,7 +997,61 @@ function createRpmUrlAvatarInstance(url, colorHex, nickname) {
  * @param {string} nickname - 머리 위 라벨 텍스트
  * @returns {{group: THREE.Group, update: (delta:number, speed:number)=>void, dispose: ()=>void}}
  */
+// ---------------------------------------------------------------------------
+// 블롭 그림자 — 발밑의 부드러운 원형 그림자. 실시간 그림자 맵 대신 버텍스 컬러
+// 알파 그라디언트(중심 진함 → 가장자리 투명) 원판 하나를 쓴다.
+// 캔버스 텍스처 방식은 SwiftShader 실측에서 그려지지 않아(QA 이분 탐색:
+// 동일 설정의 단색 투명 재질은 보이고 맵이 붙는 순간 사라짐) 텍스처 없는
+// 경로로 구현한다 — 모바일 비용도 이쪽이 더 낮다.
+// ---------------------------------------------------------------------------
+function attachBlobShadow(group, radius) {
+  const geo = new THREE.CircleGeometry(1, 24);
+  const posAttr = geo.attributes.position;
+  const rgba = new Float32Array(posAttr.count * 4);
+  for (let i = 0; i < posAttr.count; i++) {
+    const r = Math.min(1, Math.hypot(posAttr.getX(i), posAttr.getY(i)));
+    const alpha = 0.65 * (1 - r); // 중심 0.65 → 가장자리 0 (선형, 톤매핑에서 절반쯤 눌리는 것 실측 반영)
+    rgba[i * 4 + 0] = 0.08;
+    rgba[i * 4 + 1] = 0.055;
+    rgba[i * 4 + 2] = 0.03;
+    rgba[i * 4 + 3] = alpha;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(rgba, 4));
+  const mat = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false, // 바닥과의 z-파이팅·발 간섭 방지
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.scale.setScalar(radius);
+  mesh.position.y = 0.02;
+  mesh.renderOrder = 1;
+  group.add(mesh);
+  return { mat, geo };
+}
+
 export function createAvatarInstance(charId, colorHex, nickname) {
+  const inst = createAvatarInstanceInner(charId, colorHex, nickname);
+  // 발밑 그림자 — 치비는 작게, 휴머노이드는 표준. 그룹 원점(발바닥)에 부착되므로
+  // 걷기 바운스(내부 래퍼의 y 움직임)와 무관하게 항상 바닥에 붙어 있다.
+  const isChibi = typeof charId === 'string' && charId.startsWith(CHIBI_CHAR_PREFIX);
+  // 반경은 몸 실루엣보다 확실히 크게 — 치비 치마 폭(~0.6m)이 원반을 다 가리면
+  // 그림자가 그려져도 보이지 않는다(픽셀 실측으로 확인한 함정).
+  const shadow = attachBlobShadow(inst.group, isChibi ? 0.5 : 0.55);
+  const origDispose = inst.dispose;
+  return {
+    group: inst.group,
+    update: (delta, speed) => inst.update(delta, speed),
+    dispose: () => {
+      shadow.mat.dispose();
+      shadow.geo.dispose();
+      origDispose.call(inst);
+    },
+  };
+}
+
+function createAvatarInstanceInner(charId, colorHex, nickname) {
   if (typeof charId === 'string' && charId.startsWith(CHIBI_CHAR_PREFIX)) {
     return createChibiAvatarInstance(charId, colorHex, nickname);
   }

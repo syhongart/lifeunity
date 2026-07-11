@@ -44,6 +44,28 @@ const VIEW_TIME_MAX = 16;
 const CHAT_CHANCE = 0.3;       // 감상 시작 시 한마디 확률
 const CHAT_COOLDOWN = 30;      // 전체 NPC 공용 채팅 쿨다운(초) — 스팸 방지
 const ARRIVE_DIST = 0.15;
+const FEATURED_WEIGHT = 3;     // 인기작(대표작) 선택 가중치 — 관객이 모이는 연출
+const FEATURED_VIEW_MULT = 1.7; // 인기작 감상 시간 배수
+const GREET_DIST = 2.3;        // 사람 접근 인사 거리(m)
+const GREET_COOLDOWN = 60;     // NPC별 인사 쿨다운(초)
+
+const GREETINGS = [
+  '안녕하세요! 같이 봐요 ☺️',
+  '어서 오세요~ 여기 작품 좋아요',
+  '안녕하세요, 천천히 둘러보세요!',
+];
+
+// 가중치 랜덤 — 인기작(featured)이 더 자주 뽑히게
+function weightedPick(arts) {
+  let total = 0;
+  for (const a of arts) total += a.featured ? FEATURED_WEIGHT : 1;
+  let r = Math.random() * total;
+  for (const a of arts) {
+    r -= a.featured ? FEATURED_WEIGHT : 1;
+    if (r <= 0) return a;
+  }
+  return arts[arts.length - 1];
+}
 
 function rand(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -74,7 +96,7 @@ export class NpcCrowd {
    * @param {Array} artworks - getPlacedArtworks() 결과 (pos/rotY/floorY/title)
    * @param {number} count - NPC 수 (작품 있는 층 수에 맞춰 자동 감축)
    */
-  constructor(artworks, count = 4) {
+  constructor(artworks, count = null) {
     this._chatQueue = [];
     this._chatCooldown = 10; // 입장 직후 잠깐은 조용히
     this.npcs = [];
@@ -91,7 +113,9 @@ export class NpcCrowd {
     const floors = Array.from(byFloor.values()).filter((list) => list.length >= 1);
     if (floors.length === 0) return;
 
-    const n = Math.min(count, NPC_NAMES.length);
+    // 인원 자동 조절: 작품이 있는 층당 2명, 최소 3 최대 6 (명시 count가 우선)
+    const auto = Math.max(3, Math.min(6, floors.length * 2));
+    const n = Math.min(count || auto, NPC_NAMES.length);
     for (let i = 0; i < n; i++) {
       const floorArts = floors[i % floors.length];
       const art = rand(floorArts);
@@ -113,6 +137,7 @@ export class NpcCrowd {
         tx: pose.x,
         tz: pose.z,
         try_: pose.ry,
+        greetCd: randRange(0, 20), // 입장 직후 일제히 인사하지 않게 분산
       });
     }
   }
@@ -129,7 +154,7 @@ export class NpcCrowd {
 
   _pickNext(npc) {
     const candidates = npc.floorArts.filter((a) => a !== npc.art);
-    npc.art = candidates.length ? rand(candidates) : npc.art;
+    npc.art = candidates.length ? weightedPick(candidates) : npc.art;
     const pose = this._posedAt(npc.art);
     npc.tx = pose.x;
     npc.tz = pose.z;
@@ -138,14 +163,31 @@ export class NpcCrowd {
     npc.speed = randRange(WALK_SPEED_MIN, WALK_SPEED_MAX);
   }
 
-  /** 매 프레임 시뮬레이션 진행 + states 페이로드 반환 (호스트 전용 호출) */
-  update(delta) {
+  /**
+   * 매 프레임 시뮬레이션 진행 + states 페이로드 반환 (호스트 전용 호출).
+   * @param {number} delta
+   * @param {Array<{x:number,z:number}>} [humans] - 사람 플레이어 위치(호스트+게스트)
+   */
+  update(delta, humans) {
     const d = Math.min(delta || 0, 0.1);
     this._chatCooldown = Math.max(0, this._chatCooldown - d);
     const out = {};
     for (const npc of this.npcs) {
+      npc.greetCd = Math.max(0, npc.greetCd - d);
       if (npc.state === 'view') {
         npc.viewLeft -= d;
+        // 사람이 다가오면 몸을 돌려 바라보고, 이따금 인사한다
+        const near = this._nearestHuman(npc, humans);
+        if (near) {
+          npc.ry = Math.atan2(-(near.x - npc.x), -(near.z - npc.z));
+          if (npc.greetCd <= 0 && this._chatCooldown <= 0) {
+            npc.greetCd = GREET_COOLDOWN;
+            this._chatCooldown = CHAT_COOLDOWN * 0.5; // 인사는 조금 더 자주 허용
+            this._chatQueue.push({ name: npc.nickname, text: rand(GREETINGS) });
+          }
+        } else {
+          npc.ry = npc.try_; // 사람이 떠나면 다시 작품을 본다
+        }
         if (npc.viewLeft <= 0) this._pickNext(npc);
       } else {
         const dx = npc.tx - npc.x;
@@ -153,7 +195,7 @@ export class NpcCrowd {
         const dist = Math.hypot(dx, dz);
         if (dist <= ARRIVE_DIST) {
           npc.state = 'view';
-          npc.viewLeft = randRange(VIEW_TIME_MIN, VIEW_TIME_MAX);
+          npc.viewLeft = randRange(VIEW_TIME_MIN, VIEW_TIME_MAX) * (npc.art && npc.art.featured ? FEATURED_VIEW_MULT : 1);
           npc.ry = npc.try_; // 작품 정면을 본다
           this._maybeRemark(npc);
         } else {
@@ -175,6 +217,21 @@ export class NpcCrowd {
       };
     }
     return out;
+  }
+
+  _nearestHuman(npc, humans) {
+    if (!humans || !humans.length) return null;
+    let best = null;
+    let bestD = GREET_DIST;
+    for (const h of humans) {
+      if (!h) continue;
+      const dist = Math.hypot(h.x - npc.x, h.z - npc.z);
+      if (dist < bestD) {
+        bestD = dist;
+        best = h;
+      }
+    }
+    return best;
   }
 
   _maybeRemark(npc) {

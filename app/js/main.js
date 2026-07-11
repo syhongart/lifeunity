@@ -659,9 +659,9 @@ function handleEnter({ nickname, color, char }) {
     mp.onGuestbook = handleRemoteGuestbook;
     // AI 관객 — 호스트가 된 클라이언트만 mp.update()가 매 프레임 호출한다.
     // 작품 배치는 입장 전에 끝나므로 getPlacedArtworks()는 여기서 항상 유효하다.
-    mp.npcProvider = (delta) => {
-      if (!npcCrowd) npcCrowd = new NpcCrowd(getPlacedArtworks(), 4);
-      const states = npcCrowd.update(delta);
+    mp.npcProvider = (delta, humans) => {
+      if (!npcCrowd) npcCrowd = new NpcCrowd(getPlacedArtworks());
+      const states = npcCrowd.update(delta, humans);
       const remark = npcCrowd.takeChat();
       if (remark) mp.sendNpcChat(remark.name, remark.text); // 호스트 화면 표시 포함
       return states;
