@@ -443,6 +443,11 @@ async function init() {
   } else {
     ratio = Math.min(Math.max(dpr, 1.5), 2);
   }
+  // 픽셀 예산 캡 — 큰 모니터(QHD/4K)에서 슈퍼샘플 배율이 총 픽셀 수를
+  // 폭발시키지 않게 1080p×2.0(≈830만 px)을 상한으로 배율을 자동 축소한다.
+  // (실기기 제보: 'high' 학습된 데스크톱 대형 화면에서 3fps까지 추락)
+  const MAX_RENDER_PIXELS = 8.3e6;
+  ratio = Math.min(ratio, Math.sqrt(MAX_RENDER_PIXELS / (window.innerWidth * window.innerHeight)));
   renderer.setPixelRatio(ratio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
@@ -1082,7 +1087,12 @@ function animate() {
           liteMode = true;
           liteToggleCooldown = 10;
           writeSpec('low'); // 다음 접속은 AA 끄고 가볍게 시작
-          setStatus('원활한 관람을 위해 먼 곳의 관객을 잠시 숨깁니다');
+          // 즉시 응급 처치 — 재접속을 기다리지 않고 이번 세션의 해상도 배율을
+          // 저사양 수준으로 강등한다 (AA는 렌더러 재생성 없이는 못 끄지만,
+          // 픽셀 수 절감만으로도 대부분의 추락은 회복된다). 복원은 하지 않는다 —
+          // 다시 올리면 곧바로 재추락해 깜빡이므로, 이번 세션은 낮게 유지.
+          renderer.setPixelRatio(Math.min(renderer.getPixelRatio(), 1));
+          setStatus('원활한 관람을 위해 화질을 잠시 낮췄어요');
         } else if (liteMode && fpsNow > LITE_EXIT_FPS) {
           liteMode = false;
           liteToggleCooldown = 10;
