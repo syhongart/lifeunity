@@ -1537,6 +1537,7 @@ function buildControls() {
     ? [
         ['왼쪽 드래그', '이동'],
         ['오른쪽 드래그', '시점 회전'],
+        ['캐릭터 탭', '콕 찌르기'],
         ['작품 카드', '탭하여 크게 보기'],
       ]
     : [
@@ -1549,6 +1550,7 @@ function buildControls() {
         ['G', '방명록'],
         ['V', '내 모습 보기'],
         ['P', '사진 촬영'],
+        ['클릭', '캐릭터 콕 찌르기'],
       ];
   const panel = el('div', { id: 'lu-controls', className: 'lu lu-hud' });
   panel.appendChild(el('div', { className: 'lu-controls-title', text: 'CONTROLS' }));

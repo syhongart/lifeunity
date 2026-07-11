@@ -7,6 +7,8 @@ import { createAvatarInstance } from './avatar.js';
 import { mergeNotes } from './guestbook.js';
 
 const HOST_ID = PEER_ROOM_ID + '-host';
+const WOUND_HEAL_SECONDS = 20; // 상처 1단계 회복 시간
+const HIT_RANGE = 4.0; // 호스트가 검증하는 최대 타격 거리(m) — 원격 치트 방지 겸 상식선
 const SEND_INTERVAL = 1 / 10; // 10Hz
 const LERP_RATE = 10;
 
@@ -27,6 +29,11 @@ export class MultiplayerManager {
     // AI 관객(NPC) — 호스트일 때 매 프레임 호출해 상태 맵을 받는 훅 (main.js가 배선)
     this.npcProvider = null;
     this._npcStates = null;
+    // 맞기 시스템 — 대상별 상처 상태 {level(0~3), t(다음 회복까지 남은 초)}.
+    // 모든 클라이언트가 같은 hit 이벤트를 받아 같은 감쇠를 돌리므로 대체로 일치한다.
+    this._wounds = new Map();
+    this.onSelfHit = (level) => {}; // 내가 맞았을 때 (main.js가 화면 연출)
+    this.onNpcHit = (id, level) => {}; // NPC가 맞았을 때 (호스트 전용 — 아파하는 채팅)
     this.onStatus = (statusText) => {};
     this.onGuestbook = (notes) => {};
 
@@ -63,6 +70,56 @@ export class MultiplayerManager {
    */
   sendState(state) {
     this._lastState = state;
+  }
+
+  /**
+   * 아바타 때리기 — 게스트는 호스트에 요청, 호스트가 검증(거리)·적용 후 전원에
+   * 릴레이한다. 자신의 화면 반영도 릴레이 수신 경로 하나로 통일된다.
+   * @param {string} targetId - 원격 플레이어 peer id 또는 'npc-N'
+   */
+  sendHit(targetId) {
+    if (!targetId) return;
+    const msg = { type: 'hit', target: targetId, sx: this._lastState.x, sz: this._lastState.z };
+    if (this.isHost) {
+      this._applyHit(msg);
+    } else if (this.hostConn && this.hostConn.open) {
+      this.hostConn.send(msg);
+    }
+  }
+
+  // 호스트: 거리 검증 → 상처 누적 → 전원 릴레이(+자신 반영)
+  _applyHit(msg) {
+    const target = String(msg.target || '');
+    let tx = null;
+    let tz = null;
+    if (this._npcStates && this._npcStates[target]) {
+      tx = this._npcStates[target].x;
+      tz = this._npcStates[target].z;
+    } else if (this.playerInfo.has(target)) {
+      const info = this.playerInfo.get(target);
+      tx = info.x;
+      tz = info.z;
+    } else if (this.peer && target === this.peer.id) {
+      tx = this._lastState.x;
+      tz = this._lastState.z;
+    }
+    if (tx == null || Math.hypot(tx - (msg.sx || 0), tz - (msg.sz || 0)) > HIT_RANGE) return;
+    const cur = this._wounds.get(target);
+    const level = Math.min(3, (cur ? cur.level : 0) + 1);
+    this._broadcast({ type: 'hitfx', target, level });
+    this._receiveHitFx(target, level);
+    if (target.startsWith('npc-')) this.onNpcHit(target, level);
+  }
+
+  // 모두: hit 연출 적용 (호스트 릴레이 수신 경로 — 호스트 자신도 이 경로를 탄다)
+  _receiveHitFx(target, level) {
+    this._wounds.set(target, { level, t: WOUND_HEAL_SECONDS });
+    const av = this.remoteAvatars.get(target);
+    if (av && av.inst && typeof av.inst.hit === 'function') {
+      av.inst.hit(level);
+    } else if (this.peer && target === this.peer.id) {
+      this.onSelfHit(level);
+    }
   }
 
   // NPC 한마디 — 호스트가 자신 화면(onChat)과 게스트 전원에 뿌린다
@@ -130,6 +187,23 @@ export class MultiplayerManager {
       // 호스트 지위를 잃으면 자체 NPC를 정리한다 (새 호스트의 states가 대체)
       for (const id of Object.keys(this._npcStates)) this._removeAvatar(id);
       this._npcStates = null;
+    }
+
+    // ---- 상처 자연 회복 — 20초마다 한 단계씩 ----
+    for (const [id, w] of this._wounds) {
+      w.t -= delta;
+      if (w.t <= 0) {
+        w.level -= 1;
+        if (w.level <= 0) {
+          this._wounds.delete(id);
+        } else {
+          w.t = WOUND_HEAL_SECONDS;
+        }
+        const av = this.remoteAvatars.get(id);
+        if (av && av.inst && typeof av.inst.setWound === 'function') {
+          av.inst.setWound(Math.max(0, w.level));
+        }
+      }
     }
 
     // ---- 원격 아바타 보간 + 애니메이션 ----
@@ -229,6 +303,9 @@ export class MultiplayerManager {
           info.x = data.x; info.y = data.y; info.z = data.z; info.ry = data.ry;
           this._updateRemoteAvatar(conn.peer, info);
         }
+      } else if (data.type === 'hit') {
+        // 게스트의 타격 요청 — 검증 후 전원 릴레이 (sx/sz는 요청자 위치)
+        this._applyHit({ target: data.target, sx: data.sx, sz: data.sz });
       } else if (data.type === 'chat') {
         const msg = {
           type: 'chat',
@@ -362,6 +439,8 @@ export class MultiplayerManager {
         if (!ids.has(id)) this._removeAvatar(id);
       }
       this.onPlayerCount(Object.values(players).filter((p) => p && !p.npc).length);
+    } else if (data.type === 'hitfx') {
+      this._receiveHitFx(String(data.target || ''), Math.max(1, Math.min(3, data.level | 0)));
     } else if (data.type === 'chat') {
       if (data.senderId && data.senderId === selfId) return; // 자기 메시지 에코 무시
       this.onChat(String(data.name || '게스트'), String(data.text || ''));

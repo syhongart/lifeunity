@@ -118,6 +118,48 @@ function restoreSelfCamOffset() {
   camera.position.copy(_selfCamSaved);
   camera.quaternion.copy(_selfCamQuatSaved);
 }
+
+// ---------------------------------------------------------------------------
+// 캐릭터 때리기 — 캔버스 탭/클릭(데스크톱·모바일 공용)으로 아바타를 콕.
+// 드래그(시점 회전/이동)와 구분: 이동 7px 미만 + 450ms 미만만 탭으로 인정.
+// 명중 판정은 레이캐스트, 사거리 4m — 호스트가 서버 권위로 한 번 더 검증한다.
+// ---------------------------------------------------------------------------
+const HIT_REACH = 4.0;
+const _tapRaycaster = new THREE.Raycaster();
+const _tapNdc = new THREE.Vector2();
+let _tapDown = null;
+
+function bindHitTap(dom) {
+  dom.addEventListener('pointerdown', (e) => {
+    if (!e.isPrimary) return;
+    _tapDown = { x: e.clientX, y: e.clientY, t: performance.now() };
+  });
+  dom.addEventListener('pointerup', (e) => {
+    const down = _tapDown;
+    _tapDown = null;
+    if (!down || !e.isPrimary || !entered || !mp) return;
+    if (performance.now() - down.t > 450) return;
+    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 7) return;
+    const rect = dom.getBoundingClientRect();
+    _tapNdc.set(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    _tapRaycaster.setFromCamera(_tapNdc, camera);
+    _tapRaycaster.far = HIT_REACH + SELF_CAM_DIST; // 3인칭이면 카메라가 뒤로 빠져 있음
+    const entries = [...mp.remoteAvatars.entries()];
+    if (!entries.length) return;
+    const groups = entries.map(([, av]) => av.group);
+    const hits = _tapRaycaster.intersectObjects(groups, true);
+    if (!hits.length) return;
+    // 명중한 오브젝트의 소유 아바타 id 역추적
+    let node = hits[0].object;
+    while (node && !groups.includes(node)) node = node.parent;
+    if (!node) return;
+    const [id] = entries[groups.indexOf(node)];
+    mp.sendHit(id);
+  });
+}
 let clock = null;
 let myNickname = '게스트'; // 입장 시 갱신 — 채팅 isSelf 판별용
 let entered = false; // 로비 통과 여부 — 라이트박스 E키 게이트에 사용
@@ -229,6 +271,7 @@ async function init() {
   camera.position.set(BUILDING.spawn.x, EYE_HEIGHT, BUILDING.spawn.z);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
+  bindHitTap(renderer.domElement);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
@@ -657,6 +700,15 @@ function handleEnter({ nickname, color, char }) {
     mp.onPlayerCount = (n) => setPlayerCount(n);
     mp.onStatus = handleMultiplayerStatus;
     mp.onGuestbook = handleRemoteGuestbook;
+    // 내가 맞았을 때 — 상태바 + (3인칭이면) 내 아바타에도 상처 반영
+    mp.onSelfHit = (level) => {
+      setStatus(level >= 3 ? '아야!! 너무해요 😭' : '아야! 누가 때렸어요 😣');
+      if (selfAvatar) selfAvatar.hit(level);
+    };
+    // NPC가 맞았을 때 — 아파하는 한마디 (채팅 큐 → npcProvider가 다음 틱에 전송)
+    mp.onNpcHit = (id, level) => {
+      if (npcCrowd) npcCrowd.onHit(id, level);
+    };
     // AI 관객 — 호스트가 된 클라이언트만 mp.update()가 매 프레임 호출한다.
     // 작품 배치는 입장 전에 끝나므로 getPlacedArtworks()는 여기서 항상 유효하다.
     mp.npcProvider = (delta, humans) => {
