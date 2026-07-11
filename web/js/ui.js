@@ -1871,10 +1871,50 @@ function buildGuestbookPanel() {
   const tab = el('button', {
     id: 'lu-gbtab',
     type: 'button',
-    'aria-label': '방명록 열기/닫기',
+    'aria-label': '방명록 열기/닫기 (위아래로 드래그해 위치 이동)',
+    title: '드래그해서 위치를 옮길 수 있어요',
     text: '방명록',
   });
-  tab.addEventListener('click', () => toggleGuestbook());
+
+  // ---- 탭 수직 드래그 이동 (위치는 localStorage에 기억) ----
+  // 모바일에서 왼쪽 가장자리는 이동 조이스틱 영역과 겹칠 수 있어, 사용자가
+  // 탭을 원하는 높이로 치울 수 있게 한다. 6px 미만 이동은 탭(열기)으로 처리.
+  const GBTAB_TOP_KEY = 'lu-gbtab-top-v1';
+  try {
+    const saved = parseFloat(localStorage.getItem(GBTAB_TOP_KEY));
+    if (Number.isFinite(saved)) tab.style.top = clampTabTop(saved) + 'px';
+  } catch (_) { /* 무시 */ }
+
+  function clampTabTop(px) {
+    const max = Math.max(80, (window.innerHeight || 800) - 140);
+    return Math.min(max, Math.max(60, px));
+  }
+
+  let tabDrag = null; // { startY, startTop, moved }
+  tab.addEventListener('pointerdown', (e) => {
+    const rect = tab.getBoundingClientRect();
+    tabDrag = { startY: e.clientY, startTop: rect.top, moved: false };
+    tab.setPointerCapture(e.pointerId);
+  });
+  tab.addEventListener('pointermove', (e) => {
+    if (!tabDrag) return;
+    const dy = e.clientY - tabDrag.startY;
+    if (Math.abs(dy) > 6) tabDrag.moved = true;
+    if (tabDrag.moved) tab.style.top = clampTabTop(tabDrag.startTop + dy) + 'px';
+  });
+  const endTabDrag = () => {
+    if (tabDrag && tabDrag.moved) {
+      try { localStorage.setItem(GBTAB_TOP_KEY, String(parseFloat(tab.style.top))); } catch (_) { /* 무시 */ }
+    }
+    // click 이벤트가 pointerup 뒤에 오므로, 드래그였다면 클릭 무시 플래그 유지
+    setTimeout(() => { tabDrag = null; }, 0);
+  };
+  tab.addEventListener('pointerup', endTabDrag);
+  tab.addEventListener('pointercancel', endTabDrag);
+  tab.addEventListener('click', () => {
+    if (tabDrag && tabDrag.moved) return; // 드래그로 끝난 제스처 — 열지 않음
+    toggleGuestbook();
+  });
 
   const panel = el('div', { id: 'lu-guestbook', className: 'lu' }, [head, body, footer, tab]);
   document.body.appendChild(panel);
