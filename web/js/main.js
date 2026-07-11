@@ -277,9 +277,12 @@ async function init() {
   );
   camera.position.set(BUILDING.spawn.x, EYE_HEIGHT, BUILDING.spawn.z);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  // 모바일 프리셋 — 터치 기기는 픽셀 비용을 낮춘다 (AA off + DPR 1.5 캡).
+  // 베이크드 라이팅과 합쳐 저사양 폰의 fill-rate 병목을 완화한다.
+  const coarsePointer = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  renderer = new THREE.WebGLRenderer({ antialias: !coarsePointer });
   bindHitTap(renderer.domElement);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarsePointer ? 1.5 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
