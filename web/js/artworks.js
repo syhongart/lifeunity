@@ -497,11 +497,8 @@ function buildFrame(art, textureLoader) {
   const placeholderTex = makePlaceholderTexture();
   const artMat = new THREE.MeshStandardMaterial({
     map: placeholderTex,
-    // 스포트라이트를 베이크로 대체하면서 작품 밝기는 자체발광으로 보전한다
-    // (미술관 조명은 "작품이 항상 또렷"이 정답 — 실시간 조명 의존 제거).
-    emissive: 0xffffff,
-    emissiveMap: placeholderTex,
-    emissiveIntensity: 0.45, // 플랫함 보정 — 방향광 음영이 표면에 살짝 실리도록 하향
+    // 자체발광 없음 — 작품도 공간 조명(태양·헤미·베이크 글로우)을 그대로 받아
+    // 시간대 분위기에 자연스럽게 녹아든다 (감독 결정: 발광 제거).
     roughness: 0.85,
     metalness: 0.0,
   });
@@ -526,7 +523,6 @@ function buildFrame(art, textureLoader) {
       tex.colorSpace = THREE.SRGBColorSpace;
       const old = artMat.map;
       artMat.map = tex;
-      artMat.emissiveMap = tex; // 자체발광도 같은 텍스처 (베이크 조명 보정)
       // 영상 작품은 발광하는 스크린처럼 — 어두운 작품도 선명하게
       artMat.emissive = new THREE.Color(0xffffff);
       artMat.emissiveMap = tex;
@@ -553,7 +549,6 @@ function buildFrame(art, textureLoader) {
         tex.anisotropy = 8;
         const old = artMat.map;
         artMat.map = tex;
-        artMat.emissiveMap = tex;
         artMat.needsUpdate = true;
         if (old) old.dispose();
       },
