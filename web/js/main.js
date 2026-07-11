@@ -69,6 +69,22 @@ const LITE_ENTER_FPS = 24;
 const LITE_EXIT_FPS = 45;
 const LITE_VISIBLE_NPCS = 3;
 
+// 저사양 학습 플래그 — 안티앨리어싱은 렌더러 생성 시에만 정할 수 있어,
+// 이번 세션에서 저사양 모드가 발동되면 기록해 두고 "다음 접속부터" AA를 끈
+// 가벼운 시작을 한다. 반대로 저사양 기기에서 FPS 55+가 10초 지속되면 플래그를
+// 지워 다음 접속에 AA를 다시 시도한다 — 기기 교체/브라우저 개선 대응.
+const LOWSPEC_KEY = 'lu-lowspec-v1';
+function readLowSpec() {
+  try { return localStorage.getItem(LOWSPEC_KEY) === '1'; } catch (_) { return false; }
+}
+function writeLowSpec(on) {
+  try {
+    if (on) localStorage.setItem(LOWSPEC_KEY, '1');
+    else localStorage.removeItem(LOWSPEC_KEY);
+  } catch (_) { /* 무시 */ }
+}
+let lowSpecFastTicks = 0; // 저사양 플래그 해제용 고FPS 연속 카운트
+
 function applyNpcCulling() {
   if (!mp) return;
   const npcs = [];
@@ -301,12 +317,13 @@ async function init() {
   );
   camera.position.set(BUILDING.spawn.x, EYE_HEIGHT, BUILDING.spawn.z);
 
-  // 모바일 프리셋 — 터치 기기는 픽셀 비용을 낮춘다 (AA off + DPR 1.5 캡).
-  // 베이크드 라이팅과 합쳐 저사양 폰의 fill-rate 병목을 완화한다.
+  // 안티앨리어싱은 기본 켬 — 이전 접속에서 저사양이 학습된 기기만 끄고 시작.
+  // 터치 기기 DPR 캡(1.5)은 유지, 저사양 학습 기기는 1.25로 더 낮춘다.
   const coarsePointer = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-  renderer = new THREE.WebGLRenderer({ antialias: !coarsePointer });
+  const lowSpec = readLowSpec();
+  renderer = new THREE.WebGLRenderer({ antialias: !lowSpec });
   bindHitTap(renderer.domElement);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarsePointer ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarsePointer ? (lowSpec ? 1.25 : 1.5) : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -924,11 +941,19 @@ function animate() {
         if (!liteMode && fpsNow < LITE_ENTER_FPS) {
           liteMode = true;
           liteToggleCooldown = 10;
+          writeLowSpec(true); // 다음 접속은 AA 끄고 가볍게 시작
           setStatus('원활한 관람을 위해 먼 곳의 관객을 잠시 숨깁니다');
         } else if (liteMode && fpsNow > LITE_EXIT_FPS) {
           liteMode = false;
           liteToggleCooldown = 10;
           applyNpcCulling();
+        }
+        // 저사양 학습 해제 — 고FPS(55+)가 10초(0.5s 틱 × 20) 지속되면
+        if (readLowSpec() && !liteMode && fpsNow > 55) {
+          lowSpecFastTicks += 1;
+          if (lowSpecFastTicks >= 20) writeLowSpec(false);
+        } else {
+          lowSpecFastTicks = 0;
         }
       }
     }
