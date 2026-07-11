@@ -4,17 +4,7 @@
 
 import * as THREE from 'three';
 import { AVATAR_COLORS } from './config.js';
-import { CHARACTERS, createAvatarInstance } from './avatar.js';
-import {
-  DCL_BASE,
-  SKIN_TONES,
-  HAIR_COLORS,
-  EYE_COLORS,
-  DEFAULT_LOOK,
-  loadPartsManifest,
-  encodeLook,
-  decodeLook,
-} from './avatarkit.js';
+import { createAvatarInstance } from './avatar.js';
 import { getPlacedArtworks } from './artworks.js';
 import {
   DEFAULT_CHIBI,
@@ -45,36 +35,7 @@ const MAX_NICKNAME_LEN = 12;
 let els = null;              // 생성된 DOM 요소 캐시
 let callbacks = { onEnter: null, onChatSend: null };
 let selectedColor = AVATAR_COLORS[0];
-const LU_CHAR_STORAGE_KEY = 'lu-char';
-// 커스텀(DCL) 아바타 선택을 가리키는 selectedChar 값 — CHARACTERS에는 없는 가상 id.
-// 실제 char 문자열('dcl:'+JSON)은 입장 submit 시점에 저장된 룩으로부터 새로 encodeLook한다.
-const CUSTOM_CHAR_ID = 'custom';
-// readStoredChar()가 아래에서 즉시 readStoredLook()을 호출하므로, 그 함수가 참조하는
-// const 키들은 (함수 선언 자체는 호이스팅되지만 const 바인딩은 TDZ이므로) 반드시
-// readStoredChar() 호출보다 앞서 선언되어야 한다.
-const LU_LOOK_STORAGE_KEY = 'lu-custom-look-v1';
-const LU_LOOK_THUMB_KEY = 'lu-custom-look-thumb-v1';
-function readStoredLook() {
-  try {
-    const raw = localStorage.getItem(LU_LOOK_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch (_) {
-    return null; // 프라이빗 모드 등 localStorage 접근 불가 또는 저장값 손상 시 무시
-  }
-}
-function saveStoredLook(look) {
-  try { localStorage.setItem(LU_LOOK_STORAGE_KEY, JSON.stringify(look)); } catch (_) { /* 무시 */ }
-}
-function readStoredLookThumb() {
-  try { return localStorage.getItem(LU_LOOK_THUMB_KEY) || ''; } catch (_) { return ''; }
-}
-function saveStoredLookThumb(dataUrl) {
-  try { localStorage.setItem(LU_LOOK_THUMB_KEY, dataUrl); } catch (_) { /* 무시 — 용량 초과 등은 조용히 무시 */ }
-}
-// 치비(자체 코드 생성) 아바타 — CUSTOM_CHAR_ID와 같은 패턴의 가상 id.
-const CHIBI_SEL_ID = 'chibi';
+// 치비(자체 코드 생성) 아바타 — 유일한 캐릭터 (서드파티 캐릭터 전면 삭제).
 const LU_CHIBI_STORAGE_KEY = 'lu-chibi-look-v1';
 const LU_CHIBI_THUMB_KEY = 'lu-chibi-look-thumb-v1';
 function readStoredChibi() {
@@ -96,18 +57,6 @@ function readStoredChibiThumb() {
 function saveStoredChibiThumb(dataUrl) {
   try { localStorage.setItem(LU_CHIBI_THUMB_KEY, dataUrl); } catch (_) { /* 무시 */ }
 }
-function readStoredChar() {
-  try {
-    const saved = localStorage.getItem(LU_CHAR_STORAGE_KEY);
-    if (saved === CUSTOM_CHAR_ID && readStoredLook()) return CUSTOM_CHAR_ID;
-    if (saved === CHIBI_SEL_ID) return CHIBI_SEL_ID; // 저장 룩 없어도 기본 치비로 입장 가능
-    if (CHARACTERS.some((c) => c.id === saved)) return saved;
-    return CHIBI_SEL_ID; // 신규 방문 기본값 — 오리지널 치비
-  } catch (_) {
-    return CHIBI_SEL_ID; // 프라이빗 모드 등 localStorage 접근 불가 시 기본값
-  }
-}
-let selectedChar = readStoredChar();
 let entered = false;         // 로비 통과 여부 (입장 후에만 채팅 활성화)
 let currentArtworkId = null; // 작품 패널 재렌더 생략용
 let initialized = false;
@@ -143,15 +92,8 @@ let shareModalOpen = false;
 let shareData = { blob: null, dataUrl: '', galleryName: '', shareUrl: '' };
 let shareCopyTimer = null;
 
-// 아바타 커스터마이저(#lu-avatar-maker) 모달 상태
-// (LU_LOOK_STORAGE_KEY/LU_LOOK_THUMB_KEY 및 readStoredLook/saveStoredLook/readStoredLookThumb/
-// saveStoredLookThumb는 위쪽 readStoredChar() 앞에서 이미 선언했다 — TDZ 순서 문제로 이동됨)
-let makerOpen = false;
-let makerLook = null;            // 편집 중인 작업용 look 객체 (저장 전까지는 커밋되지 않음)
-let makerManifest = null;        // loadPartsManifest() 결과 캐시 (탭 렌더링용)
 let makerActiveTab = 'shape';
 let makerRebuildTimer = null;    // 파츠 변경 → 프리뷰 재조립 300ms 디바운스
-let makerPreviewInstance = null; // createAvatarInstance() 결과 — dispose 후 재조립
 let makerPreviewRAF = null;
 let makerPreviewLastT = 0;
 let makerDragging = false;
@@ -1597,64 +1539,14 @@ function buildLobby() {
   });
   const nickHint = el('div', { className: 'lu-field-hint', text: `최대 ${MAX_NICKNAME_LEN}자 · 비워두면 '게스트'로 입장합니다` });
 
-  // 캐릭터 선택 (KayKit Adventurers 4종 + 휴먼 + 커스텀) — 색상 스와치 위에 배치
+  // 캐릭터 — 자체 제작 치비 단일 (서드파티 캐릭터 전면 삭제, 저작권 완전 보유)
   const charLabel = el('div', { className: 'lu-field-label', text: '캐릭터', style: 'margin-top:26px;' });
   const charsRow = el('div', { className: 'lu-chars' });
 
-  function selectChar(id, btn) {
-    selectedChar = id;
-    try { localStorage.setItem(LU_CHAR_STORAGE_KEY, id); } catch (_) { /* 프라이빗 모드 등 무시 */ }
-    charsRow.querySelectorAll('.lu-char-btn').forEach((b) => b.classList.remove('lu-selected'));
-    btn.classList.add('lu-selected');
-  }
-
-  CHARACTERS.forEach((c) => {
-    const btn = el('button', {
-      className: 'lu-char-btn' + (c.id === selectedChar ? ' lu-selected' : ''),
-      type: 'button',
-      'aria-label': `캐릭터 ${c.name}`,
-      text: c.name,
-    });
-    btn.addEventListener('click', () => selectChar(c.id, btn));
-    charsRow.appendChild(btn);
-  });
-
-  // 커스텀 아바타(자체 커스터마이저) — 6번째 선택지. 저장된 룩이 있으면 선택만 하고,
-  // 없으면 곧바로 커스터마이저를 연다. 저장 후에는 프리뷰 스냅샷을 배경으로 보여준다.
-  const customBtn = el('button', {
-    className: 'lu-char-btn lu-char-custom' + (selectedChar === CUSTOM_CHAR_ID ? ' lu-selected' : ''),
-    type: 'button',
-    'aria-label': '커스텀 아바타',
-  });
-  function syncCustomButtonVisual() {
-    const thumb = readStoredLookThumb();
-    if (thumb) {
-      customBtn.style.backgroundImage = `url('${thumb}')`;
-      customBtn.classList.add('lu-has-thumb');
-      customBtn.textContent = '';
-      customBtn.appendChild(el('span', { text: '커스텀' }));
-    } else {
-      customBtn.style.backgroundImage = '';
-      customBtn.classList.remove('lu-has-thumb');
-      customBtn.textContent = '✨ 커스텀';
-    }
-  }
-  syncCustomButtonVisual();
-  customBtn.addEventListener('click', () => {
-    if (readStoredLook()) {
-      selectChar(CUSTOM_CHAR_ID, customBtn);
-    } else {
-      openAvatarMaker();
-    }
-  });
-  charsRow.appendChild(customBtn);
-
-  // 치비 아바타(자체 코드 생성) — 7번째 선택지. 저장된 룩이 있으면 1클릭은 선택,
-  // 재클릭은 메이커 열기. 없으면 곧바로 메이커를 연다.
   const chibiBtn = el('button', {
-    className: 'lu-char-btn lu-char-custom' + (selectedChar === CHIBI_SEL_ID ? ' lu-selected' : ''),
+    className: 'lu-char-btn lu-char-custom lu-selected',
     type: 'button',
-    'aria-label': '치비 아바타',
+    'aria-label': '치비 아바타 꾸미기',
   });
   function syncChibiButtonVisual() {
     const thumb = readStoredChibiThumb();
@@ -1670,23 +1562,15 @@ function buildLobby() {
     }
   }
   syncChibiButtonVisual();
-  chibiBtn.addEventListener('click', () => {
-    if (selectedChar !== CHIBI_SEL_ID) {
-      selectChar(CHIBI_SEL_ID, chibiBtn); // 1클릭: 선택 (저장 룩 없으면 기본 치비)
-    } else {
-      openChibiMaker(); // 재클릭: 꾸미기
-    }
-  });
-  // 치비(오리지널) → 커스텀 → 클래식 프리셋 순서로 노출
-  charsRow.prepend(customBtn);
-  charsRow.prepend(chibiBtn);
+  chibiBtn.addEventListener('click', () => openChibiMaker()); // 클릭 = 꾸미기
+  charsRow.appendChild(chibiBtn);
 
   const editLink = el('button', {
     className: 'lu-char-edit-link',
     type: 'button',
     text: '꾸미기 ✎',
   });
-  editLink.addEventListener('click', () => openAvatarMaker());
+  editLink.addEventListener('click', () => openChibiMaker());
 
   // 색상 스와치
   const enterBtn = el('button', { id: 'lu-enter-btn', type: 'button', text: '입장하기' });
@@ -1727,15 +1611,8 @@ function buildLobby() {
     let colorHash = 0;
     for (let i = 0; i < nickname.length; i++) colorHash = (colorHash * 31 + nickname.charCodeAt(i)) >>> 0;
     selectedColor = AVATAR_COLORS[colorHash % AVATAR_COLORS.length];
-    // 커스텀 선택 시 저장된 룩으로부터 char 문자열('dcl:'+JSON)을 새로 인코딩한다
-    // (manifest 기준 정규화/폴백까지 encodeLook이 처리 — avatarkit.js 계약).
-    let char = selectedChar;
-    if (selectedChar === CUSTOM_CHAR_ID) {
-      const storedLook = readStoredLook();
-      char = encodeLook(Object.assign({}, DEFAULT_LOOK, storedLook || {}));
-    } else if (selectedChar === CHIBI_SEL_ID) {
-      char = encodeChibi(Object.assign({}, DEFAULT_CHIBI, readStoredChibi() || {}));
-    }
+    // 캐릭터는 치비 단일 — 저장된 꾸미기(없으면 기본 룩)로 인코딩
+    const char = encodeChibi(Object.assign({}, DEFAULT_CHIBI, readStoredChibi() || {}));
     if (typeof callbacks.onEnter === 'function') {
       callbacks.onEnter({ nickname, color: selectedColor, char });
     }
@@ -1747,20 +1624,12 @@ function buildLobby() {
   });
   nickInput.addEventListener('keyup', (e) => e.stopPropagation());
 
-  // 커스터마이저에서 [저장하고 사용]을 누르면 호출 — 로비의 커스텀 버튼을 선택 상태로
-  // 전환하고 썸네일을 갱신한다 (아바타 메이커 모달은 이 함수를 통해서만 로비 상태를 건드린다).
-  function onCustomLookSaved() {
-    syncCustomButtonVisual();
-    selectChar(CUSTOM_CHAR_ID, customBtn);
-  }
-
-  // 치비 메이커에서 [저장하고 사용]을 누르면 호출 — onCustomLookSaved와 동일 규약
+  // 치비 메이커에서 [저장하고 사용]을 누르면 호출 — 썸네일 갱신
   function onChibiSaved() {
     syncChibiButtonVisual();
-    selectChar(CHIBI_SEL_ID, chibiBtn);
   }
 
-  return { overlay, nickInput, pickerBox, onCustomLookSaved, onChibiSaved };
+  return { overlay, nickInput, pickerBox, onChibiSaved };
 }
 
 function buildControls() {
@@ -2495,408 +2364,6 @@ function buildShareModal() {
   return { overlay, card, title, preview, deviceBtn, saveBtn, xBtn, threadsBtn, copyBtn };
 }
 
-// ---------------------------------------------------------------------------
-// 아바타 커스터마이저 모달 — Decentraland base-avatars 파츠(avatarkit.js)를
-// 조합해 나만의 아바타를 만든다. 좌측 3D 라이브 프리뷰는 avatar.js의
-// createAvatarInstance()를 그대로 재사용한다(중복 구현 최소화).
-// ---------------------------------------------------------------------------
-const MAKER_TABS = [
-  { key: 'shape', label: '체형' },
-  { key: 'hair', label: '헤어' },
-  { key: 'top', label: '상의' },
-  { key: 'bottom', label: '하의' },
-  { key: 'feet', label: '신발' },
-  { key: 'face', label: '얼굴' },
-  { key: 'glasses', label: '안경' },
-  { key: 'color', label: '색상' },
-];
-// look 필드 → manifest 카테고리 키 (avatarkit.js 내부 매핑과 동일 — 파츠 목록 조회용)
-const MAKER_FIELD_CATEGORY = { hair: 'hair', top: 'upper_body', bottom: 'lower_body', feet: 'feet', glasses: 'eyewear' };
-const MAKER_NULLABLE_FIELDS = new Set(['hair', 'glasses']);
-
-function buildAvatarMaker() {
-  const closeBtn = el('button', { id: 'lu-am-close', type: 'button', 'aria-label': '닫기', text: '×' });
-  const title = el('div', { className: 'lu-am-title', text: '아바타 커스터마이저' });
-  const head = el('div', { className: 'lu-am-head' }, [title, closeBtn]);
-
-  // ---- 좌측: 3D 라이브 프리뷰 (자체 소형 렌더러 — 메인 씬과 독립) ----
-  const canvas = el('canvas', { width: '300', height: '400' });
-  const previewHint = el('div', { className: 'lu-am-preview-hint', text: '드래그해서 회전' });
-  const previewBox = el('div', { className: 'lu-am-preview' }, [canvas, previewHint]);
-
-  // WebGLRenderer/씬/카메라/조명은 커스터마이저를 처음 열 때(ensurePreviewRenderer())
-  // 지연 생성한다 — initUI() 시점(로비 진입 전, 아직 필요 없을 수도 있는 시점)에
-  // GL 컨텍스트를 미리 만들지 않는다(감독 지적). 이후 재오픈부터는 재사용.
-  let previewRenderer = null;
-  let previewScene = null;
-  let previewCamera = null;
-  let previewRotator = null; // 자동 회전/드래그 회전은 이 그룹만 돌린다
-
-  function ensurePreviewRenderer() {
-    if (previewRenderer) return;
-    previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    previewRenderer.setPixelRatio(Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1));
-    previewRenderer.setSize(300, 400, false);
-    previewRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-    previewRenderer.toneMappingExposure = 1.1;
-    previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
-
-    previewScene = new THREE.Scene();
-    previewScene.background = new THREE.Color('#f2efe6');
-    previewCamera = new THREE.PerspectiveCamera(28, 300 / 400, 0.1, 20);
-    previewCamera.position.set(0, 1.15, 3.1);
-    previewCamera.lookAt(0, 0.95, 0);
-
-    // 따뜻한 조명 — 차가운 흰색 광원 금지(감독 진단: 기존 흰색 조명이 "시체" 인상에
-    // 일조). 살짝 노란 키라이트 + 부드러운 웜 필라이트 + 웜 톤 헤미스피어 앰비언트.
-    previewScene.add(new THREE.HemisphereLight(0xfff1d9, 0x2b1f14, 3.0));
-    const previewKeyLight = new THREE.DirectionalLight(0xffd9a0, 3.0);
-    previewKeyLight.position.set(1.4, 2.6, 2.0);
-    previewScene.add(previewKeyLight);
-    const previewFillLight = new THREE.DirectionalLight(0xffe8c8, 1.1);
-    previewFillLight.position.set(-1.8, 1.1, 1.6);
-    previewScene.add(previewFillLight);
-
-    previewRotator = new THREE.Group();
-    previewScene.add(previewRotator);
-  }
-
-  // ---- 우측: 탭 + 탭 페이지 ----
-  const tabsRow = el('div', { className: 'lu-am-tabs' });
-  const tabButtons = new Map();
-  const tabPage = el('div', { className: 'lu-am-tabpage' });
-  MAKER_TABS.forEach((tab) => {
-    const btn = el('button', {
-      type: 'button',
-      className: 'lu-am-tab' + (tab.key === makerActiveTab ? ' lu-selected' : ''),
-      text: tab.label,
-    });
-    btn.addEventListener('click', () => setActiveTab(tab.key));
-    tabButtons.set(tab.key, btn);
-    tabsRow.appendChild(btn);
-  });
-  const panel = el('div', { className: 'lu-am-panel' }, [tabsRow, tabPage]);
-
-  const body = el('div', { className: 'lu-am-body' }, [previewBox, panel]);
-
-  const saveBtn = el('button', { className: 'lu-am-btn lu-am-btn-primary', type: 'button', text: '저장하고 사용' });
-  const closeBtn2 = el('button', { className: 'lu-am-btn', type: 'button', text: '닫기' });
-  const footer = el('div', { className: 'lu-am-footer' }, [closeBtn2, saveBtn]);
-
-  const card = el('div', { className: 'lu-am-card' }, [head, body, footer]);
-  const overlay = el('div', { id: 'lu-avatar-maker', className: 'lu' }, [card]);
-  document.body.appendChild(overlay);
-
-  closeBtn.addEventListener('click', () => closeAvatarMaker());
-  closeBtn2.addEventListener('click', () => closeAvatarMaker());
-  // 카드 바깥(배경) 클릭 시 닫힘 — 카드 자체 클릭은 통과
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeAvatarMaker(); });
-
-  saveBtn.addEventListener('click', () => {
-    if (!makerLook) return;
-    saveStoredLook(makerLook);
-    try {
-      if (previewRenderer) {
-        // 스냅샷 직전에 동기 렌더 — WebGLRenderer는 preserveDrawingBuffer:false라
-        // 직전 rAF 프레임의 드로잉 버퍼가 합성 후 비워져, 클릭 핸들러 시점의
-        // toDataURL()이 빈(투명) 이미지를 반환할 수 있다. 같은 태스크 안에서 다시
-        // 그린 직후 읽으면 실제 아바타가 담긴다.
-        previewRenderer.render(previewScene, previewCamera);
-        saveStoredLookThumb(previewRenderer.domElement.toDataURL('image/png'));
-      }
-    } catch (_) {
-      /* 캔버스 오염 등 — 썸네일 스냅샷 실패는 조용히 무시(저장 자체는 계속 진행) */
-    }
-    if (els && els.lobby) els.lobby.onCustomLookSaved();
-    closeAvatarMaker();
-  });
-
-  // ---- 파츠 썸네일 그리드 ----
-  function thumbButton(categoryKey, item, selectedId, onPick) {
-    const isNone = item.id === null;
-    const btn = el('button', {
-      type: 'button',
-      className: 'lu-am-thumb' + (item.id === selectedId ? ' lu-selected' : ''),
-      title: item.name || (isNone ? '없음' : item.id),
-    });
-    if (isNone) {
-      btn.appendChild(el('span', { className: 'lu-am-thumb-none', text: '없음' }));
-    } else if (item.thumb) {
-      const img = el('img', {
-        src: `${DCL_BASE}/${categoryKey}/${item.id}/${item.thumb}`,
-        alt: item.name || item.id,
-        loading: 'lazy',
-      });
-      img.addEventListener(
-        'error',
-        () => {
-          img.remove();
-          btn.insertBefore(
-            el('span', { className: 'lu-am-thumb-none', text: (item.name || item.id).slice(0, 2) }),
-            btn.firstChild
-          );
-        },
-        { once: true }
-      );
-      btn.appendChild(img);
-    } else {
-      btn.appendChild(el('span', { className: 'lu-am-thumb-none', text: (item.name || item.id).slice(0, 2) }));
-    }
-    btn.appendChild(el('span', { className: 'lu-am-thumb-label', text: isNone ? '없음' : item.name || item.id }));
-    btn.addEventListener('click', () => onPick(item.id));
-    return btn;
-  }
-
-  function renderPartGrid(container, categoryKey, field) {
-    const list = (makerManifest && makerManifest.categories && makerManifest.categories[categoryKey]) || [];
-    const supported = list.filter((it) => it.models && it.models[makerLook.shape]);
-    const grid = el('div', { className: 'lu-am-grid' });
-    if (MAKER_NULLABLE_FIELDS.has(field)) {
-      grid.appendChild(thumbButton(categoryKey, { id: null, name: '없음' }, makerLook[field], (id) => pickField(field, id)));
-    }
-    supported.forEach((item) => grid.appendChild(thumbButton(categoryKey, item, makerLook[field], (id) => pickField(field, id))));
-    container.appendChild(grid);
-  }
-
-  // encodeLook()→decodeLook() 왕복으로 avatarkit.js의 정규화/체형-미지원 폴백 로직을
-  // 그대로 재사용한다(파츠 id 유효성 검사 등을 ui.js에 중복 구현하지 않는다).
-  function normalizeMakerLook() {
-    makerLook = decodeLook(encodeLook(makerLook)) || Object.assign({}, DEFAULT_LOOK);
-  }
-
-  function pickField(field, id) {
-    if (!makerLook) return;
-    makerLook[field] = id;
-    normalizeMakerLook();
-    scheduleRebuildPreview();
-    renderActiveTab();
-  }
-
-  function pickShape(shape) {
-    if (!makerLook || makerLook.shape === shape) return;
-    makerLook.shape = shape;
-    normalizeMakerLook(); // 체형 미지원 파츠는 여기서 기본값으로 자동 대체됨
-    scheduleRebuildPreview();
-    renderActiveTab();
-  }
-
-  function renderShapeTab() {
-    const list = (makerManifest && makerManifest.categories && makerManifest.categories.body_shape) || [];
-    const grid = el('div', { className: 'lu-am-grid' });
-    list.forEach((item) => {
-      const shape = item.models && item.models.male ? 'male' : 'female';
-      grid.appendChild(thumbButton('body_shape', item, makerLook.shape === shape ? shape : null, () => pickShape(shape)));
-    });
-    tabPage.appendChild(grid);
-  }
-
-  function renderFaceTab() {
-    [
-      ['눈', 'eyes', 'eyes'],
-      ['눈썹', 'eyebrows', 'brows'],
-      ['입', 'mouth', 'mouth'],
-    ].forEach(([label, categoryKey, field]) => {
-      tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: label }));
-      renderPartGrid(tabPage, categoryKey, field);
-    });
-  }
-
-  function renderColorTab() {
-    tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: '피부색' }));
-    const skinRow = el('div', { className: 'lu-swatches' });
-    SKIN_TONES.forEach((hex) => {
-      const swatch = el('button', {
-        type: 'button',
-        className: 'lu-swatch' + (makerLook.skin === hex ? ' lu-selected' : ''),
-        style: `background:${hex};`,
-        title: hex,
-        'aria-label': `피부색 ${hex}`,
-      });
-      swatch.addEventListener('click', () => {
-        makerLook.skin = hex;
-        normalizeMakerLook();
-        scheduleRebuildPreview();
-        renderActiveTab();
-      });
-      skinRow.appendChild(swatch);
-    });
-    tabPage.appendChild(skinRow);
-
-    tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: '머리 색' }));
-    const hairRow = el('div', { className: 'lu-swatches' });
-    HAIR_COLORS.forEach((hex) => {
-      const swatch = el('button', {
-        type: 'button',
-        className: 'lu-swatch' + (makerLook.hairColor === hex ? ' lu-selected' : ''),
-        style: `background:${hex};`,
-        title: hex,
-        'aria-label': `머리색 ${hex}`,
-      });
-      swatch.addEventListener('click', () => {
-        makerLook.hairColor = hex;
-        normalizeMakerLook();
-        scheduleRebuildPreview();
-        renderActiveTab();
-      });
-      hairRow.appendChild(swatch);
-    });
-    tabPage.appendChild(hairRow);
-
-    tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: '눈동자 색' }));
-    const eyeRow = el('div', { className: 'lu-swatches' });
-    EYE_COLORS.forEach((hex) => {
-      const swatch = el('button', {
-        type: 'button',
-        className: 'lu-swatch' + (makerLook.eyeColor === hex ? ' lu-selected' : ''),
-        style: `background:${hex};`,
-        title: hex,
-        'aria-label': `눈동자 색 ${hex}`,
-      });
-      swatch.addEventListener('click', () => {
-        makerLook.eyeColor = hex;
-        normalizeMakerLook();
-        scheduleRebuildPreview();
-        renderActiveTab();
-      });
-      eyeRow.appendChild(swatch);
-    });
-    tabPage.appendChild(eyeRow);
-
-    tabPage.appendChild(el('div', { className: 'lu-am-section-title', text: '귀여움' }));
-    const cuteLabel = el('div', { className: 'lu-am-cute-label' }, [
-      el('span', { text: '진지함' }),
-      el('b', { text: `${Math.round(makerLook.cute * 100)}%` }),
-      el('span', { text: '귀여움' }),
-    ]);
-    const cuteInput = el('input', {
-      id: 'lu-am-cute',
-      type: 'range',
-      min: '0',
-      max: '100',
-      step: '1',
-      value: String(Math.round(makerLook.cute * 100)),
-    });
-    cuteInput.addEventListener('input', () => {
-      makerLook.cute = Number(cuteInput.value) / 100;
-      cuteLabel.querySelector('b').textContent = `${cuteInput.value}%`;
-      scheduleRebuildPreview(); // 슬라이더 드래그 중에는 탭을 재렌더하지 않는다(포커스 유지)
-    });
-    cuteInput.addEventListener('keydown', (e) => e.stopPropagation());
-    tabPage.appendChild(el('div', { className: 'lu-am-cute-row' }, [cuteLabel, cuteInput]));
-  }
-
-  function renderActiveTab() {
-    tabPage.textContent = '';
-    if (!makerLook || !makerManifest) return;
-    tabButtons.forEach((btn, key) => btn.classList.toggle('lu-selected', key === makerActiveTab));
-    if (makerActiveTab === 'shape') renderShapeTab();
-    else if (makerActiveTab === 'face') renderFaceTab();
-    else if (makerActiveTab === 'color') renderColorTab();
-    else renderPartGrid(tabPage, MAKER_FIELD_CATEGORY[makerActiveTab], makerActiveTab);
-  }
-
-  function setActiveTab(key) {
-    makerActiveTab = key;
-    renderActiveTab();
-  }
-
-  // ---- 프리뷰 조립/재조립 — 파츠 변경 300ms 디바운스 후 dispose→재조립 ----
-  function rebuildPreview() {
-    if (!makerLook || !previewRotator) return; // 렌더러가 아직 지연 생성 전이면 스킵
-    if (makerPreviewInstance) {
-      previewRotator.remove(makerPreviewInstance.group);
-      makerPreviewInstance.dispose();
-      makerPreviewInstance = null;
-    }
-    makerPreviewInstance = createAvatarInstance(encodeLook(makerLook), GOLD, ' ');
-    previewRotator.add(makerPreviewInstance.group);
-  }
-
-  function scheduleRebuildPreview() {
-    if (makerRebuildTimer) clearTimeout(makerRebuildTimer);
-    makerRebuildTimer = setTimeout(() => {
-      makerRebuildTimer = null;
-      rebuildPreview();
-    }, 300);
-  }
-
-  // ---- 렌더 루프: 느린 자동 회전 + idle 애니메이션(speed=0) ----
-  function previewFrame(t) {
-    makerPreviewRAF = requestAnimationFrame(previewFrame);
-    const delta = makerPreviewLastT ? Math.min(0.05, (t - makerPreviewLastT) / 1000) : 0;
-    makerPreviewLastT = t;
-    if (!makerDragging) previewRotator.rotation.y += delta * 0.35;
-    if (makerPreviewInstance) makerPreviewInstance.update(delta, 0); // speed 0 → idle 블렌드
-    previewRenderer.render(previewScene, previewCamera);
-  }
-  function startPreviewLoop() {
-    if (makerPreviewRAF) return;
-    makerPreviewLastT = 0;
-    makerPreviewRAF = requestAnimationFrame(previewFrame);
-  }
-  function stopPreviewLoop() {
-    if (makerPreviewRAF) cancelAnimationFrame(makerPreviewRAF);
-    makerPreviewRAF = null;
-  }
-
-  // ---- 드래그 회전 (자동 회전은 드래그 중 일시정지) ----
-  canvas.addEventListener('pointerdown', (e) => {
-    makerDragging = true;
-    makerDragLastX = e.clientX;
-    previewBox.classList.add('lu-dragging');
-    try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* 무시 */ }
-  });
-  canvas.addEventListener('pointermove', (e) => {
-    if (!makerDragging || !previewRotator) return;
-    const dx = e.clientX - makerDragLastX;
-    makerDragLastX = e.clientX;
-    previewRotator.rotation.y += dx * 0.012;
-  });
-  function endDrag() {
-    makerDragging = false;
-    previewBox.classList.remove('lu-dragging');
-  }
-  canvas.addEventListener('pointerup', endDrag);
-  canvas.addEventListener('pointercancel', endDrag);
-  canvas.addEventListener('pointerleave', endDrag);
-
-  async function open() {
-    makerOpen = true;
-    ensurePreviewRenderer(); // 첫 오픈 시점에 지연 생성(이후 재오픈부터는 재사용)
-    overlay.classList.add('lu-open');
-    startPreviewLoop();
-    tabPage.textContent = '';
-    const manifest = await loadPartsManifest().catch((err) => {
-      console.warn('DCL 파츠 manifest 로드 실패:', err);
-      return null;
-    });
-    if (!makerOpen) return; // 로딩 중 모달이 닫힌 경우
-    makerManifest = manifest;
-    const stored = readStoredLook();
-    makerLook = Object.assign({}, DEFAULT_LOOK, stored || {});
-    normalizeMakerLook();
-    makerActiveTab = 'shape';
-    renderActiveTab();
-    rebuildPreview();
-  }
-
-  function close() {
-    if (!makerOpen) return;
-    makerOpen = false;
-    overlay.classList.remove('lu-open');
-    stopPreviewLoop();
-    if (makerRebuildTimer) { clearTimeout(makerRebuildTimer); makerRebuildTimer = null; }
-    if (makerPreviewInstance) {
-      if (previewRotator) previewRotator.remove(makerPreviewInstance.group);
-      makerPreviewInstance.dispose();
-      makerPreviewInstance = null;
-    }
-  }
-
-  return { overlay, card, open, close };
-}
-
-// 로비의 커스텀 버튼/꾸미기 링크가 호출하는 진입점 — 실제 열기/닫기는
 
 // ---------------------------------------------------------------------------
 // 치비 메이커 모달 — chibi.js(자체 코드 생성기)의 파라미터를 칩/스와치로 편집.
@@ -3115,14 +2582,6 @@ function closeChibiMaker() {
   if (els && els.chibiMaker) els.chibiMaker.close();
 }
 
-// buildAvatarMaker()가 반환한 open()/close()에 위임한다.
-function openAvatarMaker() {
-  if (els && els.avatarMaker) els.avatarMaker.open();
-}
-function closeAvatarMaker() {
-  if (els && els.avatarMaker) els.avatarMaker.close();
-}
-
 // ---------------------------------------------------------------------------
 // 전역 키 핸들러 — Enter로 채팅 입력창 포커스, ESC 우선순위 처리
 // ---------------------------------------------------------------------------
@@ -3142,14 +2601,6 @@ function bindGlobalKeys() {
         e.preventDefault();
         e.stopImmediatePropagation();
         closeChibiMaker();
-        return;
-      }
-      if (makerOpen) {
-        e.preventDefault();
-        // ui.js 리스너는 main.js보다 먼저 등록되므로 여기서 멈추면
-        // 같은 ESC가 main.js의 투어-종료 리스너까지 도달하지 않는다 (ESC=한 동작).
-        e.stopImmediatePropagation();
-        closeAvatarMaker();
         return;
       }
       if (shareModalOpen) {
@@ -3185,7 +2636,7 @@ function bindGlobalKeys() {
     }
     // 라이트박스/공유 모달/커스터마이저 모달이 열려 있는 동안에는 Enter(채팅 포커스) 등
     // 다른 전역 키를 막는다 — 오버레이에 가려진 채팅 입력창이 포커스되는 혼란을 방지.
-    if (lightboxOpen || shareModalOpen || makerOpen) return;
+    if (lightboxOpen || shareModalOpen) return;
     if (!entered) return;
     const active = document.activeElement;
     const typing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
@@ -3230,7 +2681,6 @@ export function initUI({ onEnter, onChatSend } = {}) {
     dock: buildMobileDock(),
     shutter: buildShutter(),
     share: buildShareModal(),
-    avatarMaker: buildAvatarMaker(),
     chibiMaker: buildChibiMaker(),
   };
   // 접속자 수 표시는 상단 통합 바 소속 — setPlayerCount가 쓰는 참조를 연결
@@ -3238,8 +2688,6 @@ export function initUI({ onEnter, onChatSend } = {}) {
   els.topRight.countWrap = els.galleryTitle._countWrap;
 
   bindGlobalKeys();
-  // 커스터마이저를 열기 전에 미리 워밍업 — 첫 오픈 시 탭이 빈 상태로 잠깐 보이는 것을 줄인다.
-  loadPartsManifest().catch(() => { /* 실패해도 openAvatarMaker()가 재시도 + 콘솔 경고 */ });
 
   // initUI() 호출 이전에 대기 중이던 값이 있으면 지금 적용한다.
   if (pendingGalleryTitle !== null) applyGalleryTitle(pendingGalleryTitle);

@@ -26,7 +26,7 @@ export class MultiplayerManager {
     // PeerJS id 허용 문자만 남긴다 (영숫자·하이픈·언더스코어)
     this.roomId = String(roomId || PEER_ROOM_ID).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || PEER_ROOM_ID;
     this._hostId = this.roomId + '-host';
-    this.char = char || 'knight'; // 하위호환: 구버전(char 미전송) 원격도 'knight'로 폴백
+    this.char = char || 'chibi:{}'; // 캐릭터는 치비 단일 — char 미전송 구버전도 기본 치비
 
     // 콜백 프로퍼티 (외부에서 할당)
     this.onChat = (name, text) => {};
@@ -316,7 +316,7 @@ export class MultiplayerManager {
         this.playerInfo.set(conn.peer, {
           nickname: String(data.nickname || '게스트'),
           color: String(data.color || '#3498db'),
-          char: String(data.char || 'knight'), // 하위호환: char 없는 구버전 게스트도 'knight'
+          char: String(data.char || 'chibi:{}'), // 하위호환: char 없는 구버전 게스트도 기본 치비
           x: 0, y: EYE_HEIGHT, z: 0, ry: 0,
         });
         this._updateCount();
@@ -512,7 +512,7 @@ export class MultiplayerManager {
 
     if (!av) {
       // 하위호환: 원격 정보에 char가 없으면(구버전 접속자) 'knight'로 폴백
-      const inst = createAvatarInstance(info.char || 'knight', info.color || '#3498db', info.nickname || '게스트');
+      const inst = createAvatarInstance(info.char || 'chibi:{}', info.color || '#3498db', info.nickname || '게스트');
       const group = inst.group;
       const y = (info.y != null ? info.y : EYE_HEIGHT) - EYE_HEIGHT;
       group.position.set(info.x || 0, y, info.z || 0);
