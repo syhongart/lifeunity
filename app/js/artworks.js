@@ -510,8 +510,14 @@ function buildFrame(art, textureLoader) {
   group.add(backing);
 
   // 작품 평면 — placeholder 텍스처로 시작, 이미지/영상 로드 완료 시 교체
+  const placeholderTex = makePlaceholderTexture();
   const artMat = new THREE.MeshStandardMaterial({
-    map: makePlaceholderTexture(),
+    map: placeholderTex,
+    // 스포트라이트를 베이크로 대체하면서 작품 밝기는 자체발광으로 보전한다
+    // (미술관 조명은 "작품이 항상 또렷"이 정답 — 실시간 조명 의존 제거).
+    emissive: 0xffffff,
+    emissiveMap: placeholderTex,
+    emissiveIntensity: 0.55,
     roughness: 0.85,
     metalness: 0.0,
   });
@@ -536,6 +542,7 @@ function buildFrame(art, textureLoader) {
       tex.colorSpace = THREE.SRGBColorSpace;
       const old = artMat.map;
       artMat.map = tex;
+      artMat.emissiveMap = tex; // 자체발광도 같은 텍스처 (베이크 조명 보정)
       // 영상 작품은 발광하는 스크린처럼 — 어두운 작품도 선명하게
       artMat.emissive = new THREE.Color(0xffffff);
       artMat.emissiveMap = tex;
@@ -562,6 +569,7 @@ function buildFrame(art, textureLoader) {
         tex.anisotropy = 8;
         const old = artMat.map;
         artMat.map = tex;
+        artMat.emissiveMap = tex;
         artMat.needsUpdate = true;
         if (old) old.dispose();
       },
@@ -600,22 +608,35 @@ function buildSpotlight(art, scene) {
   const lx = art.pos.x + nx * offset;
   const lz = art.pos.z + nz * offset;
 
-  // 넓은 콘 + 높은 penumbra = 갤러리 월워셔처럼 부드럽게 퍼지는 빛
-  // (콘 경계가 딱딱한 원으로 잘리지 않도록 가장자리 대부분을 페더링)
-  const spot = new THREE.SpotLight(0xfff4e0, 170);
-  spot.angle = Math.PI / 5.5;
-  spot.penumbra = 0.95;
-  spot.decay = 2;
-  spot.distance = 16;
-  // 그림자는 메인 DirectionalLight(4096)가 담당 — 스포트라이트 14개가 각각
-  // 섀도맵을 매 프레임 갱신하면 저사양 기기에서 프레임 드랍이 커서 비활성화
-  spot.castShadow = false;
+  // ---- 베이크드 라이팅 (구 실시간 SpotLight 14개 대체) ----
+  // 스포트 색(0xfff4e0)은 전 테마 공통이라 정적 디캘로 안전하게 구울 수 있다.
+  // 벽 글로우(액자 주변 워시) + 바닥 빛 웅덩이 두 장의 가산 블렌딩 그라디언트로
+  // 월워셔의 인상을 유지하면서 픽셀당 조명 비용을 제거한다 — 실측: 조명 33→19.
   const spotY = art.floorY + SPOT_OFF;
-  spot.position.set(lx, spotY, lz);
+  const artW = art.size ? art.size.w : ART_W;
+  const artH = art.size ? art.size.h : ART_H;
+  const glowTex = getBakedGlowTexture();
+  const glowMat = new THREE.MeshBasicMaterial({
+    map: glowTex,
+    color: 0xfff4e0,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    opacity: 0.42,
+  });
+  const wallGlow = new THREE.Mesh(new THREE.PlaneGeometry(artW + 2.2, artH + 2.6), glowMat);
+  wallGlow.position.set(art.pos.x + nx * 0.015, art.centerY - 0.15, art.pos.z + nz * 0.015);
+  wallGlow.rotation.y = art.rotY;
+  wallGlow.renderOrder = 0;
+  scene.add(wallGlow);
 
-  spot.target.position.set(art.pos.x, art.centerY, art.pos.z);
-  scene.add(spot);
-  scene.add(spot.target);
+  const poolMat = glowMat.clone();
+  poolMat.opacity = 0.22;
+  const floorPool = new THREE.Mesh(new THREE.PlaneGeometry(artW + 1.6, 3.0), poolMat);
+  floorPool.rotation.x = -Math.PI / 2;
+  floorPool.rotation.z = art.rotY;
+  floorPool.position.set(art.pos.x + nx * 1.15, art.floorY + 0.02, art.pos.z + nz * 1.15);
+  scene.add(floorPool);
 
   // 트랙라이트 헤드 메시 (천장 트랙에 매달린 원통형 헤드)
   const head = new THREE.Group();
@@ -724,6 +745,24 @@ export function getPlacedArtworks() {
 //   감상 위치 = art.pos + normal * VIEWING_DIST (x, z)
 //   감상 yaw = art.rotY
 const VIEWING_DIST = 2.6;
+
+let _bakedGlowTex = null;
+// 베이크 조명용 방사형 그라디언트 (중심 밝음 → 가장자리 투명) — 앱 수명 공유
+function getBakedGlowTexture() {
+  if (_bakedGlowTex) return _bakedGlowTex;
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
+  grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+  grad.addColorStop(0.4, 'rgba(255,255,255,0.45)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 256);
+  _bakedGlowTex = new THREE.CanvasTexture(canvas);
+  return _bakedGlowTex;
+}
 
 export function getViewingPose(art) {
   const nx = Math.sin(art.rotY);
