@@ -15,7 +15,7 @@ import {
 import { startAmbient } from './ambient.js';
 import { PlayerController } from './player.js';
 import { MultiplayerManager } from './multiplayer.js';
-import { preloadAvatarTemplates, createAvatarInstance } from './avatar.js';
+import { createAvatarInstance } from './avatar.js';
 import { NpcCrowd } from './npc.js';
 import { playOuch } from './hitfx.js';
 import { loadNotes, saveNotes, mergeNotes, makeNote } from './guestbook.js';
@@ -596,10 +596,6 @@ async function init() {
   renderer.shadowMap.needsUpdate = true;
   shadowRebakeInterval = resolvedTheme === 'cycle' ? 2 : 0;
 
-  // 리깅 아바타(GLB) 4종 백그라운드 프리로드 — await하지 않는다. 로비에서 닉네임/색/
-  // 캐릭터를 고르는 동안 네트워크로 로드가 끝나길 노려, 입장(handleEnter) 시점에 이미
-  // 캐시돼 있도록 하기 위함. 캐릭터별 개별 실패는 avatar.js가 캡슐 폴백으로 처리한다.
-  preloadAvatarTemplates();
 
   // 전시 제목 표시 + 전시 디렉터리 picker 배선 (ginfo 재사용)
   galleryInfo = ginfo;
