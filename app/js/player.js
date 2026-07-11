@@ -126,16 +126,46 @@ export class PlayerController {
     // ---- 가상 조이스틱 비주얼 (실기기 UX 피드백: 보이지 않는 조작은 없는 조작) ----
     // 터치한 자리에 링(베이스)+노브가 나타나는 플로팅 방식. pointer-events:none이라
     // 입력 처리에는 전혀 관여하지 않는 순수 시각 피드백이다.
+    // 디자인: Gilded Frame — 조준선 틱 링 + 달리기 임계 링 점등 + 골드 노브.
+    if (!document.getElementById('lu-joy-style')) {
+      const st = document.createElement('style');
+      st.id = 'lu-joy-style';
+      st.textContent = `
+.lu-joy-base { position: fixed; width: 112px; height: 112px; margin: -56px 0 0 -56px;
+  border-radius: 50%; border: 1.5px solid rgba(253,251,245,0.38);
+  background: radial-gradient(circle, rgba(23,20,15,0.10) 55%, rgba(23,20,15,0.34) 100%);
+  box-shadow: 0 2px 12px rgba(10,8,4,0.30), inset 0 0 0 1px rgba(23,20,15,0.20);
+  pointer-events: none; z-index: 40; opacity: 0; transform: scale(0.78);
+  transition: opacity 0.12s ease, transform 0.16s cubic-bezier(0.34,1.56,0.64,1); }
+.lu-joy-base.lu-live { opacity: 1; transform: scale(1); }
+.lu-joy-base::before { content: ''; position: absolute; inset: -1.5px; border-radius: 50%;
+  background:
+    linear-gradient(rgba(253,251,245,0.5), rgba(253,251,245,0.5)) 50% 0 / 2px 8px no-repeat,
+    linear-gradient(rgba(253,251,245,0.5), rgba(253,251,245,0.5)) 50% 100% / 2px 8px no-repeat,
+    linear-gradient(rgba(253,251,245,0.5), rgba(253,251,245,0.5)) 0 50% / 8px 2px no-repeat,
+    linear-gradient(rgba(253,251,245,0.5), rgba(253,251,245,0.5)) 100% 50% / 8px 2px no-repeat; }
+.lu-joy-base::after { content: ''; position: absolute; inset: 5px; border-radius: 50%;
+  border: 1px dashed rgba(253,251,245,0.22);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.lu-joy-base.lu-run::after { border-color: rgba(212,175,55,0.9); border-style: solid;
+  box-shadow: 0 0 10px rgba(212,175,55,0.5), inset 0 0 8px rgba(212,175,55,0.25); }
+.lu-joy-knob { position: fixed; width: 44px; height: 44px; margin: -22px 0 0 -22px;
+  border-radius: 50%; background: radial-gradient(circle at 32% 28%, #fffdf8, #e8e2d2);
+  border: 1px solid rgba(23,20,15,0.28);
+  box-shadow: 0 3px 8px rgba(10,8,4,0.40), inset 0 -2px 4px rgba(23,20,15,0.14);
+  pointer-events: none; z-index: 41; opacity: 0; transition: opacity 0.12s ease; }
+.lu-joy-knob.lu-live { opacity: 1; }
+.lu-joy-knob.lu-run { background: radial-gradient(circle at 32% 28%, #ffe9a8, #d4af37);
+  border-color: rgba(120,92,20,0.55);
+  box-shadow: 0 0 0 1px rgba(212,175,55,0.9), 0 0 14px rgba(212,175,55,0.55),
+    inset 0 -2px 4px rgba(120,92,20,0.30); }`;
+      document.head.appendChild(st);
+    }
     this._joyBase = document.createElement('div');
-    this._joyBase.style.cssText =
-      'position:fixed;width:108px;height:108px;margin:-54px 0 0 -54px;border-radius:50%;' +
-      'border:2px solid rgba(255,255,255,0.4);background:rgba(20,18,14,0.22);' +
-      'pointer-events:none;z-index:40;display:none;box-shadow:0 2px 10px rgba(0,0,0,0.25);';
+    this._joyBase.className = 'lu-joy-base';
     this._joyKnob = document.createElement('div');
-    this._joyKnob.style.cssText =
-      'position:fixed;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;' +
-      'background:rgba(255,253,247,0.85);pointer-events:none;z-index:41;display:none;' +
-      'box-shadow:0 2px 6px rgba(0,0,0,0.35);';
+    this._joyKnob.className = 'lu-joy-knob';
+    this._wasRunning = false;
     document.body.appendChild(this._joyBase);
     document.body.appendChild(this._joyKnob);
 
@@ -194,8 +224,8 @@ export class PlayerController {
           this._joyBase.style.top = touch.clientY + 'px';
           this._joyKnob.style.left = touch.clientX + 'px';
           this._joyKnob.style.top = touch.clientY + 'px';
-          this._joyBase.style.display = 'block';
-          this._joyKnob.style.display = 'block';
+          this._joyBase.classList.add('lu-live');
+          this._joyKnob.classList.add('lu-live');
         } else if (touch.clientX >= half && this.lookTouch === null) {
           this.lookTouch = {
             id: touch.identifier,
@@ -219,12 +249,12 @@ export class PlayerController {
           this.moveTouch.dy = (dy * scale) / JOYSTICK_RADIUS;
           this._joyKnob.style.left = this.moveTouch.startX + dx * scale + 'px';
           this._joyKnob.style.top = this.moveTouch.startY + dy * scale + 'px';
-          // 끝까지 밀면 달리기 — 숨은 기능이던 것을 골드 발광으로 가시화 (UX 감사)
+          // 끝까지 밀면 달리기 — 임계 링 점등 + 노브 골드화로 "선을 넘었다"를 보여준다
           const running = Math.hypot(this.moveTouch.dx, this.moveTouch.dy) > 0.85;
-          this._joyKnob.style.background = running ? '#ffd97a' : 'rgba(255,253,247,0.85)';
-          this._joyKnob.style.boxShadow = running
-            ? '0 0 16px 5px rgba(212,175,55,0.75)'
-            : '0 2px 6px rgba(0,0,0,0.35)';
+          this._joyBase.classList.toggle('lu-run', running);
+          this._joyKnob.classList.toggle('lu-run', running);
+          if (running && !this._wasRunning && navigator.vibrate) navigator.vibrate(10);
+          this._wasRunning = running;
         } else if (this.lookTouch && touch.identifier === this.lookTouch.id) {
           const mx = touch.clientX - this.lookTouch.lastX;
           const my = touch.clientY - this.lookTouch.lastY;
@@ -245,8 +275,9 @@ export class PlayerController {
       for (const touch of e.changedTouches) {
         if (this.moveTouch && touch.identifier === this.moveTouch.id) {
           this.moveTouch = null;
-          this._joyBase.style.display = 'none';
-          this._joyKnob.style.display = 'none';
+          this._wasRunning = false;
+          this._joyBase.classList.remove('lu-live', 'lu-run');
+          this._joyKnob.classList.remove('lu-live', 'lu-run');
         } else if (this.lookTouch && touch.identifier === this.lookTouch.id) {
           this.lookTouch = null;
         }

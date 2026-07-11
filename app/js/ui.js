@@ -179,9 +179,22 @@ function injectStyles() {
   const css = `
 :root {
   --lu-gold: ${GOLD};
+  --lu-ink: #17140f;
+  /* Gilded Frame HUD 토큰 — 챔퍼 2단계 + 모션 (게임 HUD 디자인 감사 v1.0) */
+  --lu-ch-s: 7px;
+  --lu-ch-l: 14px;
+  --lu-spring: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --lu-slide: 0.36s cubic-bezier(0.22, 1, 0.36, 1);
   --lu-font: 'Helvetica Neue', Helvetica, Arial, 'Apple SD Gothic Neo',
              'Malgun Gothic', sans-serif;
 }
+/* 챔퍼 실루엣 — 소형(버튼/칩): 좌상+우하 대각 컷, 대형(패널): 4모서리 컷 */
+.lu-cut-s { border-radius: 2px; clip-path: polygon(var(--lu-ch-s) 0, 100% 0,
+  100% calc(100% - var(--lu-ch-s)), calc(100% - var(--lu-ch-s)) 100%, 0 100%, 0 var(--lu-ch-s)); }
+.lu-cut-l { clip-path: polygon(var(--lu-ch-l) 0, calc(100% - var(--lu-ch-l)) 0,
+  100% var(--lu-ch-l), 100% calc(100% - var(--lu-ch-l)),
+  calc(100% - var(--lu-ch-l)) 100%, var(--lu-ch-l) 100%,
+  0 calc(100% - var(--lu-ch-l)), 0 var(--lu-ch-l)); }
 
 .lu * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -616,22 +629,20 @@ function injectStyles() {
 .lu-hud.lu-visible { opacity: 1; }
 /* [P0] 인터랙티브 HUD는 가시화와 함께 터치도 복구 (감사 발견 버그) */
 #lu-dock.lu-visible, #lu-controls-toggle.lu-visible { pointer-events: auto; }
-/* 터치 기기: 작품 정보 카드가 오른쪽 시점 드래그 존을 잠식하지 않게 —
-   카드 몸통은 터치를 통과시키고 '크게 보기' 버튼만 반응 (감사 P1) */
-@media (pointer: coarse) {
-  #lu-artwork { pointer-events: none; }
-  #lu-artwork .lu-art-hint { pointer-events: auto; }
-}
+/* (작품 카드의 터치 기기 배치는 작품 패널 베이스 CSS 뒤에서 재정의 — 캐스케이드 순서) */
 
 #lu-controls {
-  top: 16px; left: 16px;
-  background: rgba(10,10,12,0.55);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
+  background: rgba(23,20,15,0.82);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
   padding: 14px 18px;
-  border-left: 2px solid var(--lu-gold);
-  font-size: 12px; line-height: 1.9;
-  color: rgba(255,255,255,0.85);
+  border: 1px solid rgba(253,251,245,0.16);
+  border-left: 3px solid var(--lu-gold);
+  box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
+  font-size: 12px; font-weight: 500; line-height: 1.9;
+  color: rgba(253,251,245,0.88);
 }
 #lu-controls .lu-key {
   display: inline-block; min-width: 72px;
@@ -644,45 +655,80 @@ function injectStyles() {
 }
 
 #lu-topright {
-  top: 16px; right: 16px;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
   display: flex; flex-direction: column; align-items: flex-end;
   gap: 6px;
   font-size: 12px; letter-spacing: 0.08em;
   text-align: right;
 }
 #lu-topright .lu-stat {
-  background: rgba(10,10,12,0.55);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  background: rgba(23,20,15,0.66);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(253,251,245,0.16);
+  box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
   padding: 6px 12px;
-  color: rgba(255,255,255,0.85);
+  font-weight: 500;
+  color: rgba(253,251,245,0.85);
 }
-#lu-topright .lu-stat b { font-weight: 400; color: var(--lu-gold); }
+#lu-topright .lu-stat b {
+  font-weight: 600; font-variant-numeric: tabular-nums; color: #e6c458;
+}
+/* 성능 지표는 디버그 정보 — 터치 기기 1차 HUD에서 제외 (게임 HUD 감사) */
+@media (pointer: coarse) { #lu-topright { display: none; } }
 
-#lu-gallery-title {
-  top: 18px; left: 50%;
-  transform: translateX(-50%);
-  max-width: min(70vw, 520px);
-  font-size: 11px; letter-spacing: 0.42em; text-indent: 0.42em;
-  color: rgba(255,255,255,0.5);
-  text-align: center;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+/* 상단 통합 바 — 전시명 + 라이브 접속자 (Gilded Frame 유리 칩) */
+#lu-topbar {
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  height: 34px; padding: 0 16px;
+  max-width: min(78vw, 480px);
+  background: rgba(23,20,15,0.66);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(253,251,245,0.16);
+  box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
 }
-#lu-gallery-title:empty { opacity: 0 !important; }
+#lu-topbar.lu-empty { opacity: 0 !important; }
+.lu-topbar-title {
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.28em; text-indent: 0.28em;
+  color: rgba(253,251,245,0.85);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lu-topbar-sep { width: 1px; height: 12px; background: rgba(253,251,245,0.2); flex: none; }
+.lu-topbar-count {
+  display: flex; align-items: center; gap: 5px; flex: none;
+  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: #e6c458;
+}
+.lu-topbar-count::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: #7ec97e; box-shadow: 0 0 6px rgba(126,201,126,0.8);
+}
+.lu-topbar-count b { display: inline-block; font-weight: 600; }
+.lu-topbar-count.lu-tick b { animation: lu-count-tick 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes lu-count-tick { 0% { transform: scale(1.25); } 100% { transform: scale(1); } }
 
 #lu-status {
-  bottom: 22px; left: 50%;
+  /* 하단은 조이스틱·독의 영역 — 토스트는 상단 바 아래로 */
+  top: calc(54px + env(safe-area-inset-top, 0px)); left: 50%;
   transform: translateX(-50%);
   max-width: min(80vw, 560px);
-  background: rgba(10,10,12,0.55);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  padding: 8px 22px;
-  font-size: 12px; letter-spacing: 0.14em;
-  color: rgba(255,255,255,0.85);
+  background: rgba(23,20,15,0.66);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(253,251,245,0.16);
+  border-left: 3px solid var(--lu-gold);
+  box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
+  padding: 7px 18px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+  color: rgba(253,251,245,0.95);
   text-align: center;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: opacity 0.22s cubic-bezier(0.22,1,0.36,1);
 }
 #lu-status:empty { opacity: 0; }
 
@@ -750,11 +796,10 @@ function injectStyles() {
   transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
 }
 #lu-artwork::before {
-  /* 골드 상단 라인 — 액자 레일의 인용 */
+  /* 골드 상단 레일 — 챔퍼 모서리와 정렬되는 좌측 기점 짧은 선 */
   content: '';
-  position: absolute; top: 0; left: 26px; right: 26px; height: 2px;
+  position: absolute; top: 0; left: var(--lu-ch-l, 14px); width: 44px; height: 3px;
   background: linear-gradient(90deg, var(--lu-gold), rgba(212,175,55,0));
-  border-radius: 0 0 2px 2px;
 }
 #lu-artwork.lu-open { transform: translate(0, -50%); }
 #lu-artwork .lu-art-eyebrow {
@@ -799,83 +844,175 @@ function injectStyles() {
   color: var(--lu-gold);
   font-size: 10px; letter-spacing: 0.04em;
 }
+/* 터치 기기: 작품 카드를 하단 좌측 미니 캡션으로 이동 — 시점 드래그 존을
+   아예 벗어나므로 pointer-events 핵이 불필요. 카드 전체가 '크게 보기' 탭 타깃. */
+@media (pointer: coarse) {
+  #lu-artwork {
+    top: auto; right: auto;
+    left: max(12px, env(safe-area-inset-left, 0px));
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    width: min(248px, calc(100vw - 104px)); /* 우측 독 폭 회피 */
+    padding: 14px 16px 12px;
+    border-radius: 0;
+    clip-path: polygon(var(--lu-ch-l) 0, calc(100% - var(--lu-ch-l)) 0,
+      100% var(--lu-ch-l), 100% calc(100% - var(--lu-ch-l)),
+      calc(100% - var(--lu-ch-l)) 100%, var(--lu-ch-l) 100%,
+      0 calc(100% - var(--lu-ch-l)), 0 var(--lu-ch-l));
+    box-shadow: none; /* clip-path가 자름 — 종이 대비는 보더가 담당 */
+    transform: translateY(16px); opacity: 0; pointer-events: none;
+    transition: transform var(--lu-slide), opacity 0.25s ease;
+  }
+  #lu-artwork.lu-open { transform: translateY(0); opacity: 1; pointer-events: auto; }
+  #lu-artwork .lu-art-eyebrow { font-size: 9px; letter-spacing: 0.3em; margin-bottom: 6px; }
+  #lu-artwork .lu-art-title { font-size: 15px; }
+  #lu-artwork .lu-art-meta { font-size: 11px; margin-top: 4px; }
+  #lu-artwork .lu-art-rule { margin: 10px 0 0; }
+  #lu-artwork .lu-art-desc { display: none; } /* 설명은 라이트박스에서 */
+  #lu-artwork .lu-art-hint {
+    margin-top: 10px; padding: 6px 12px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    border-radius: 0;
+    clip-path: polygon(var(--lu-ch-s) 0, 100% 0,
+      100% calc(100% - var(--lu-ch-s)), calc(100% - var(--lu-ch-s)) 100%, 0 100%, 0 var(--lu-ch-s));
+  }
+}
 
 /* ---------------------- 터치 기기: 조작법 접기 + 액션 독 ---------------------- */
 #lu-controls.lu-collapsed { display: none; }
 #lu-controls-toggle {
-  position: fixed; top: 14px; left: 14px; z-index: 520;
-  width: 34px; height: 34px;
+  position: fixed; z-index: 520;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: max(12px, env(safe-area-inset-left, 0px));
+  width: 34px; height: 34px; border-radius: 2px;
+  clip-path: polygon(var(--lu-ch-s) 0, 100% 0,
+    100% calc(100% - var(--lu-ch-s)), calc(100% - var(--lu-ch-s)) 100%, 0 100%, 0 var(--lu-ch-s));
   display: flex; align-items: center; justify-content: center;
-  background: rgba(10,10,12,0.6);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.2); border-radius: 50%;
-  color: rgba(255,255,255,0.85);
-  font-family: var(--lu-font); font-weight: 300; font-size: 15px;
+  background: rgba(23,20,15,0.66);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(253,251,245,0.16);
+  box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
+  color: rgba(253,251,245,0.9);
+  font-family: var(--lu-font); font-weight: 700; font-size: 14px;
   cursor: pointer;
-  transition: border-color 0.25s ease, color 0.25s ease;
+  transition: transform var(--lu-spring), background-color 0.25s ease;
 }
-#lu-controls-toggle:active { border-color: var(--lu-gold); color: var(--lu-gold); }
+#lu-controls-toggle:active {
+  transform: scale(0.90); background-color: rgba(253,251,245,0.14);
+  transition-duration: 0s;
+}
 #lu-dock {
-  /* UX 감사 §2: 엄지 호 안으로 압축 + safe-area 대응 */
-  position: fixed; right: 14px;
-  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-  z-index: 520;
-  display: flex; flex-direction: column; gap: 10px;
+  position: fixed; z-index: 520;
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: calc(108px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 14px;
 }
-.lu-dock-btn.lu-gold {
-  border-color: var(--lu-gold);
-  color: var(--lu-gold);
-  box-shadow: 0 0 14px rgba(212,175,55,0.35);
-}
-.lu-dock-btn.lu-on {
-  border-color: var(--lu-gold);
-  background: rgba(212,175,55,0.22);
-  color: #ffe9b0;
-}
-#lu-more-sheet {
-  position: fixed; left: 0; right: 0;
-  bottom: 0; z-index: 640;
-  padding: 14px 16px calc(20px + env(safe-area-inset-bottom, 0px));
-  background: rgba(12,12,14,0.92);
-  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
-  border-top: 1px solid rgba(255,255,255,0.14);
-  border-radius: 18px 18px 0 0;
-  transform: translateY(105%);
-  transition: transform 0.25s ease;
-  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
-}
-#lu-more-sheet.lu-open { transform: translateY(0); }
-#lu-more-sheet .lu-sheet-btn {
-  min-width: 72px; padding: 12px 10px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.16); border-radius: 12px;
-  color: rgba(255,255,255,0.9); font-family: var(--lu-font);
-  font-size: 12.5px; letter-spacing: 0.06em; cursor: pointer;
-}
-#lu-more-backdrop {
-  position: fixed; inset: 0; z-index: 630; display: none;
-}
-#lu-more-backdrop.lu-open { display: block; }
-#lu-lightbox { touch-action: none; }
-.lu-lightbox-media { transition: transform 0.08s linear; will-change: transform; }
+/* clip-path가 box-shadow를 잘라내므로 그림자는 래퍼의 drop-shadow가 담당 */
+.lu-dock-wrap { filter: drop-shadow(0 4px 14px rgba(10,8,4,0.45)); }
 .lu-dock-btn {
-  width: 52px; height: 52px;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(10,10,12,0.62);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.22); border-radius: 50%;
-  color: rgba(255,255,255,0.9);
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 12px; letter-spacing: 0.06em;
+  position: relative;
+  width: 56px; height: 56px; border-radius: 2px;
+  clip-path: polygon(var(--lu-ch-s) 0, 100% 0,
+    100% calc(100% - var(--lu-ch-s)), calc(100% - var(--lu-ch-s)) 100%, 0 100%, 0 var(--lu-ch-s));
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  background: rgba(23,20,15,0.66);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(253,251,245,0.16);
+  box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
+  color: rgba(253,251,245,0.92);
+  font-family: var(--lu-font);
   cursor: pointer;
-  transition: border-color 0.25s ease, color 0.25s ease, transform 0.15s ease;
+  transition: transform var(--lu-spring), background-color 0.25s ease,
+              border-color 0.25s ease, color 0.25s ease;
+}
+.lu-dock-btn svg {
+  width: 21px; height: 21px; fill: none;
+  stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.lu-dock-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.1em; opacity: 0.75;
 }
 .lu-dock-btn:active {
-  border-color: var(--lu-gold); color: var(--lu-gold);
-  transform: scale(0.94);
+  transform: scale(0.90);
+  background-color: rgba(253,251,245,0.14);
+  transition-duration: 0s;
 }
+/* 주 행동(캡처) — 화면 유일의 골드 면 */
+.lu-dock-btn.lu-gold {
+  background: linear-gradient(180deg, #e0bd4e, #c9a02f);
+  border-color: rgba(255,236,170,0.65);
+  box-shadow: inset 0 1px 0 rgba(255,246,214,0.55);
+  color: var(--lu-ink);
+}
+.lu-dock-btn.lu-gold .lu-dock-label { opacity: 1; }
+.lu-dock-btn.lu-gold.lu-cap-pop { animation: lu-cap-pop 0.45s ease; }
+@keyframes lu-cap-pop {
+  0% { transform: scale(0.90); }
+  55% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+/* 토글 ON — 골드 헤어라인 + 좌측 노치 (면 채움 금지) */
+.lu-dock-btn.lu-on {
+  border-color: rgba(212,175,55,0.85);
+  color: #e6c458;
+}
+.lu-dock-btn.lu-on::before {
+  content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px;
+  background: var(--lu-gold);
+}
+#lu-more-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 640;
+  clip-path: polygon(var(--lu-ch-l) 0, calc(100% - var(--lu-ch-l)) 0,
+    100% var(--lu-ch-l), 100% 100%, 0 100%, 0 var(--lu-ch-l));
+  padding: 10px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  background: rgba(23,20,15,0.82);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
+  border-top: 1px solid rgba(212,175,55,0.45); /* 시트 유일 골드 — '열림' 신호 */
+  transform: translateY(105%);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#lu-more-sheet.lu-open { transform: translateY(0); }
+.lu-sheet-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(253,251,245,0.28);
+  margin: 0 auto 12px;
+}
+.lu-sheet-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+}
+#lu-more-sheet .lu-sheet-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 0; padding: 14px 8px; border-radius: 2px;
+  clip-path: polygon(var(--lu-ch-s) 0, 100% 0,
+    100% calc(100% - var(--lu-ch-s)), calc(100% - var(--lu-ch-s)) 100%, 0 100%, 0 var(--lu-ch-s));
+  background: rgba(253,251,245,0.06);
+  border: 1px solid rgba(253,251,245,0.14);
+  color: rgba(253,251,245,0.92); font-family: var(--lu-font);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em; cursor: pointer;
+  transition: transform var(--lu-spring), background-color 0.2s ease;
+}
+#lu-more-sheet .lu-sheet-btn svg {
+  width: 20px; height: 20px; fill: none;
+  stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+#lu-more-sheet .lu-sheet-btn:active {
+  transform: scale(0.94); background-color: rgba(253,251,245,0.14);
+  transition-duration: 0s;
+}
+#lu-more-backdrop {
+  position: fixed; inset: 0; z-index: 630;
+  background: rgba(10,8,4,0.35);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+#lu-more-backdrop.lu-open { opacity: 1; pointer-events: auto; }
+#lu-lightbox { touch-action: none; }
+.lu-lightbox-media { transition: transform 0.08s linear; will-change: transform; }
 
 /* -------------------------------- 라이트박스 -------------------------------- */
 #lu-lightbox {
@@ -1040,25 +1177,24 @@ function injectStyles() {
 
 /* 책갈피 탭 — 패널 오른쪽 가장자리에 붙어 함께 미끄러진다 */
 #lu-gbtab {
+  /* 책갈피 은유를 재질로 지킨다 — 열리는 패널과 같은 크림 종이 */
   position: absolute;
-  right: -33px; top: 20%;
+  right: -30px; top: max(20%, calc(env(safe-area-inset-top, 0px) + 72px));
   writing-mode: vertical-rl;
-  padding: 15px 8px 15px 6px;
-  background: rgba(10,10,12,0.72);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.16);
-  border-left: 2px solid var(--lu-gold);
-  border-radius: 0 9px 9px 0;
-  color: rgba(255,255,255,0.92);
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 12px; letter-spacing: 0.3em;
+  padding: 14px 7px;
+  background: linear-gradient(90deg, #f6f1e4, #fffdf8);
+  border: 1px solid rgba(212,175,55,0.40);
+  border-left: none;
+  clip-path: polygon(0 0, calc(100% - 1px) 8px, calc(100% - 1px) calc(100% - 8px), 0 100%);
+  color: var(--lu-ink);
+  font-family: var(--lu-font); font-weight: 700;
+  font-size: 11px; letter-spacing: 0.26em;
   cursor: pointer;
   opacity: 0; pointer-events: none;
-  transition: opacity 0.6s ease, color 0.25s ease;
+  transition: opacity 0.6s ease, transform var(--lu-spring);
 }
 #lu-gbtab.lu-visible { opacity: 1; pointer-events: auto; }
-#lu-gbtab:hover { color: var(--lu-gold); }
+#lu-gbtab:active { transform: translateX(2px); transition-duration: 0s; }
 #lu-guestbook-head {
   flex: 0 0 auto;
   display: flex; align-items: flex-start; justify-content: space-between;
@@ -1306,10 +1442,9 @@ function injectStyles() {
   #lu-controls .lu-key { min-width: 60px; }
   #lu-chat { width: calc(100vw - 24px); left: 12px; bottom: 12px; }
   #lu-chat-log { max-height: 130px; }
-  #lu-status { bottom: 76px; font-size: 11px; padding: 6px 14px; }
-  #lu-artwork { padding: 22px 18px; }
-  #lu-artwork .lu-art-title { font-size: 17px; }
-  #lu-gallery-title { font-size: 10px; letter-spacing: 0.28em; text-indent: 0.28em; max-width: 60vw; }
+  #lu-status { font-size: 11px; padding: 6px 14px; }
+  #lu-topbar { max-width: 72vw; padding: 0 12px; }
+  .lu-topbar-title { font-size: 10px; letter-spacing: 0.2em; text-indent: 0.2em; }
   #lu-lightbox { padding: 56px 18px 28px; }
   #lu-lightbox-close { top: 14px; right: 14px; width: 36px; height: 36px; font-size: 16px; }
   .lu-lightbox-media { max-width: 100%; max-height: 100%; }
@@ -1692,33 +1827,53 @@ function buildMobileDock() {
     chatBtn.classList.toggle('lu-on', !collapsed);
   }
 
-  const chatBtn = el('button', {
-    className: 'lu-dock-btn', type: 'button', 'aria-label': '채팅 열기/닫기',
-    text: '채팅',
-  });
-  chatBtn.style.display = 'none'; // 접속자 ≥2에서 setPlayerCount가 노출
+  // 스트로크 아이콘 시스템 — 원 안 텍스트는 게임 HUD 문법이 아니다 (디자인 감사 P2)
+  const ICONS = {
+    chat: '<path d="M20 15a2 2 0 0 1-2 2H9l-5 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>',
+    tour: '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2.1 4.9-4.9 2.1 2.1-4.9z"/>',
+    capture: '<path d="M4 8h3l2-2.5h6L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.4"/>',
+    more: '<circle cx="5.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="18.5" cy="12" r="1.2" fill="currentColor" stroke="none"/>',
+    list: '<path d="M8.5 6h11.5M8.5 12h11.5M8.5 18h11.5"/><circle cx="4.5" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1" fill="currentColor" stroke="none"/>',
+    self: '<circle cx="12" cy="8" r="3.4"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/>',
+    help: '<path d="M9.2 9a2.9 2.9 0 1 1 4.2 2.6c-.9.45-1.4 1.05-1.4 2.1"/><circle cx="12" cy="17.4" r="1" fill="currentColor" stroke="none"/>',
+  };
+  function svgIcon(name) {
+    const span = document.createElement('span');
+    span.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[name] + '</svg>';
+    return span.firstChild;
+  }
+  function dockBtn(cls, aria, icon, label) {
+    const b = el('button', { className: cls, type: 'button', 'aria-label': aria });
+    b.appendChild(svgIcon(icon));
+    b.appendChild(el('span', { className: 'lu-dock-label', text: label }));
+    // clip-path가 box-shadow를 자르므로 그림자 래퍼로 감싼다
+    const wrap = el('div', { className: 'lu-dock-wrap' }, [b]);
+    return { b, wrap };
+  }
+
+  const chat = dockBtn('lu-dock-btn', '채팅 열기/닫기', 'chat', '채팅');
+  const chatBtn = chat.b;
+  chat.wrap.style.display = 'none'; // 접속자 ≥2에서 setPlayerCount가 노출
   chatBtn.addEventListener('click', toggleChat);
 
-  const tourBtn = el('button', {
-    className: 'lu-dock-btn', type: 'button', 'aria-label': '투어 시작/종료',
-    text: '투어',
-  });
+  const tour = dockBtn('lu-dock-btn', '투어 시작/종료', 'tour', '투어');
+  const tourBtn = tour.b;
   tourBtn.addEventListener('click', () => {
     if (typeof actionHandlers.onTour === 'function') actionHandlers.onTour();
   });
 
-  const captureBtn = el('button', {
-    className: 'lu-dock-btn lu-gold', type: 'button', 'aria-label': '사진 촬영',
-    text: '캡처',
-  });
+  const capture = dockBtn('lu-dock-btn lu-gold', '사진 촬영', 'capture', '캡처');
+  const captureBtn = capture.b;
   captureBtn.addEventListener('click', () => {
+    // 촬영 순간 1회 팝 — 눌림이 물리적으로 반응했다는 확인
+    captureBtn.classList.remove('lu-cap-pop');
+    void captureBtn.offsetWidth;
+    captureBtn.classList.add('lu-cap-pop');
     if (typeof actionHandlers.onCapture === 'function') actionHandlers.onCapture();
   });
 
-  const moreBtn = el('button', {
-    className: 'lu-dock-btn', type: 'button', 'aria-label': '더보기',
-    text: '⋯',
-  });
+  const more = dockBtn('lu-dock-btn', '더보기', 'more', '메뉴');
+  const moreBtn = more.b;
 
   // ---- 더보기 시트 ----
   const backdrop = el('div', { id: 'lu-more-backdrop' });
@@ -1727,25 +1882,28 @@ function buildMobileDock() {
     sheet.classList.remove('lu-open');
     backdrop.classList.remove('lu-open');
   }
-  function sheetBtn(label, fn) {
-    const b = el('button', { className: 'lu-sheet-btn', type: 'button', text: label });
+  function sheetBtn(icon, label, fn) {
+    const b = el('button', { className: 'lu-sheet-btn', type: 'button' });
+    b.appendChild(svgIcon(icon));
+    b.appendChild(el('span', { text: label }));
     b.addEventListener('click', () => {
       closeSheet();
       fn();
     });
     return b;
   }
-  sheet.append(
-    sheetBtn('작품 목록', () => toggleArtworkList()),
-    sheetBtn('내 모습', () => {
+  const grid = el('div', { className: 'lu-sheet-grid' }, [
+    sheetBtn('list', '작품 목록', () => toggleArtworkList()),
+    sheetBtn('self', '내 모습', () => {
       if (typeof actionHandlers.onSelfView === 'function') actionHandlers.onSelfView();
     }),
-    sheetBtn('채팅', toggleChat),
-    sheetBtn('조작법', () => {
+    sheetBtn('chat', '채팅', toggleChat),
+    sheetBtn('help', '조작법', () => {
       const panel = document.getElementById('lu-controls');
       if (panel) panel.classList.toggle('lu-collapsed');
-    })
-  );
+    }),
+  ]);
+  sheet.append(el('div', { className: 'lu-sheet-handle' }), grid);
   backdrop.addEventListener('click', closeSheet);
   moreBtn.addEventListener('click', () => {
     const open = sheet.classList.toggle('lu-open');
@@ -1755,9 +1913,9 @@ function buildMobileDock() {
   document.body.appendChild(sheet);
 
   // 방명록은 화면 왼쪽 책갈피 탭(#lu-gbtab)이 담당하므로 독 버튼은 두지 않는다
-  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [chatBtn, tourBtn, captureBtn, moreBtn]);
+  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [chat.wrap, tour.wrap, capture.wrap, more.wrap]);
   document.body.appendChild(dock);
-  dockRefs = { chatBtn, tourBtn, selfBtn: null, dock };
+  dockRefs = { chatBtn, chatWrap: chat.wrap, tourBtn, selfBtn: null, dock };
   return dock;
 }
 
@@ -1770,18 +1928,16 @@ export function setDockActive(key, on) {
 }
 
 function buildTopRight() {
+  // FPS는 디버그 지표 — 우상단에 단독으로, 터치 기기에서는 CSS가 숨긴다.
+  // 접속자 수는 상단 통합 바(buildGalleryTitle)로 이동 (게임 HUD 감사 §3.4).
   const fps = el('span', { text: '--' });
-  const count = el('span', { text: '1' });
   const fpsStat = el('div', { className: 'lu-stat' });
   fpsStat.append('FPS ');
   const fpsB = el('b'); fpsB.appendChild(fps); fpsStat.appendChild(fpsB);
-  const countStat = el('div', { className: 'lu-stat' });
-  countStat.append('접속 ');
-  const countB = el('b'); countB.appendChild(count); countStat.appendChild(countB);
-  countStat.append(' 명');
-  const wrap = el('div', { id: 'lu-topright', className: 'lu lu-hud' }, [fpsStat, countStat]);
+  const wrap = el('div', { id: 'lu-topright', className: 'lu lu-hud' }, [fpsStat]);
   document.body.appendChild(wrap);
-  return { wrap, fps, count };
+  // count/countWrap은 상단 바가 생성 후 주입한다 (setPlayerCount 호환)
+  return { wrap, fps, count: el('span'), countWrap: null };
 }
 
 function buildStatus() {
@@ -1839,17 +1995,36 @@ function buildArtworkPanel() {
     hint.appendChild(el('span', { className: 'lu-key', text: 'E' }));
     hint.appendChild(document.createTextNode(' — 크게 보기'));
   }
-  hint.addEventListener('click', () => {
+  hint.addEventListener('click', (e) => {
+    e.stopPropagation(); // 터치의 카드 전체 탭 핸들러와 이중 발화 방지
     if (typeof actionHandlers.onViewArtwork === 'function') actionHandlers.onViewArtwork();
   });
   const panel = el('div', { id: 'lu-artwork', className: 'lu' }, [eyebrow, title, meta, rule, desc, hint]);
+  if (IS_TOUCH) {
+    // 하단 좌측 미니 캡션에서는 카드 전체가 '크게 보기' 탭 타깃
+    panel.addEventListener('click', () => {
+      if (typeof actionHandlers.onViewArtwork === 'function') actionHandlers.onViewArtwork();
+    });
+  }
   document.body.appendChild(panel);
   return { panel, title, meta, desc };
 }
 
 function buildGalleryTitle() {
-  const bar = el('div', { id: 'lu-gallery-title', className: 'lu lu-hud' });
+  // 상단 통합 바 — 전시명 + 라이브 접속자 하나의 유리 칩으로
+  const title = el('span', { className: 'lu-topbar-title' });
+  const count = el('b', { text: '1' });
+  const countWrap = el('span', { className: 'lu-topbar-count' });
+  countWrap.appendChild(count);
+  countWrap.append(' 명');
+  const bar = el('div', { id: 'lu-topbar', className: 'lu lu-hud lu-cut-s lu-empty' }, [
+    title,
+    el('span', { className: 'lu-topbar-sep' }),
+    countWrap,
+  ]);
   document.body.appendChild(bar);
+  bar._count = count;
+  bar._countWrap = countWrap;
   return bar;
 }
 
@@ -3056,6 +3231,9 @@ export function initUI({ onEnter, onChatSend } = {}) {
     avatarMaker: buildAvatarMaker(),
     chibiMaker: buildChibiMaker(),
   };
+  // 접속자 수 표시는 상단 통합 바 소속 — setPlayerCount가 쓰는 참조를 연결
+  els.topRight.count = els.galleryTitle._count;
+  els.topRight.countWrap = els.galleryTitle._countWrap;
 
   bindGlobalKeys();
   // 커스터마이저를 열기 전에 미리 워밍업 — 첫 오픈 시 탭이 빈 상태로 잠깐 보이는 것을 줄인다.
@@ -3123,9 +3301,16 @@ export function addChatMessage(name, text, isSelf) {
 
 export function setPlayerCount(n) {
   if (!els) return;
+  const prev = els.topRight.count.textContent;
   els.topRight.count.textContent = String(n);
+  // 숫자 변화에 스프링 틱 — 살아있는 게이지처럼
+  if (prev !== String(n) && els.topRight.countWrap) {
+    els.topRight.countWrap.classList.remove('lu-tick');
+    void els.topRight.countWrap.offsetWidth;
+    els.topRight.countWrap.classList.add('lu-tick');
+  }
   // 접속자 ≥2일 때만 독에 채팅 버튼 노출 (혼자일 땐 인지 부하 절감 — UX 감사 §2)
-  if (dockRefs && dockRefs.chatBtn) dockRefs.chatBtn.style.display = n >= 2 ? '' : 'none';
+  if (dockRefs && dockRefs.chatWrap) dockRefs.chatWrap.style.display = n >= 2 ? '' : 'none';
 }
 
 export function setStatus(text) {
@@ -3143,7 +3328,8 @@ export function setFPS(n) {
 // ---------------------------------------------------------------------------
 
 function applyGalleryTitle(name) {
-  els.galleryTitle.textContent = name || '';
+  els.galleryTitle.querySelector('.lu-topbar-title').textContent = name || '';
+  els.galleryTitle.classList.toggle('lu-empty', !name);
 }
 
 export function setGalleryTitle(name) {
