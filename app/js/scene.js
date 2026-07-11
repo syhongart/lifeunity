@@ -1863,6 +1863,62 @@ function createGlobalLights(scene, theme) {
 // ---------------------------------------------------------------------------
 // 공개 API
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// 접촉 그림자(가짜 AO) — 벽·바닥 접합부를 따라 어두운 그라디언트 스트립을 깐다.
+// 베이크드 라이팅 전환 후 남은 "전체가 균일하게 떠 보이는" 플랫함을, 코너를
+// 접지시키는 저비용 정적 디캘(층당 4장)로 회복한다. 실시간 AO 비용 0.
+// ---------------------------------------------------------------------------
+let _aoStripTex = null;
+function getAOStripTexture() {
+  if (_aoStripTex) return _aoStripTex;
+  const canvas = document.createElement('canvas');
+  canvas.width = 4;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 128);
+  grad.addColorStop(0, 'rgba(10,8,5,0.34)'); // 벽 쪽 — 진하게
+  grad.addColorStop(0.55, 'rgba(10,8,5,0.12)');
+  grad.addColorStop(1, 'rgba(10,8,5,0)'); // 실내 쪽 — 소멸
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 4, 128);
+  _aoStripTex = new THREE.CanvasTexture(canvas);
+  return _aoStripTex;
+}
+
+function buildContactShadows(scene) {
+  const { minX, maxX, minZ, maxZ, wallT } = BUILDING;
+  const W = 0.55; // 스트립 폭(실내 방향)
+  const inX0 = minX + wallT / 2;
+  const inX1 = maxX - wallT / 2;
+  const inZ0 = minZ + wallT / 2;
+  const inZ1 = maxZ - wallT / 2;
+  const mat = new THREE.MeshBasicMaterial({
+    map: getAOStripTexture(),
+    transparent: true,
+    depthWrite: false,
+  });
+  // 실내 층만 (옥상은 개방형이라 제외)
+  for (const floor of BUILDING.floors) {
+    if (floor.id === 'roof') continue;
+    const y = floor.y + 0.018;
+    // [길이, 중심x, 중심z, y회전] — 그라디언트 진한 쪽이 벽에 닿게 회전
+    const strips = [
+      [inX1 - inX0, (inX0 + inX1) / 2, inZ0 + W / 2, Math.PI],       // 북벽
+      [inX1 - inX0, (inX0 + inX1) / 2, inZ1 - W / 2, 0],             // 남벽
+      [inZ1 - inZ0, inX0 + W / 2, (inZ0 + inZ1) / 2, -Math.PI / 2],  // 서벽
+      [inZ1 - inZ0, inX1 - W / 2, (inZ0 + inZ1) / 2, Math.PI / 2],   // 동벽
+    ];
+    for (const [len, cx, cz, ry] of strips) {
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(len, W), mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.rotation.z = ry;
+      mesh.position.set(cx, y, cz);
+      mesh.renderOrder = 1;
+      scene.add(mesh);
+    }
+  }
+}
+
 export function createMuseum(scene, themeName = 'daylight') {
   const isCycle = themeName === 'cycle';
   // cycle 시작 위상: 관람객 현지 시각(시+분) 비례 — 접속 즉시 "지금" 시각의 하늘로 시작
@@ -1875,6 +1931,7 @@ export function createMuseum(scene, themeName = 'daylight') {
 
   const skyRefs = createSky(scene, theme, isCycle);
   const outdoorRefs = createOutdoors(scene, theme);
+  buildContactShadows(scene);
 
   const buildingRefs = createBuilding(scene, theme);
   const gardenRefs = createGardenTree(scene, theme);
