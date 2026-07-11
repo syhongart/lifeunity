@@ -188,13 +188,10 @@ function injectStyles() {
   --lu-font: 'Helvetica Neue', Helvetica, Arial, 'Apple SD Gothic Neo',
              'Malgun Gothic', sans-serif;
 }
-/* 챔퍼 실루엣 — 소형(버튼/칩): 좌상+우하 대각 컷, 대형(패널): 4모서리 컷 */
-.lu-cut-s { border-radius: 2px; clip-path: polygon(var(--lu-ch-s) 0, 100% 0,
-  100% calc(100% - var(--lu-ch-s)), calc(100% - var(--lu-ch-s)) 100%, 0 100%, 0 var(--lu-ch-s)); }
-.lu-cut-l { clip-path: polygon(var(--lu-ch-l) 0, calc(100% - var(--lu-ch-l)) 0,
-  100% var(--lu-ch-l), 100% calc(100% - var(--lu-ch-l)),
-  calc(100% - var(--lu-ch-l)) 100%, var(--lu-ch-l) 100%,
-  0 calc(100% - var(--lu-ch-l)), 0 var(--lu-ch-l)); }
+/* 실루엣 — 라운드 2단계 (챔퍼 컷은 clip-path가 보더를 대각선에서 끊어
+   모서리가 덜 만든 것처럼 보였음 — 감독 피드백으로 라운드 회귀) */
+.lu-cut-s { border-radius: 10px; }
+.lu-cut-l { border-radius: 16px; }
 
 .lu * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -680,6 +677,7 @@ function injectStyles() {
 
 /* 상단 통합 바 — 전시명 + 라이브 접속자 (Gilded Frame 유리 칩) */
 #lu-topbar {
+  border-radius: 17px;
   top: calc(10px + env(safe-area-inset-top, 0px));
   left: 50%; transform: translateX(-50%);
   display: flex; align-items: center; gap: 10px;
@@ -853,12 +851,8 @@ function injectStyles() {
     bottom: calc(96px + env(safe-area-inset-bottom, 0px));
     width: min(248px, calc(100vw - 104px)); /* 우측 독 폭 회피 */
     padding: 14px 16px 12px;
-    border-radius: 0;
-    clip-path: polygon(var(--lu-ch-l) 0, calc(100% - var(--lu-ch-l)) 0,
-      100% var(--lu-ch-l), 100% calc(100% - var(--lu-ch-l)),
-      calc(100% - var(--lu-ch-l)) 100%, var(--lu-ch-l) 100%,
-      0 calc(100% - var(--lu-ch-l)), 0 var(--lu-ch-l));
-    box-shadow: none; /* clip-path가 자름 — 종이 대비는 보더가 담당 */
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(20,15,8,0.35);
     transform: translateY(16px); opacity: 0; pointer-events: none;
     transition: transform var(--lu-slide), opacity 0.25s ease;
   }
@@ -871,9 +865,7 @@ function injectStyles() {
   #lu-artwork .lu-art-hint {
     margin-top: 10px; padding: 6px 12px;
     font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
-    border-radius: 0;
-    clip-path: polygon(var(--lu-ch-s) 0, 100% 0,
-      100% calc(100% - var(--lu-ch-s)), calc(100% - var(--lu-ch-s)) 100%, 0 100%, 0 var(--lu-ch-s));
+    border-radius: 999px;
   }
 }
 
@@ -883,9 +875,7 @@ function injectStyles() {
   position: fixed; z-index: 520;
   top: calc(10px + env(safe-area-inset-top, 0px));
   left: max(12px, env(safe-area-inset-left, 0px));
-  width: 34px; height: 34px; border-radius: 2px;
-  clip-path: polygon(var(--lu-ch-s) 0, 100% 0,
-    100% calc(100% - var(--lu-ch-s)), calc(100% - var(--lu-ch-s)) 100%, 0 100%, 0 var(--lu-ch-s));
+  width: 34px; height: 34px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   background: rgba(23,20,15,0.66);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
@@ -907,13 +897,10 @@ function injectStyles() {
   bottom: calc(108px + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column; gap: 14px;
 }
-/* clip-path가 box-shadow를 잘라내므로 그림자는 래퍼의 drop-shadow가 담당 */
 .lu-dock-wrap { filter: drop-shadow(0 4px 14px rgba(10,8,4,0.45)); }
 .lu-dock-btn {
-  position: relative;
-  width: 56px; height: 56px; border-radius: 2px;
-  clip-path: polygon(var(--lu-ch-s) 0, 100% 0,
-    100% calc(100% - var(--lu-ch-s)), calc(100% - var(--lu-ch-s)) 100%, 0 100%, 0 var(--lu-ch-s));
+  position: relative; overflow: hidden; /* lu-on 노치가 라운드를 넘지 않게 */
+  width: 56px; height: 56px; border-radius: 12px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 3px;
   background: rgba(23,20,15,0.66);
@@ -965,8 +952,7 @@ function injectStyles() {
 }
 #lu-more-sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 640;
-  clip-path: polygon(var(--lu-ch-l) 0, calc(100% - var(--lu-ch-l)) 0,
-    100% var(--lu-ch-l), 100% 100%, 0 100%, 0 var(--lu-ch-l));
+  border-radius: 16px 16px 0 0;
   padding: 10px 16px calc(18px + env(safe-area-inset-bottom, 0px));
   background: rgba(23,20,15,0.82);
   -webkit-backdrop-filter: blur(24px) saturate(150%);
@@ -986,9 +972,7 @@ function injectStyles() {
 }
 #lu-more-sheet .lu-sheet-btn {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
-  min-width: 0; padding: 14px 8px; border-radius: 2px;
-  clip-path: polygon(var(--lu-ch-s) 0, 100% 0,
-    100% calc(100% - var(--lu-ch-s)), calc(100% - var(--lu-ch-s)) 100%, 0 100%, 0 var(--lu-ch-s));
+  min-width: 0; padding: 14px 8px; border-radius: 12px;
   background: rgba(253,251,245,0.06);
   border: 1px solid rgba(253,251,245,0.14);
   color: rgba(253,251,245,0.92); font-family: var(--lu-font);
@@ -1185,7 +1169,7 @@ function injectStyles() {
   background: linear-gradient(90deg, #f6f1e4, #fffdf8);
   border: 1px solid rgba(212,175,55,0.40);
   border-left: none;
-  clip-path: polygon(0 0, calc(100% - 1px) 8px, calc(100% - 1px) calc(100% - 8px), 0 100%);
+  border-radius: 0 10px 10px 0;
   color: var(--lu-ink);
   font-family: var(--lu-font); font-weight: 700;
   font-size: 11px; letter-spacing: 0.26em;
@@ -1846,7 +1830,7 @@ function buildMobileDock() {
     const b = el('button', { className: cls, type: 'button', 'aria-label': aria });
     b.appendChild(svgIcon(icon));
     b.appendChild(el('span', { className: 'lu-dock-label', text: label }));
-    // clip-path가 box-shadow를 자르므로 그림자 래퍼로 감싼다
+    // 그림자는 래퍼의 drop-shadow가 담당 (버튼 자체는 배경 블러 레이어)
     const wrap = el('div', { className: 'lu-dock-wrap' }, [b]);
     return { b, wrap };
   }
