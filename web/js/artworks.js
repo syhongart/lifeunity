@@ -501,7 +501,7 @@ function buildFrame(art, textureLoader) {
     // (미술관 조명은 "작품이 항상 또렷"이 정답 — 실시간 조명 의존 제거).
     emissive: 0xffffff,
     emissiveMap: placeholderTex,
-    emissiveIntensity: 0.55,
+    emissiveIntensity: 0.45, // 플랫함 보정 — 방향광 음영이 표면에 살짝 실리도록 하향
     roughness: 0.85,
     metalness: 0.0,
   });
