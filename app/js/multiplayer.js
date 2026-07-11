@@ -10,7 +10,7 @@ import { isValidPhotoItem } from './feed.js';
 // 룸 id는 전시별로 분리된다(같은 전시를 보는 사람끼리만 만난다) — 생성자 옵션으로
 // 주입되며, 미지정 시 기본 전시 룸(PEER_ROOM_ID)을 쓴다.
 const WOUND_HEAL_SECONDS = 20; // 상처 1단계 회복 시간
-const HIT_RANGE = 4.0; // 호스트가 검증하는 최대 타격 거리(m) — 원격 치트 방지 겸 상식선
+const HIT_RANGE = 7.0; // 호스트가 검증하는 최대 타격 거리(m) — 원격 치트 방지 겸 상식선 (감독 지시 4→7)
 const SEND_INTERVAL = 1 / 10; // 10Hz
 const LERP_RATE = 10;
 
@@ -40,7 +40,7 @@ export class MultiplayerManager {
     this.onSelfHit = (level) => {}; // 내가 맞았을 때 (main.js가 화면 연출)
     this.onVisitor = (id, info) => {}; // 새 사람 방문자 관측 (통계용 — NPC 제외)
     this.onPhoto = (item) => {}; // 원격 캡처 사진 수신 (포토월 — main.js가 저장/알림)
-    this.onNpcHit = (id, level) => {}; // NPC가 맞았을 때 (호스트 전용 — 아파하는 채팅)
+    this.onNpcHit = (id, level, hitter) => {}; // NPC가 맞았을 때 (호스트 전용 — 아파하는 채팅 + 쳐다보기)
     this.onStatus = (statusText) => {};
     this.onGuestbook = (notes) => {};
 
@@ -129,7 +129,7 @@ export class MultiplayerManager {
     const level = Math.min(3, (cur ? cur.level : 0) + 1);
     this._broadcast({ type: 'hitfx', target, level });
     this._receiveHitFx(target, level);
-    if (target.startsWith('npc-')) this.onNpcHit(target, level);
+    if (target.startsWith('npc-')) this.onNpcHit(target, level, { x: msg.sx || 0, z: msg.sz || 0 });
   }
 
   // 모두: hit 연출 적용 (호스트 릴레이 수신 경로 — 호스트 자신도 이 경로를 탄다)

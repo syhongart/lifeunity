@@ -305,7 +305,10 @@ export class NpcCrowd {
         npc.viewLeft -= d;
         // 사람이 다가오면 몸을 돌려 바라보고, 이따금 인사한다
         const near = this._nearestHuman(npc, humans);
-        if (near) {
+        if (npc.stareAt && this._t < npc.stareUntil) {
+          // 맞은 직후에는 때린 사람을 최우선으로 쳐다본다
+          npc.ry = Math.atan2(-(npc.stareAt.x - npc.x), -(npc.stareAt.z - npc.z));
+        } else if (near) {
           npc.ry = Math.atan2(-(near.x - npc.x), -(near.z - npc.z));
           if (npc.greetCd <= 0 && this._chatCooldown <= 0) {
             npc.greetCd = GREET_COOLDOWN;
@@ -321,6 +324,15 @@ export class NpcCrowd {
         }
         if (npc.viewLeft <= 0) this._pickNext(npc);
       } else {
+        // 맞은 직후 스턴 — 잠깐 멈춰 서서 때린 사람을 쳐다본다 (이동 스킵,
+        // 최종 페이로드는 아래 공통 루프가 채운다)
+        if (npc.stunT > 0) {
+          npc.stunT = Math.max(0, npc.stunT - d);
+          if (npc.stareAt) {
+            npc.ry = Math.atan2(-(npc.stareAt.x - npc.x), -(npc.stareAt.z - npc.z));
+          }
+          continue;
+        }
         const dx = npc.tx - npc.x;
         const dz = npc.tz - npc.z;
         const dist = Math.hypot(dx, dz);
@@ -498,10 +510,17 @@ export class NpcCrowd {
     this._chatQueue.push({ name: npc.nickname, text: rand(imp ? IMP_REMARKS : REMARKS)(title) });
   }
 
-  /** 맞았을 때 — 아파하는 한마디 (호스트 전용, multiplayer.onNpcHit이 호출) */
-  onHit(id, level) {
+  /** 맞았을 때 — 때린 사람을 쳐다보며 아파한다 (호스트 전용, multiplayer.onNpcHit) */
+  onHit(id, level, hitter) {
     const npc = this.npcs.find((n) => n.id === id);
-    if (!npc || npc.hurtCd > 0) return;
+    if (!npc) return;
+    // 응시·스턴은 쿨다운과 무관 — 연타당해도 매번 돌아본다
+    if (hitter && typeof hitter.x === 'number') {
+      npc.stareAt = { x: hitter.x, z: hitter.z };
+      npc.stareUntil = this._t + 2.5;
+      npc.stunT = 1.2; // 걷던 중이면 멈춰 서서 쳐다본다
+    }
+    if (npc.hurtCd > 0) return;
     npc.hurtCd = 8;
     const pool = npc.persona === 'imp' ? IMP_HURT : HURT_LINES;
     let text = pool[Math.min(pool.length - 1, Math.max(0, (level | 0) - 1))];

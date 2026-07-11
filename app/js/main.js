@@ -17,6 +17,7 @@ import { PlayerController } from './player.js';
 import { MultiplayerManager } from './multiplayer.js';
 import { preloadAvatarTemplates, createAvatarInstance } from './avatar.js';
 import { NpcCrowd } from './npc.js';
+import { playOuch } from './hitfx.js';
 import { loadNotes, saveNotes, mergeNotes, makeNote } from './guestbook.js';
 import { GalleryStats } from './stats.js';
 import { VisitorLog, PhotoWall } from './feed.js';
@@ -349,7 +350,7 @@ function restoreSelfCamOffset() {
 // 드래그(시점 회전/이동)와 구분: 이동 7px 미만 + 450ms 미만만 탭으로 인정.
 // 명중 판정은 레이캐스트, 사거리 4m — 호스트가 서버 권위로 한 번 더 검증한다.
 // ---------------------------------------------------------------------------
-const HIT_REACH = 4.0;
+const HIT_REACH = 7.0; // 좀 더 멀리서도 콕 — 감독 지시로 4→7m 상향
 const _tapRaycaster = new THREE.Raycaster();
 const _tapNdc = new THREE.Vector2();
 let _tapDown = null;
@@ -1108,11 +1109,12 @@ function handleEnter({ nickname, color, char }) {
     // 내가 맞았을 때 — 상태바 + (3인칭이면) 내 아바타에도 상처 반영
     mp.onSelfHit = (level) => {
       setStatus(level >= 3 ? '아야!! 너무해요 😭' : '아야! 누가 때렸어요 😣');
-      if (selfAvatar) selfAvatar.hit(level);
+      if (selfAvatar) selfAvatar.hit(level); // hitfx가 "아얏" 사운드까지 담당
+      else playOuch(level); // 3인칭 아바타가 없어도 소리는 난다
     };
-    // NPC가 맞았을 때 — 아파하는 한마디 (채팅 큐 → npcProvider가 다음 틱에 전송)
-    mp.onNpcHit = (id, level) => {
-      if (npcCrowd) npcCrowd.onHit(id, level);
+    // NPC가 맞았을 때 — 아파하는 한마디 + 때린 사람 쳐다보기
+    mp.onNpcHit = (id, level, hitter) => {
+      if (npcCrowd) npcCrowd.onHit(id, level, hitter);
     };
     // AI 관객 — 호스트가 된 클라이언트만 mp.update()가 매 프레임 호출한다.
     // 작품 배치는 입장 전에 끝나므로 getPlacedArtworks()는 여기서 항상 유효하다.
