@@ -43,10 +43,10 @@ export const THEMES = {
       cloudCount: 26,
       stars: 0,
     },
-    sun: { pos: [55, 48, 42], color: 0xfff0da, intensity: 3.2 },
+    sun: { pos: [55, 48, 42], color: 0xfff0da, intensity: 3.7 }, // 그림자 대비↑
     fill: { pos: [-20, 16, -14], color: 0xdde8f8, intensity: 0.5 },
-    hemi: { sky: 0xbfd9ee, ground: 0x6f8a52, intensity: 0.75 },
-    ambient: { color: 0xffffff, intensity: 0.22 },
+    hemi: { sky: 0xbfd9ee, ground: 0x6f8a52, intensity: 0.63 },
+    ambient: { color: 0xffffff, intensity: 0.19 },
     fog: { color: 0xdfeaf2, near: 60, far: 420 },
     background: 0xdfeaf2,
     downlight: { color: 0xfff2dd, emissive: 0xffefc8, intensity: 22 },
@@ -71,10 +71,10 @@ export const THEMES = {
       stars: 0,
     },
     // 동쪽 바다 위, 낮은 고도의 주황 태양
-    sun: { pos: [140, 14, 30], color: 0xff9552, intensity: 2.6 },
+    sun: { pos: [140, 14, 30], color: 0xff9552, intensity: 3.0 }, // 그림자 대비↑
     fill: { pos: [-30, 22, -20], color: 0x8a6fb0, intensity: 0.35 },
-    hemi: { sky: 0xffb37a, ground: 0x6b4a52, intensity: 0.55 },
-    ambient: { color: 0xffcfa0, intensity: 0.22 },
+    hemi: { sky: 0xffb37a, ground: 0x6b4a52, intensity: 0.47 },
+    ambient: { color: 0xffcfa0, intensity: 0.19 },
     fog: { color: 0xcf7f62, near: 55, far: 400 },
     background: 0xcf7f62,
     downlight: { color: 0xffd8ae, emissive: 0xffd8ae, intensity: 27 }, // 실내 웜톤 보강
@@ -99,9 +99,9 @@ export const THEMES = {
       stars: 760, // 700개 이상, 크기/밝기 랜덤 (makeRand 시드 고정)
     },
     // 낮은 달 — 차갑고 희미한 방향광
-    sun: { pos: [-60, 40, -30], color: 0xaec6ff, intensity: 0.35 },
+    sun: { pos: [-60, 40, -30], color: 0xaec6ff, intensity: 0.4 },
     fill: { pos: [40, 20, 30], color: 0x2a3a66, intensity: 0.12 },
-    hemi: { sky: 0x1a2540, ground: 0x0a0c14, intensity: 0.22 },
+    hemi: { sky: 0x1a2540, ground: 0x0a0c14, intensity: 0.19 },
     ambient: { color: 0x33456e, intensity: 0.1 },
     fog: { color: 0x0a0f22, near: 45, far: 320 },
     background: 0x0a0f22,
@@ -1908,7 +1908,7 @@ function getAOStripTexture() {
   canvas.height = 128;
   const ctx = canvas.getContext('2d');
   const grad = ctx.createLinearGradient(0, 0, 0, 128);
-  grad.addColorStop(0, 'rgba(10,8,5,0.34)'); // 벽 쪽 — 진하게
+  grad.addColorStop(0, 'rgba(10,8,5,0.44)'); // 벽 쪽 — 진하게 (0.34→0.44)
   grad.addColorStop(0.55, 'rgba(10,8,5,0.12)');
   grad.addColorStop(1, 'rgba(10,8,5,0)'); // 실내 쪽 — 소멸
   ctx.fillStyle = grad;

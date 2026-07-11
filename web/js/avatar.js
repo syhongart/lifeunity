@@ -1019,7 +1019,7 @@ function attachBlobShadow(group, radius) {
   const rgba = new Float32Array(posAttr.count * 4);
   for (let i = 0; i < posAttr.count; i++) {
     const r = Math.min(1, Math.hypot(posAttr.getX(i), posAttr.getY(i)));
-    const alpha = 0.65 * (1 - r); // 중심 0.65 → 가장자리 0 (선형, 톤매핑에서 절반쯤 눌리는 것 실측 반영)
+    const alpha = 0.78 * (1 - r); // 중심 0.78 → 가장자리 0 (감독 지시로 진하게, 0.65→0.78)
     rgba[i * 4 + 0] = 0.08;
     rgba[i * 4 + 1] = 0.055;
     rgba[i * 4 + 2] = 0.03;
