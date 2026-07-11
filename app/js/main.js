@@ -170,7 +170,9 @@ const SPEC_KEY = 'lu-spec-v2';
 // 성능 세대 — 베이킹처럼 부하 구조가 크게 바뀌는 최적화를 배포할 때 +1.
 // 과거 세대에서 학습된 low/high 판정은 무효화하고 기본값에서 재평가한다
 // (실기기 제보: 무겁던 시절 low로 학습된 폰이 최적화 후에도 AA off로 남던 문제).
-const PERF_GEN = 2;
+// gen3: 소프트웨어 렌더링(WARP) 세션에서 학습된 low가 가속을 켠 뒤에도 남아
+// 화면이 뿌옇던 문제 + 천장/나무 지오메트리 병합(드로우콜 -60%) 반영 재평가.
+const PERF_GEN = 3;
 function readSpec() {
   try {
     const raw = localStorage.getItem(SPEC_KEY);
@@ -1226,12 +1228,13 @@ function animate() {
         if (!liteMode && fpsNow < LITE_ENTER_FPS) {
           liteMode = true;
           liteToggleCooldown = 10;
-          writeSpec('low'); // 다음 접속은 AA 끄고 가볍게 시작
-          // 즉시 응급 처치 — 재접속을 기다리지 않고 이번 세션의 해상도 배율을
-          // 저사양 수준으로 강등한다 (AA는 렌더러 재생성 없이는 못 끄지만,
-          // 픽셀 수 절감만으로도 대부분의 추락은 회복된다). 복원은 하지 않는다 —
-          // 다시 올리면 곧바로 재추락해 깜빡이므로, 이번 세션은 낮게 유지.
-          renderer.setPixelRatio(Math.min(renderer.getPixelRatio(), 1));
+          // 영구 학습(다음 접속 AA off)은 진짜 바닥에서만 — 20fps대 기기가
+          // 다음 방문부터 계속 뿌옇게 시작하는 부작용 방지 (실기기 제보)
+          if (fpsNow < 16) writeSpec('low');
+          // 즉시 응급 처치 — 재접속 없이 해상도 배율을 강등하되, OS 배율
+          // (dpr>1) 화면에서 1.0 밑돌면 뿌옇게 보이므로 dpr 비례 하한을 둔다
+          const dprNow = window.devicePixelRatio || 1;
+          renderer.setPixelRatio(Math.min(renderer.getPixelRatio(), Math.max(1, dprNow * 0.75)));
           setStatus('원활한 관람을 위해 화질을 잠시 낮췄어요');
         } else if (liteMode && fpsNow > LITE_EXIT_FPS) {
           liteMode = false;

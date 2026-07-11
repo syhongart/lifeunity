@@ -13,6 +13,7 @@
 // 작품별 스포트라이트는 artworks.js 담당이므로 여기서 만들지 않는다.
 
 import * as THREE from 'three';
+import { mergeGeometries } from '../utils/BufferGeometryUtils.js';
 import { ROOM, BUILDING } from './config.js';
 
 const HALF = ROOM.size / 2;          // 25
@@ -812,38 +813,29 @@ function createOutdoors(scene, theme) {
     new THREE.MeshStandardMaterial({ color: 0x5e8a42, roughness: 0.9 }),
   ];
 
+  // 배경 나무는 개별 메시 대신 지오메트리를 모아 머티리얼당 1콜로 병합한다.
+  // (드로우콜 계측: 줄기 21 + 잎 73 = 94콜 → 5콜. 배경 나무는 정적이라 무손실)
+  const treeTrunkGeos = [];
+  const treeLeafGeos = leafMats.map(() => []);
   function makeTree(x, z, scale) {
-    const tree = new THREE.Group();
-
     const trunkH = 2.2 * scale;
-    const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12 * scale, 0.2 * scale, trunkH, 7),
-      trunkMat
-    );
-    trunk.position.y = trunkH / 2;
-    trunk.castShadow = true;
-    tree.add(trunk);
+    const tg = new THREE.CylinderGeometry(0.12 * scale, 0.2 * scale, trunkH, 7);
+    tg.translate(x, trunkH / 2, z);
+    treeTrunkGeos.push(tg);
 
-    // 뭉친 잎덩어리 3~4개 (로우폴리 구)
+    // 뭉친 잎덩어리 3~4개 (로우폴리 구) — rand() 호출 순서는 기존 배치와 동일
     const blobs = 3 + Math.floor(rand() * 2);
     for (let b = 0; b < blobs; b++) {
       const r = (0.9 + rand() * 0.8) * scale;
-      const leaf = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(r, 1),
-        leafMats[Math.floor(rand() * leafMats.length)]
-      );
-      leaf.position.set(
-        (rand() - 0.5) * 1.4 * scale,
-        trunkH + (rand() * 1.2 + 0.2) * scale,
-        (rand() - 0.5) * 1.4 * scale
-      );
-      leaf.rotation.set(rand() * Math.PI, rand() * Math.PI, 0);
-      leaf.castShadow = true;
-      tree.add(leaf);
+      const mi = Math.floor(rand() * leafMats.length);
+      const px = (rand() - 0.5) * 1.4 * scale;
+      const py = trunkH + (rand() * 1.2 + 0.2) * scale;
+      const pz = (rand() - 0.5) * 1.4 * scale;
+      const g = new THREE.IcosahedronGeometry(r, 1);
+      g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rand() * Math.PI, rand() * Math.PI, 0)));
+      g.translate(x + px, py, z + pz);
+      treeLeafGeos[mi].push(g);
     }
-
-    tree.position.set(x, 0, z);
-    scene.add(tree);
   }
 
   // 유리벽 바로 너머의 가까운 나무 — 디테일 트리 (관람자가 자세히 보게 됨)
@@ -885,6 +877,19 @@ function createOutdoors(scene, theme) {
   for (const [x, z] of backSpots) {
     makeTree(x + (rand() - 0.5) * 4, z + (rand() - 0.5) * 4, 1.1 + rand() * 1.0);
   }
+
+  // 배경 나무 병합 커밋 — 줄기 1콜 + 잎 색상별 4콜
+  if (treeTrunkGeos.length) {
+    const tm = new THREE.Mesh(mergeGeometries(treeTrunkGeos), trunkMat);
+    tm.castShadow = true;
+    scene.add(tm);
+  }
+  treeLeafGeos.forEach((gs, i) => {
+    if (!gs.length) return;
+    const lm = new THREE.Mesh(mergeGeometries(gs), leafMats[i]);
+    lm.castShadow = true;
+    scene.add(lm);
+  });
 
   // (브론즈 조각은 옥상 테라스로 이전 — createBuilding 참조)
 
@@ -1100,6 +1105,12 @@ function buildCofferCeiling(scene, floorY, segments, lightsOut, theme, lightGrid
     roughness: 1.0,
   });
 
+  // 보·캔·벌브는 개별 메시 대신 지오메트리로 모아 층당 머티리얼별 1콜로 병합.
+  // (드로우콜 계측: 보 247 + 캔 218 + 벌브 218 = 683콜이 씬 최대 항목이었다 —
+  //  20fps iGPU 제보의 주범. 정적 지오메트리라 병합은 무손실)
+  const beamGeos = [];
+  const canGeos = [];
+  const bulbGeos = [];
   for (const r of segments) {
     const w = r.x1 - r.x0;
     const d = r.z1 - r.z0;
@@ -1116,10 +1127,9 @@ function buildCofferCeiling(scene, floorY, segments, lightsOut, theme, lightGrid
       const z = BUILDING.minZ + k * gap;
       if (z > r.z1 - 0.05) break;
       if (z < r.z0 + 0.05) continue;
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(w, beamD, beamW), beamMat);
-      beam.position.set((r.x0 + r.x1) / 2, ceilY + beamD / 2, z);
-      beam.castShadow = true;
-      scene.add(beam);
+      const g = new THREE.BoxGeometry(w, beamD, beamW);
+      g.translate((r.x0 + r.x1) / 2, ceilY + beamD / 2, z);
+      beamGeos.push(g);
     }
     // Z 방향 보 (x 그리드)
     const xStart = Math.ceil((r.x0 - BUILDING.minX) / gap);
@@ -1127,10 +1137,9 @@ function buildCofferCeiling(scene, floorY, segments, lightsOut, theme, lightGrid
       const x = BUILDING.minX + k * gap;
       if (x > r.x1 - 0.05) break;
       if (x < r.x0 + 0.05) continue;
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(beamW, beamD, d), beamMat);
-      beam.position.set(x, ceilY + beamD / 2, (r.z0 + r.z1) / 2);
-      beam.castShadow = true;
-      scene.add(beam);
+      const g = new THREE.BoxGeometry(beamW, beamD, d);
+      g.translate(x, ceilY + beamD / 2, (r.z0 + r.z1) / 2);
+      beamGeos.push(g);
     }
 
     // 코퍼 셀 발광 픽스처 (3칸마다 하나, 메시만 — 실제 광원은 lightGrid에서)
@@ -1143,15 +1152,22 @@ function buildCofferCeiling(scene, floorY, segments, lightsOut, theme, lightGrid
         if (czCell > r.z1 - 0.2) break;
         if (czCell < r.z0 + 0.2) continue;
         if (((kx * 7 + kz * 5) % 3) !== 0) continue;
-        const can = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.1, 12), canMat);
-        can.position.set(cxCell, ceilY + beamD - 0.06, czCell);
-        scene.add(can);
-        const bulb = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.02, 12), bulbMat);
-        bulb.position.set(cxCell, ceilY + beamD - 0.12, czCell);
-        scene.add(bulb);
+        const cg = new THREE.CylinderGeometry(0.07, 0.08, 0.1, 12);
+        cg.translate(cxCell, ceilY + beamD - 0.06, czCell);
+        canGeos.push(cg);
+        const bg = new THREE.CylinderGeometry(0.055, 0.055, 0.02, 12);
+        bg.translate(cxCell, ceilY + beamD - 0.12, czCell);
+        bulbGeos.push(bg);
       }
     }
   }
+  if (beamGeos.length) {
+    const beams = new THREE.Mesh(mergeGeometries(beamGeos), beamMat);
+    beams.castShadow = true;
+    scene.add(beams);
+  }
+  if (canGeos.length) scene.add(new THREE.Mesh(mergeGeometries(canGeos), canMat));
+  if (bulbGeos.length) scene.add(new THREE.Mesh(mergeGeometries(bulbGeos), bulbMat));
 
   // 실제 광원 — 층당 소수만. 포인트라이트는 포워드 렌더러의 모든 픽셀 셰이딩
   // 비용에 곱해지므로 정상 GPU(fullLights)에서만 켠다. 소프트웨어 렌더링/저사양
