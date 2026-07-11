@@ -620,10 +620,10 @@ function injectStyles() {
 /* --------------------------------- HUD --------------------------------- */
 .lu-hud {
   position: fixed; z-index: 500;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.6s ease;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.6s ease, visibility 0.6s;
 }
-.lu-hud.lu-visible { opacity: 1; }
+.lu-hud.lu-visible { opacity: 1; visibility: visible; }
 /* [P0] 인터랙티브 HUD는 가시화와 함께 터치도 복구 (감사 발견 버그) */
 #lu-dock.lu-visible, #lu-controls-toggle.lu-visible { pointer-events: auto; }
 /* (작품 카드의 터치 기기 배치는 작품 패널 베이스 CSS 뒤에서 재정의 — 캐스케이드 순서) */
@@ -632,8 +632,8 @@ function injectStyles() {
   top: calc(16px + env(safe-area-inset-top, 0px));
   left: max(16px, env(safe-area-inset-left, 0px));
   background: rgba(23,20,15,0.82);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   padding: 14px 18px;
   border: 1px solid rgba(253,251,245,0.16);
   border-left: 3px solid var(--lu-gold);
@@ -661,8 +661,8 @@ function injectStyles() {
 }
 #lu-topright .lu-stat {
   background: rgba(23,20,15,0.66);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(253,251,245,0.16);
   box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
   padding: 6px 12px;
@@ -684,8 +684,8 @@ function injectStyles() {
   height: 34px; padding: 0 16px;
   max-width: min(78vw, 480px);
   background: rgba(23,20,15,0.66);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(253,251,245,0.16);
   box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
 }
@@ -716,8 +716,8 @@ function injectStyles() {
   transform: translateX(-50%);
   max-width: min(80vw, 560px);
   background: rgba(23,20,15,0.66);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(253,251,245,0.16);
   border-left: 3px solid var(--lu-gold);
   box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
@@ -728,7 +728,7 @@ function injectStyles() {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: opacity 0.22s cubic-bezier(0.22,1,0.36,1);
 }
-#lu-status:empty { opacity: 0; }
+#lu-status:empty { opacity: 0; visibility: hidden; }
 
 /* --------------------------------- 채팅 --------------------------------- */
 #lu-chat {
@@ -878,8 +878,8 @@ function injectStyles() {
   width: 34px; height: 34px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   background: rgba(23,20,15,0.66);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(253,251,245,0.16);
   box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
   color: rgba(253,251,245,0.9);
@@ -904,8 +904,8 @@ function injectStyles() {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 3px;
   background: rgba(23,20,15,0.66);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(253,251,245,0.16);
   box-shadow: inset 0 1px 0 rgba(253,251,245,0.10);
   color: rgba(253,251,245,0.92);
@@ -955,8 +955,8 @@ function injectStyles() {
   border-radius: 16px 16px 0 0;
   padding: 10px 16px calc(18px + env(safe-area-inset-bottom, 0px));
   background: rgba(23,20,15,0.82);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   border-top: 1px solid rgba(212,175,55,0.45); /* 시트 유일 골드 — '열림' 신호 */
   transform: translateY(105%);
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
