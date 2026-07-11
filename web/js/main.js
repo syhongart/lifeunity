@@ -9,6 +9,7 @@ import {
   createArtworks,
   getNearbyArtwork,
   getPlacedArtworks,
+  getArtworkHitMeshes,
   getViewingPose,
 } from './artworks.js';
 import { startAmbient } from './ambient.js';
@@ -47,6 +48,7 @@ import {
   isGuestbookOpen,
   setGuestbookNotes,
   setGuestbookStats,
+  setDockActive,
   showShareModal,
   isShareModalOpen,
   flashShutter,
@@ -226,11 +228,13 @@ function toggleSelfView() {
       return;
     }
     selfAvatar.group.visible = true;
+    setDockActive('self', true);
     selfPrev = null;
     selfSpeed = 0;
     setStatus('내 모습 보기 — V키 또는 [시점] 버튼으로 복귀');
   } else if (selfAvatar) {
     selfAvatar.group.visible = false;
+    setDockActive('self', false);
   }
 }
 
@@ -279,13 +283,23 @@ function bindHitTap(dom) {
     if (!entries.length) return;
     const groups = entries.map(([, av]) => av.group);
     const hits = _tapRaycaster.intersectObjects(groups, true);
-    if (!hits.length) return;
-    // 명중한 오브젝트의 소유 아바타 id 역추적
-    let node = hits[0].object;
-    while (node && !groups.includes(node)) node = node.parent;
-    if (!node) return;
-    const [id] = entries[groups.indexOf(node)];
-    mp.sendHit(id);
+    if (hits.length) {
+      // 아바타 명중 — 콕 찌르기
+      let node = hits[0].object;
+      while (node && !groups.includes(node)) node = node.parent;
+      if (node) {
+        const [id] = entries[groups.indexOf(node)];
+        mp.sendHit(id);
+        return;
+      }
+    }
+    // 아바타 미명중 — 작품 탭이면 그 작품 앞으로 자동 이동 (UX 감사 §4:
+    // 이동 조작이 서툰 관람객도 탭 한 번으로 작품에 도달)
+    _tapRaycaster.far = 60;
+    const artHits = _tapRaycaster.intersectObjects(getArtworkHitMeshes(), false);
+    if (artHits.length && artHits[0].object.userData.luArt) {
+      handleArtworkSelect(artHits[0].object.userData.luArt);
+    }
   });
 }
 let clock = null;
@@ -823,6 +837,7 @@ function startTour() {
   if (!placedArtworks || placedArtworks.length === 0) return;
   if (isArtworkListOpen()) hideArtworkList();
   touring = true;
+  setDockActive('tour', true);
   tourAutoOn = true;
   player.disable();
   goToTourIndex(0);
@@ -831,6 +846,7 @@ function startTour() {
 function exitTour() {
   if (!touring) return;
   touring = false;
+  setDockActive('tour', false);
   tourWaiting = false;
   tween = null; // 이동 중이었다면 현재 카메라 위치에서 즉시 정지
   hideTourBar();

@@ -508,6 +508,8 @@ function buildFrame(art, textureLoader) {
   );
   artPlane.position.set(0, 0, FRAME_DEPTH * 0.06 + 0.001);
   artPlane.receiveShadow = true;
+  artPlane.userData.luArt = art; // 탭-투-무브 역참조
+  ARTWORK_HIT_MESHES.push(artPlane);
   group.add(artPlane);
 
   if (art.videoUrl) {
@@ -717,6 +719,12 @@ export function getNearbyArtwork(position) {
 // 호출측의 우발적 변형으로부터 내부 배열을 보호하기 위해 얕은 복사본을 반환한다.
 export function getPlacedArtworks() {
   return ARTWORKS.slice();
+}
+
+// 탭-투-무브용 히트 타깃 — 작품 평면/액자 메시와 art 참조 (main.js 레이캐스트 소비)
+const ARTWORK_HIT_MESHES = [];
+export function getArtworkHitMeshes() {
+  return ARTWORK_HIT_MESHES;
 }
 
 // 감상 포즈 계산 — 좌표 규약:
