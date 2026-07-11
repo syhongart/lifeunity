@@ -195,9 +195,9 @@ export class MultiplayerManager {
 
     // ---- AI 관객(NPC) — 호스트만 시뮬레이션, 사람과 동일 파이프라인으로 표시 ----
     if (this.isHost && this.npcProvider) {
-      // 사람 위치(호스트 자신 + 게스트) — NPC 인사/시선용
-      const humans = [{ x: this._lastState.x, z: this._lastState.z }];
-      for (const info of this.playerInfo.values()) humans.push({ x: info.x || 0, z: info.z || 0 });
+      // 사람 위치(호스트 자신 + 게스트) — NPC 인사/시선/회피용 (y = 눈높이 관례)
+      const humans = [{ x: this._lastState.x, y: this._lastState.y, z: this._lastState.z }];
+      for (const info of this.playerInfo.values()) humans.push({ x: info.x || 0, y: info.y, z: info.z || 0 });
       this._npcStates = this.npcProvider(delta, humans) || null;
       if (this._npcStates) {
         for (const id of Object.keys(this._npcStates)) {
@@ -537,6 +537,19 @@ export class MultiplayerManager {
       info.z || 0
     );
     av.targetRy = info.ry || 0;
+  }
+
+  /**
+   * 화면에 보이는 모든 원격 캐릭터(사람+NPC)의 현재 렌더 위치.
+   * y는 발 기준 — 플레이어 몸 충돌(player.resolveBodyCollisions)이 소비한다.
+   */
+  getAvatarPositions() {
+    const out = [];
+    for (const av of this.remoteAvatars.values()) {
+      const p = av.group.position;
+      out.push({ x: p.x, y: p.y, z: p.z });
+    }
+    return out;
   }
 
   _removeAvatar(id) {

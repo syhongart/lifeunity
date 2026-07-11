@@ -1017,6 +1017,8 @@ function animate() {
   try {
     // 이동/회전 (트윈/투어 중에는 player.disable 상태이므로 update는 사실상 no-op)
     player.update(delta);
+    // 몸 충돌 — 다른 캐릭터(사람+NPC)를 뚫고 지나가지 못하게 밀어낸다
+    if (mp) player.resolveBodyCollisions(mp.getAvatarPositions());
 
     // 카메라 트윈(텔레포트/투어) 갱신 — 별도 루프 없이 기존 animate 루프에 포함
     updateTween(delta);

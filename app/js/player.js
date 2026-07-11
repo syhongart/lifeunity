@@ -376,6 +376,53 @@ export class PlayerController {
     pos.y += (targetY - pos.y) * yLerp;
   }
 
+  /**
+   * 몸 충돌 — 다른 캐릭터(사람+NPC)를 뚫고 지나가지 못하게 밀어낸다.
+   * animate 루프가 update() 직후 매 프레임 호출. others: [{x, y(발 기준), z}]
+   * 밀려난 위치도 _tryMove로 벽/지면 검증을 거쳐, 캐릭터에 밀려 벽을
+   * 관통하는 2차 버그를 막는다.
+   */
+  resolveBodyCollisions(others) {
+    if (!this.enabled || !others || !others.length) return;
+    const BODY_SEP = 0.6;      // 서로의 몸 반경 합(m) — 치비 어깨 폭 기준
+    const FLOOR_TOL = 1.2;     // 발 높이 차가 이만큼 크면 다른 층으로 간주
+    const pos = this.camera.position;
+    let px = pos.x;
+    let pz = pos.z;
+    let pushed = false;
+    let nX = 0; // 마지막 푸시 법선(속도 제거용)
+    let nZ = 0;
+    for (const o of others) {
+      if (!o) continue;
+      if (o.y != null && Math.abs(o.y - this.groundY) > FLOOR_TOL) continue;
+      const dx = px - o.x;
+      const dz = pz - o.z;
+      const d = Math.hypot(dx, dz);
+      if (d >= BODY_SEP) continue;
+      // 완전히 겹친 특이점(d≈0)은 현재 시선 반대쪽으로 탈출
+      const ux = d > 1e-4 ? dx / d : Math.sin(this.euler.y);
+      const uz = d > 1e-4 ? dz / d : Math.cos(this.euler.y);
+      px = o.x + ux * BODY_SEP;
+      pz = o.z + uz * BODY_SEP;
+      nX = ux;
+      nZ = uz;
+      pushed = true;
+    }
+    if (!pushed) return;
+    const moved = this._tryMove(px, pz);
+    if (moved) {
+      pos.x = moved.x;
+      pos.z = moved.z;
+      this.groundY = moved.y;
+    }
+    // 캐릭터 쪽으로 파고드는 속도 성분 제거 — 계속 밀 때의 떨림 방지
+    const into = this.velocity.x * -nX + this.velocity.y * -nZ;
+    if (into > 0) {
+      this.velocity.x += nX * into;
+      this.velocity.y += nZ * into;
+    }
+  }
+
   getState() {
     this.euler.setFromQuaternion(this.camera.quaternion, 'YXZ');
     return {
