@@ -2,7 +2,7 @@
 // 소유: 통합 담당. 다른 모듈의 공개 API 계약을 그대로 사용한다.
 
 import * as THREE from 'three';
-import { ROOM, EYE_HEIGHT, BUILDING } from './config.js';
+import { ROOM, EYE_HEIGHT, BUILDING, PEER_ROOM_ID } from './config.js';
 import { createMuseum, sceneTick } from './scene.js';
 import {
   ensureGalleryLoaded,
@@ -682,6 +682,13 @@ function tourToggleAuto() {
   updateTourBar(placedArtworks[tourIndex]);
 }
 
+// 짧은 문자열 요약 (공유 링크 전시의 룸 키용 — 같은 링크 = 같은 방)
+function djb2(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
 function handleEnter({ nickname, color, char }) {
   myNickname = nickname;
   selfInfo = { nickname, color, char };
@@ -693,7 +700,10 @@ function handleEnter({ nickname, color, char }) {
   startAmbient();
 
   try {
-    mp = new MultiplayerManager(scene, { nickname, color, char });
+    // 전시별 멀티플레이 룸 — 같은 전시 링크로 들어온 사람끼리만 만난다.
+    // 디렉터리 전시는 id, 공유 링크(#gd=/#gz=) 전시는 해시 데이터의 djb2 요약을 쓴다.
+    const roomSuffix = (galleryInfo && galleryInfo.id) || 'link-' + djb2(window.location.hash || '');
+    mp = new MultiplayerManager(scene, { nickname, color, char, roomId: `${PEER_ROOM_ID}-${roomSuffix}` });
     // onChat은 원격 메시지 전용 (자기 메시지는 handleChatSend가 로컬 표시,
     // 에코는 senderId 필터로 차단됨) — 닉네임이 겹쳐도 안전
     mp.onChat = (name, text) => addChatMessage(name, text, false);

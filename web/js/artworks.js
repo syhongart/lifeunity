@@ -254,33 +254,43 @@ function getGalleryIdFromUrl() {
   return 'syhongart';
 }
 
-// #gd= 해시에 base64url로 내장된 갤러리 JSON을 디코딩한다.
-// 인코딩 규약: JSON.stringify → UTF-8 bytes → base64 → base64url(+/→-_, '=' 제거)
-function decodeGalleryFromHash() {
+// 해시에 내장된 갤러리 JSON을 디코딩한다. 두 가지 규약:
+//   #gd= — JSON → UTF-8 → base64url (무압축, 구형 브라우저 겸용)
+//   #gz= — JSON → UTF-8 → deflate-raw 압축 → base64url (URL 절반 크기 — 스튜디오 발행 기본)
+function b64urlToBytes(b64url) {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+  const bin = atob(padded);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+async function decodeGalleryFromHash() {
   try {
     const hash = window.location.hash;
     if (!hash) return null;
-    const match = hash.match(/[#&]gd=([^&]+)/);
-    if (!match) return null;
-
-    const b64url = match[1];
-    const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
-    const bin = atob(padded);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const json = new TextDecoder().decode(bytes);
+    let json = null;
+    const gz = hash.match(/[#&]gz=([^&]+)/);
+    const gd = hash.match(/[#&]gd=([^&]+)/);
+    if (gz) {
+      if (typeof DecompressionStream === 'undefined') {
+        throw new Error('이 브라우저는 압축 공유 링크(#gz=)를 지원하지 않습니다');
+      }
+      const stream = new Blob([b64urlToBytes(gz[1])]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      json = await new Response(stream).text();
+    } else if (gd) {
+      json = new TextDecoder().decode(b64urlToBytes(gd[1]));
+    } else {
+      return null;
+    }
     const data = JSON.parse(json);
-
     if (!data || !Array.isArray(data.artworks)) {
-      throw new Error('#gd= 데이터에 artworks 배열이 없습니다');
+      throw new Error('공유 링크 데이터에 artworks 배열이 없습니다');
     }
     return data;
   } catch (err) {
-    console.warn(
-      '[artworks] #gd= 공유 링크 디코딩 실패, 다음 소스로 진행합니다:',
-      err
-    );
+    console.warn('[artworks] 공유 링크 디코딩 실패, 다음 소스로 진행합니다:', err);
     return null;
   }
 }
@@ -288,8 +298,8 @@ function decodeGalleryFromHash() {
 // 갤러리 로드 본체 — ensureGalleryLoaded()가 결과를 1회만 계산하도록 캐시한다.
 // 반환값: { id, name, description, theme, artworks } (theme 필드 없으면 'daylight'로 보정)
 async function loadGalleryInternal() {
-  // 1순위: #gd= 공유 링크 (파일 업로드 없이 URL에 내장된 갤러리 데이터)
-  const shared = decodeGalleryFromHash();
+  // 1순위: #gd=/#gz= 공유 링크 (파일 업로드 없이 URL에 내장된 갤러리 데이터)
+  const shared = await decodeGalleryFromHash();
   if (shared) {
     // 공유 링크는 디렉터리에 없는 임시 전시다. 스튜디오가 내장한 id가 있어도
     // 무시하고 id=null로 두어, 전시 디렉터리 picker가 '공유된 전시 관람 중'으로

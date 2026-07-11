@@ -61,17 +61,16 @@ artshow/
 - `web/index.html`, `web/studio.html` → `app/`로 배포
 - `gh-pages` 브랜치에서 자동으로 GitHub Pages 업데이트
 
-## 새 전시 추가 방법
+## 새 전시 열기
 
-### 1. 작가 스튜디오에서 전시 생성
-- https://syhongart.github.io/artshow/app/studio.html 접속
-- 전시 제목, 설명, 작품(최대 14점, 대표작 2점) 입력
-- **[JSON 다운로드]** 버튼으로 전시 데이터 파일 생성
+### 방법 A — 공유 링크 발행 (권장, 서버·가입 불필요)
+1. https://syhongart.github.io/artshow/app/studio.html 접속
+2. 전시 제목·설명·작품(이미지 URL, 최대 14점 + 대표작 2점) 입력
+3. **[공유 링크 만들기]** → 전시 데이터가 압축되어 URL(#gz=)에 통째로 담긴 링크 생성
+4. 그 링크를 SNS/메신저에 공유 — 받는 사람은 클릭 즉시 그 전시에 입장
+   (같은 링크로 들어온 사람끼리 같은 멀티플레이 방에서 만난다)
 
-### 2. 저장소에 추가
-- 생성된 JSON 파일을 `web/galleries/` 폴더에 추가
-- `web/galleries/index.json`의 전시 목록에 메타데이터 등록 (제목, ID, 썸네일, 설명)
-
-### 3. 배포
-- 변경사항을 `gh-pages` 브랜치로 푸시
-- GitHub Pages가 자동으로 업데이트
+### 방법 B — 저장소 상설 등록 (전시 디렉터리에 노출)
+1. 스튜디오에서 **[JSON 다운로드]**
+2. 파일을 `web/galleries/`에 추가하고 `web/galleries/index.json`에 메타데이터 등록
+3. `gh-pages` 브랜치로 배포
