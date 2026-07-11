@@ -50,6 +50,9 @@ const GREET_DIST = 2.3;        // 사람 접근 인사 거리(m)
 const GREET_COOLDOWN = 60;     // NPC별 인사 쿨다운(초)
 const CONVO_COOLDOWN = 40;     // 짝 대화 전체 쿨다운(초)
 const SLOT_SPACING = 0.62;     // 같은 작품 관람 슬롯 간격(m)
+const AVOID_RADIUS = 0.9;      // 보행 중 회피 조향 감지 반경(m)
+const BODY_SEP = 0.5;          // 캐릭터 몸 반경 합(m) — 이보다 겹치면 밀어낸다
+const FLOOR_TOL = 1.5;         // y(눈높이) 차가 이만큼 크면 다른 층 — 회피 제외
 
 // 같은 작품 앞에 모인 관객들의 소소한 대화 — [말 거는 쪽, 답하는 쪽]
 const CONVOS = [
@@ -327,12 +330,28 @@ export class NpcCrowd {
           npc.ry = npc.try_; // 작품 정면을 본다
           this._maybeRemark(npc);
         } else {
+          // 목표 방향 + 회피 조향 — 근처 캐릭터(NPC·사람)를 완만한 호로 비켜 간다
+          let dirX = dx / dist;
+          let dirZ = dz / dist;
+          const avoid = this._avoidVector(npc, humans);
+          if (avoid) {
+            dirX += avoid.x;
+            dirZ += avoid.z;
+            const len = Math.hypot(dirX, dirZ) || 1;
+            dirX /= len;
+            dirZ /= len;
+          }
           const step = Math.min(dist, npc.speed * d);
-          npc.x += (dx / dist) * step;
-          npc.z += (dz / dist) * step;
-          npc.ry = Math.atan2(-dx, -dz); // yaw=0 → -Z 관례
+          npc.x += dirX * step;
+          npc.z += dirZ * step;
+          npc.ry = Math.atan2(-dirX, -dirZ); // yaw=0 → -Z 관례
         }
       }
+    }
+
+    // 관통 방지 — 조향으로 못 피한 겹침을 직접 밀어낸 뒤 최종 좌표를 내보낸다
+    this._resolveOverlaps(humans);
+    for (const npc of this.npcs) {
       out[npc.id] = {
         nickname: npc.nickname,
         color: npc.color,
@@ -345,6 +364,80 @@ export class NpcCrowd {
       };
     }
     return out;
+  }
+
+  /**
+   * 보행 중 회피 조향 벡터 — 감지 반경 안의 다른 캐릭터에게서 멀어지는 방향의
+   * 가중합. 가까울수록 세게 밀어 목표 방향과 섞으면 자연스러운 우회 호가 된다.
+   */
+  _avoidVector(self, humans) {
+    let ax = 0;
+    let az = 0;
+    const consider = (x, z, weight) => {
+      const dx = self.x - x;
+      const dz = self.z - z;
+      const d = Math.hypot(dx, dz);
+      if (d >= AVOID_RADIUS || d < 1e-4) return;
+      const s = (weight * (1 - d / AVOID_RADIUS)) / d;
+      ax += dx * s;
+      az += dz * s;
+    };
+    for (const n of this.npcs) {
+      if (n === self || Math.abs(n.y - self.y) > FLOOR_TOL) continue;
+      consider(n.x, n.z, 1.6);
+    }
+    for (const h of humans || []) {
+      if (!h) continue;
+      if (h.y != null && Math.abs(h.y - self.y) > FLOOR_TOL) continue;
+      consider(h.x, h.z, 2.2); // 사람은 더 크게 비켜 준다
+    }
+    if (ax === 0 && az === 0) return null;
+    return { x: ax, z: az };
+  }
+
+  /**
+   * 겹침 하드 해소 — NPC끼리, NPC와 사람이 BODY_SEP 미만으로 포개지면 밀어낸다.
+   * 걷는 쪽이 양보하고(전량 이동), 감상 중인 쪽은 슬롯 자리를 지킨다.
+   * 둘 다 감상 중이면 슬롯 배정이 이미 간격을 보장하므로 건드리지 않는다.
+   */
+  _resolveOverlaps(humans) {
+    for (let i = 0; i < this.npcs.length; i++) {
+      const a = this.npcs[i];
+      for (let j = i + 1; j < this.npcs.length; j++) {
+        const b = this.npcs[j];
+        if (Math.abs(a.y - b.y) > FLOOR_TOL) continue;
+        const aWalks = a.state === 'walk';
+        const bWalks = b.state === 'walk';
+        if (!aWalks && !bWalks) continue;
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const d = Math.hypot(dx, dz);
+        if (d >= BODY_SEP || d < 1e-4) continue;
+        const push = BODY_SEP - d;
+        const ux = dx / d;
+        const uz = dz / d;
+        if (aWalks && bWalks) {
+          a.x -= ux * push * 0.5; a.z -= uz * push * 0.5;
+          b.x += ux * push * 0.5; b.z += uz * push * 0.5;
+        } else if (aWalks) {
+          a.x -= ux * push; a.z -= uz * push;
+        } else {
+          b.x += ux * push; b.z += uz * push;
+        }
+      }
+      // 사람은 밀 수 없으니 NPC가 전량 양보 (감상 중이어도 — 사람이 파고들면 비켜선다)
+      for (const h of humans || []) {
+        if (!h) continue;
+        if (h.y != null && Math.abs(h.y - a.y) > FLOOR_TOL) continue;
+        const dx = a.x - h.x;
+        const dz = a.z - h.z;
+        const d = Math.hypot(dx, dz);
+        if (d >= BODY_SEP || d < 1e-4) continue;
+        const push = BODY_SEP - d;
+        a.x += (dx / d) * push;
+        a.z += (dz / d) * push;
+      }
+    }
   }
 
   /** 같은 작품 앞의 두 관객을 골라 대화를 시작한다 */
