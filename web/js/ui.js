@@ -732,49 +732,60 @@ function injectStyles() {
 
 /* ----------------------------- 작품 정보 패널 ----------------------------- */
 #lu-artwork {
+  /* 미술관 벽면 캡션 카드 — 크림 종이 + 골드 상단 액센트 */
   position: fixed; z-index: 600;
-  top: 50%; right: 0;
-  transform: translate(105%, -50%);
-  width: min(320px, calc(100vw - 24px));
-  background: rgba(255,255,255,0.96);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  color: #111;
-  padding: 30px 28px;
-  border-left: 2px solid var(--lu-gold);
-  box-shadow: -18px 0 50px rgba(0,0,0,0.28);
-  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  top: 50%; right: 16px;
+  transform: translate(calc(100% + 40px), -50%);
+  width: min(320px, calc(100vw - 28px));
+  background: linear-gradient(180deg, #fffdf8 0%, #f8f4ea 100%);
+  color: #1c1a16;
+  padding: 26px 26px 22px;
+  border-radius: 16px;
+  border: 1px solid rgba(212,175,55,0.28);
+  box-shadow: 0 18px 50px rgba(20,15,8,0.30), 0 2px 8px rgba(20,15,8,0.12);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+}
+#lu-artwork::before {
+  /* 골드 상단 라인 — 액자 레일의 인용 */
+  content: '';
+  position: absolute; top: 0; left: 26px; right: 26px; height: 2px;
+  background: linear-gradient(90deg, var(--lu-gold), rgba(212,175,55,0));
+  border-radius: 0 0 2px 2px;
 }
 #lu-artwork.lu-open { transform: translate(0, -50%); }
 #lu-artwork .lu-art-eyebrow {
-  font-size: 10px; letter-spacing: 0.3em;
-  color: var(--lu-gold); margin-bottom: 12px;
+  font-size: 9.5px; letter-spacing: 0.34em;
+  color: #b28a2e; margin-bottom: 10px;
 }
 #lu-artwork .lu-art-title {
-  font-size: 20px; font-weight: 300; line-height: 1.3;
-  color: #111;
+  font-size: 21px; font-weight: 600; line-height: 1.32;
+  letter-spacing: -0.01em; color: #17140f;
 }
 #lu-artwork .lu-art-meta {
-  margin-top: 8px;
-  font-size: 12px; letter-spacing: 0.06em;
-  color: #888;
+  margin-top: 7px;
+  font-size: 12px; letter-spacing: 0.05em;
+  color: #8a8172;
 }
 #lu-artwork .lu-art-rule {
-  width: 28px; height: 1px; background: #ddd; margin: 18px 0;
+  width: 34px; height: 2px; border-radius: 2px;
+  background: var(--lu-gold); opacity: 0.65; margin: 16px 0 14px;
 }
 #lu-artwork .lu-art-desc {
-  font-size: 13px; line-height: 1.8; color: #444;
-  max-height: 40vh; overflow-y: auto;
+  font-size: 13px; line-height: 1.85; color: #4a453c;
+  max-height: 38vh; overflow-y: auto;
 }
 #lu-artwork .lu-art-hint {
-  margin-top: 16px;
-  font-size: 11px; letter-spacing: 0.04em; color: #999;
-  font-family: var(--lu-font); font-weight: 300;
-  background: transparent; border: none; cursor: pointer;
-  padding: 6px 0; text-align: left;
-  transition: color 0.25s ease;
+  margin-top: 18px;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; letter-spacing: 0.05em; color: #6b6459;
+  font-family: var(--lu-font); font-weight: 500;
+  background: rgba(212,175,55,0.10);
+  border: 1px solid rgba(212,175,55,0.45); border-radius: 999px;
+  cursor: pointer;
+  padding: 8px 16px; text-align: center;
+  transition: background 0.25s ease, color 0.25s ease;
 }
-#lu-artwork .lu-art-hint:hover { color: var(--lu-gold); }
+#lu-artwork .lu-art-hint:hover { background: var(--lu-gold); color: #17140f; }
 #lu-artwork .lu-art-hint .lu-key {
   display: inline-block;
   min-width: 16px; text-align: center;
@@ -912,9 +923,15 @@ function injectStyles() {
   text-align: center;
 }
 .lu-lightbox-title {
-  font-size: 24px; font-weight: 300; line-height: 1.35;
-  letter-spacing: 0.02em;
+  font-size: 25px; font-weight: 600; line-height: 1.35;
+  letter-spacing: -0.01em;
   color: #fff;
+}
+.lu-lightbox-caption::before {
+  content: '';
+  display: block;
+  width: 34px; height: 2px; margin: 0 auto 16px;
+  background: var(--lu-gold); border-radius: 2px; opacity: 0.8;
 }
 .lu-lightbox-meta {
   margin-top: 8px;
@@ -1008,11 +1025,9 @@ function injectStyles() {
   top: 0; left: 0; bottom: 0;
   width: min(340px, calc(100vw - 24px));
   overflow: visible; /* 책갈피 탭이 패널 오른쪽 바깥으로 나온다 */
-  background: rgba(255,255,255,0.97);
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  color: #111;
-  box-shadow: 18px 0 50px rgba(0,0,0,0.28);
+  background: linear-gradient(180deg, #fdfbf5 0%, #f6f1e4 100%);
+  color: #1c1a16;
+  box-shadow: 18px 0 50px rgba(20,15,8,0.28);
   transform: translateX(-100%); /* 닫혀도 책갈피 탭은 화면에 남는다 */
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   display: flex; flex-direction: column;
@@ -1042,13 +1057,23 @@ function injectStyles() {
 #lu-gbtab:hover { color: var(--lu-gold); }
 #lu-guestbook-head {
   flex: 0 0 auto;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 22px 24px 16px;
-  border-bottom: 1px solid #eee;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid rgba(212,175,55,0.35);
 }
-#lu-guestbook-title {
-  font-size: 13px; letter-spacing: 0.16em; text-indent: 0.16em;
-  color: #111;
+#lu-guestbook-title .lu-gb-eyebrow {
+  display: block;
+  font-size: 9.5px; letter-spacing: 0.34em; color: #b28a2e;
+  margin-bottom: 6px;
+}
+#lu-guestbook-title .lu-gb-main {
+  display: block;
+  font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: #17140f;
+}
+#lu-guestbook-title .lu-gb-sub {
+  display: block;
+  margin-top: 5px;
+  font-size: 11.5px; color: #8a8172; letter-spacing: 0.03em;
 }
 #lu-guestbook-close {
   flex: 0 0 auto;
@@ -1065,40 +1090,59 @@ function injectStyles() {
   overflow-y: auto;
 }
 .lu-gbook-note {
-  padding: 14px 24px;
-  border-bottom: 1px solid #f0f0ee;
+  /* 방명록 한 장 — 종이 카드 + 큰따옴표 워터마크 */
+  position: relative;
+  margin: 12px 16px 0;
+  padding: 14px 16px 14px 18px;
+  background: #fffefb;
+  border: 1px solid #efe8d6;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(31,26,18,0.05);
 }
-.lu-gbook-name { font-size: 12px; font-weight: 400; color: var(--lu-gold); }
+.lu-gbook-note::before {
+  content: '“';
+  position: absolute; top: 2px; right: 12px;
+  font-size: 34px; line-height: 1; color: rgba(212,175,55,0.28);
+  font-family: Georgia, serif;
+}
+#lu-guestbook-body > .lu-gbook-note:last-child { margin-bottom: 14px; }
+.lu-gbook-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 7px; vertical-align: 1px;
+}
+.lu-gbook-name { font-size: 12.5px; font-weight: 600; color: #3f3a30; }
 .lu-gbook-time {
   margin-left: 8px;
-  font-size: 10px; letter-spacing: 0.04em; color: #aaa;
+  font-size: 10px; letter-spacing: 0.04em; color: #b3ab99;
 }
 .lu-gbook-text {
-  margin-top: 6px;
-  font-size: 13px; line-height: 1.6; color: #333;
+  margin-top: 7px;
+  font-size: 13px; line-height: 1.7; color: #4a453c;
   word-break: break-word; white-space: pre-wrap;
 }
 .lu-gbook-empty {
-  padding: 40px 24px; text-align: center;
-  font-size: 12px; color: #aaa;
+  margin: 20px 16px; padding: 36px 20px; text-align: center;
+  font-size: 12.5px; line-height: 1.8; color: #a89f8c;
+  border: 1px dashed #ddd3ba; border-radius: 12px;
 }
 #lu-guestbook-footer {
   flex: 0 0 auto;
-  padding: 16px 24px 20px;
-  border-top: 1px solid #eee;
+  padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid rgba(212,175,55,0.30);
+  background: rgba(255,254,251,0.7);
 }
 #lu-gbook-input {
   width: 100%; resize: none;
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 13px; color: #111;
-  background: #fafafa;
-  border: 1px solid #eee;
-  padding: 10px 12px; outline: none;
-  border-radius: 0;
-  transition: border-color 0.25s ease;
+  font-family: var(--lu-font); font-weight: 400;
+  font-size: 13px; color: #1c1a16;
+  background: #fffefb;
+  border: 1px solid #e5dcc4;
+  padding: 11px 13px; outline: none;
+  border-radius: 12px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
-#lu-gbook-input::placeholder { color: #bbb; }
-#lu-gbook-input:focus { border-color: var(--lu-gold); }
+#lu-gbook-input::placeholder { color: #b3ab99; }
+#lu-gbook-input:focus { border-color: var(--lu-gold); box-shadow: 0 0 0 3px rgba(212,175,55,0.15); }
 .lu-gbook-footer-row {
   display: flex; align-items: center; justify-content: space-between;
   margin-top: 10px;
@@ -1107,12 +1151,20 @@ function injectStyles() {
   font-size: 10px; letter-spacing: 0.04em; color: #bbb;
 }
 #lu-gbook-submit {
-  font-family: var(--lu-font); font-weight: 300;
-  font-size: 12px; letter-spacing: 0.2em; text-indent: 0.2em;
-  color: #fff; background: #111;
-  border: 1px solid #111;
-  padding: 9px 18px; cursor: pointer;
-  transition: background 0.25s ease, color 0.25s ease, opacity 0.25s ease;
+  font-family: var(--lu-font); font-weight: 600;
+  font-size: 12.5px; letter-spacing: 0.06em;
+  color: #17140f;
+  background: var(--lu-gold);
+  border: 1px solid var(--lu-gold); border-radius: 999px;
+  padding: 9px 22px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 3px 12px rgba(212,175,55,0.35);
+}
+#lu-gbook-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(212,175,55,0.45); }
+#lu-gbook-submit:disabled {
+  background: transparent; color: #b3ab99;
+  border-color: #ddd3ba; box-shadow: none; cursor: default;
 }
 #lu-gbook-submit:hover { background: var(--lu-gold); border-color: var(--lu-gold); color: #111; }
 #lu-gbook-submit:disabled { opacity: 0.35; cursor: default; }
@@ -2020,9 +2072,16 @@ function renderGuestbookNotes(notes) {
     body.appendChild(el('div', { className: 'lu-gbook-empty', text: '첫 방명록을 남겨보세요' }));
     return;
   }
+  const DOT_COLORS = ['#e07a5f', '#81b29a', '#d4af37', '#8e7dbe', '#6a8caf', '#d68fb8'];
   notes.forEach((note) => {
+    const name = note.name || '게스트';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    const dot = el('span', { className: 'lu-gbook-dot' });
+    dot.style.background = DOT_COLORS[hash % DOT_COLORS.length];
     const head = el('div', {}, [
-      el('span', { className: 'lu-gbook-name', text: note.name || '게스트' }),
+      dot,
+      el('span', { className: 'lu-gbook-name', text: name }),
       el('span', { className: 'lu-gbook-time', text: formatRelativeTime(note.ts) }),
     ]);
     const text = el('div', { className: 'lu-gbook-text', text: note.text || '' });
@@ -2033,7 +2092,11 @@ function renderGuestbookNotes(notes) {
 function buildGuestbookPanel() {
   const closeBtn = el('button', { id: 'lu-guestbook-close', type: 'button', 'aria-label': '닫기', text: '×' });
   const head = el('div', { id: 'lu-guestbook-head' }, [
-    el('div', { id: 'lu-guestbook-title', text: 'GUESTBOOK — 방명록' }),
+    el('div', { id: 'lu-guestbook-title' }, [
+      el('span', { className: 'lu-gb-eyebrow', text: 'GUESTBOOK' }),
+      el('span', { className: 'lu-gb-main', text: '방명록' }),
+      el('span', { className: 'lu-gb-sub', text: '다녀간 마음을 한 줄 남겨 주세요' }),
+    ]),
     closeBtn,
   ]);
   const body = el('div', { id: 'lu-guestbook-body' });

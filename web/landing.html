@@ -280,6 +280,8 @@
     .feature-grid { grid-template-columns: 1fr; }
   }
   .feature-card {
+    border-radius: 18px;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
     background: var(--bg-panel);
     padding: 48px 38px;
     display: flex;
@@ -538,6 +540,9 @@
     padding: 34px 20px; text-align: center; color: rgba(255,255,255,0.5);
     font-size: 14px; line-height: 1.8;
   }
+
+  .feature-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(20,15,8,0.10); }
+  .exh-card:hover { transform: translateY(-4px); }
 </style>
 </head>
 <body>
