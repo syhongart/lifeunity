@@ -805,37 +805,23 @@ function createOutdoors(scene, theme) {
 
   // ---- 나무 ----
   const rand = makeRand(97531);
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4630, roughness: 0.9 });
-  const leafMats = [
-    new THREE.MeshStandardMaterial({ color: 0x3e6b2f, roughness: 0.9 }),
-    new THREE.MeshStandardMaterial({ color: 0x4d7c38, roughness: 0.9 }),
-    new THREE.MeshStandardMaterial({ color: 0x35592a, roughness: 0.9 }),
-    new THREE.MeshStandardMaterial({ color: 0x5e8a42, roughness: 0.9 }),
-  ];
 
-  // 배경 나무는 개별 메시 대신 지오메트리를 모아 머티리얼당 1콜로 병합한다.
-  // (드로우콜 계측: 줄기 21 + 잎 73 = 94콜 → 5콜. 배경 나무는 정적이라 무손실)
-  const treeTrunkGeos = [];
-  const treeLeafGeos = leafMats.map(() => []);
+  // 감독 지시: 동그란 blob 나무 → 잎 카드가 달린 디테일 트리로 전면 교체.
+  // 나무당 76콜(가지 17+잎 카드 59)이라 그대로 두면 드로우콜이 폭발하므로,
+  // 전 그루를 forest 그룹에 모아 월드 변환을 굽고 머티리얼별 4콜로 병합한다.
+  const forest = new THREE.Group();
+  let treeSeed = 40000;
   function makeTree(x, z, scale) {
-    const trunkH = 2.2 * scale;
-    const tg = new THREE.CylinderGeometry(0.12 * scale, 0.2 * scale, trunkH, 7);
-    tg.translate(x, trunkH / 2, z);
-    treeTrunkGeos.push(tg);
-
-    // 뭉친 잎덩어리 3~4개 (로우폴리 구) — rand() 호출 순서는 기존 배치와 동일
-    const blobs = 3 + Math.floor(rand() * 2);
-    for (let b = 0; b < blobs; b++) {
-      const r = (0.9 + rand() * 0.8) * scale;
-      const mi = Math.floor(rand() * leafMats.length);
-      const px = (rand() - 0.5) * 1.4 * scale;
-      const py = trunkH + (rand() * 1.2 + 0.2) * scale;
-      const pz = (rand() - 0.5) * 1.4 * scale;
-      const g = new THREE.IcosahedronGeometry(r, 1);
-      g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rand() * Math.PI, rand() * Math.PI, 0)));
-      g.translate(x + px, py, z + pz);
-      treeLeafGeos[mi].push(g);
-    }
+    treeSeed += 733;
+    const dt = buildDetailedTree(treeSeed, {
+      trunkLen: 2.6 * scale,
+      trunkRad: 0.24 * scale,
+      maxLevel: 2,
+      leafScale: 0.95 * scale,
+    });
+    dt.position.set(x, 0, z);
+    dt.rotation.y = rand() * Math.PI * 2;
+    forest.add(dt);
   }
 
   // 유리벽 바로 너머의 가까운 나무 — 디테일 트리 (관람자가 자세히 보게 됨)
@@ -852,7 +838,7 @@ function createOutdoors(scene, theme) {
     });
     dt.position.set(x + (rand() - 0.5) * 2, 0, z + (rand() - 0.5) * 2);
     dt.rotation.y = rand() * Math.PI * 2;
-    scene.add(dt);
+    forest.add(dt); // 배경 숲과 함께 병합
   });
 
   // 남쪽 정원 (유리벽 z=+25 너머) — 배경 군락 (로우폴리)
@@ -878,18 +864,8 @@ function createOutdoors(scene, theme) {
     makeTree(x + (rand() - 0.5) * 4, z + (rand() - 0.5) * 4, 1.1 + rand() * 1.0);
   }
 
-  // 배경 나무 병합 커밋 — 줄기 1콜 + 잎 색상별 4콜
-  if (treeTrunkGeos.length) {
-    const tm = new THREE.Mesh(mergeGeometries(treeTrunkGeos), trunkMat);
-    tm.castShadow = true;
-    scene.add(tm);
-  }
-  treeLeafGeos.forEach((gs, i) => {
-    if (!gs.length) return;
-    const lm = new THREE.Mesh(mergeGeometries(gs), leafMats[i]);
-    lm.castShadow = true;
-    scene.add(lm);
-  });
+  // 숲 병합 커밋 — 수피 1콜 + 잎 텍스처별 3콜 (근거리+배경 전 그루)
+  for (const m of bakeGroupByMaterial(forest)) scene.add(m);
 
   // (브론즈 조각은 옥상 테라스로 이전 — createBuilding 참조)
 
@@ -1588,17 +1564,49 @@ function makeLeafMaterials() {
   }));
 }
 
+// 나무 공유 머티리얼 — 모든 디테일 트리가 같은 재질을 쓰면 숲 전체를
+// 머티리얼별 소수 메시로 병합할 수 있다 (나무당 76콜 → 숲 전체 4콜)
+let _treeMats = null;
+function sharedTreeMats() {
+  if (!_treeMats) {
+    _treeMats = {
+      bark: new THREE.MeshStandardMaterial({
+        map: createBarkTexture(),
+        normalMap: createBarkNormal(),
+        normalScale: new THREE.Vector2(0.9, 0.9),
+        roughness: 0.95,
+        metalness: 0.0,
+      }),
+      leaves: makeLeafMaterials(),
+    };
+  }
+  return _treeMats;
+}
+
+// 그룹의 모든 메시를 월드 변환으로 구워 머티리얼별 병합 메시로 반환.
+// 나무처럼 "많은 부품 × 공유 재질" 정적 구조 전용 — 원본 그룹은 버린다.
+function bakeGroupByMaterial(group) {
+  group.updateMatrixWorld(true);
+  const buckets = new Map();
+  group.traverse((o) => {
+    if (!o.isMesh) return;
+    const g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    if (!buckets.has(o.material)) buckets.set(o.material, []);
+    buckets.get(o.material).push(g);
+  });
+  const meshes = [];
+  for (const [mat, geos] of buckets) {
+    const m = new THREE.Mesh(mergeGeometries(geos), mat);
+    m.castShadow = !(mat.alphaTest > 0); // 알파 잎은 그림자 생략 (아티팩트 방지)
+    meshes.push(m);
+  }
+  return meshes;
+}
+
 // 재귀 분기 나무: level이 깊어질수록 가늘고 짧아지며, 말단에 잎 클러스터
 function buildDetailedTree(seed, opts) {
   const rand = makeRand(seed);
-  const barkMat = new THREE.MeshStandardMaterial({
-    map: createBarkTexture(),
-    normalMap: createBarkNormal(),
-    normalScale: new THREE.Vector2(0.9, 0.9),
-    roughness: 0.95,
-    metalness: 0.0,
-  });
-  const leafMats = makeLeafMaterials();
+  const { bark: barkMat, leaves: leafMats } = sharedTreeMats();
   const maxLevel = opts.maxLevel;
   const leafScale = opts.leafScale;
 
@@ -1675,7 +1683,7 @@ function createGardenTree(scene, theme) {
     leafScale: 1.4,
   });
   tree.position.set(7, 0, 14);
-  scene.add(tree);
+  for (const m of bakeGroupByMaterial(tree)) scene.add(m); // 부품 76+ → 4콜
 
   const rootFlare = new THREE.Mesh(
     new THREE.CylinderGeometry(0.42, 0.72, 0.45, 9),
