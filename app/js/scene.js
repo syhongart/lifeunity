@@ -270,9 +270,13 @@ function applyCycleFrame(cs, frame) {
   cs.ambientLight.color.copy(frame.ambientColor);
   cs.ambientLight.intensity = frame.ambientIntensity;
 
-  cs.scene.fog.color.copy(frame.fogColor);
-  cs.scene.fog.near = frame.fogNear;
-  cs.scene.fog.far = frame.fogFar;
+  if (cs.scene.fog) {
+    // 포테이토 모드(소프트 렌더)는 fog를 제거하므로 널 가드 필수 — 없으면
+    // 매 프레임 예외로 cycle 전체(태양 이동·FPS 집계)가 조용히 죽는다 (실측)
+    cs.scene.fog.color.copy(frame.fogColor);
+    cs.scene.fog.near = frame.fogNear;
+    cs.scene.fog.far = frame.fogFar;
+  }
   cs.scene.background.copy(frame.bgColor);
 
   if (cs.downlights) {
