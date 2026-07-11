@@ -75,13 +75,19 @@ const LITE_VISIBLE_NPCS = 3;
 //   null   : AA on, 터치 1.5 / 데스크톱 최소 1.5× 슈퍼샘플 (기본)
 //   'high' : AA on + 2.0× 풀 슈퍼샘플 (FPS 55+가 10초 지속됐던 기기)
 // 고FPS 지속 시 low→기본→high로 한 단계씩 승급, 저사양 모드 발동 시 즉시 low.
-const SPEC_KEY = 'lu-spec-v1';
+const SPEC_KEY = 'lu-spec-v2';
+// 성능 세대 — 베이킹처럼 부하 구조가 크게 바뀌는 최적화를 배포할 때 +1.
+// 과거 세대에서 학습된 low/high 판정은 무효화하고 기본값에서 재평가한다
+// (실기기 제보: 무겁던 시절 low로 학습된 폰이 최적화 후에도 AA off로 남던 문제).
+const PERF_GEN = 2;
 function readSpec() {
   try {
-    const v = localStorage.getItem(SPEC_KEY);
-    if (v === 'low' || v === 'high') return v;
-    // 구버전 키 마이그레이션
-    if (localStorage.getItem('lu-lowspec-v1') === '1') return 'low';
+    const raw = localStorage.getItem(SPEC_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.gen === PERF_GEN && (parsed.v === 'low' || parsed.v === 'high')) return parsed.v;
+      return null; // 세대 불일치 — 재평가
+    }
     return null;
   } catch (_) {
     return null;
@@ -89,8 +95,9 @@ function readSpec() {
 }
 function writeSpec(v) {
   try {
-    if (v) localStorage.setItem(SPEC_KEY, v);
+    if (v) localStorage.setItem(SPEC_KEY, JSON.stringify({ v, gen: PERF_GEN }));
     else localStorage.removeItem(SPEC_KEY);
+    localStorage.removeItem('lu-spec-v1');
     localStorage.removeItem('lu-lowspec-v1');
   } catch (_) { /* 무시 */ }
 }
@@ -349,9 +356,13 @@ async function init() {
   if (spec === 'low') {
     ratio = Math.min(dpr, 1.25);
   } else if (spec === 'high') {
-    ratio = 2; // 풀 슈퍼샘플 — DPR 1 모니터도 2배 렌더 후 축소
+    ratio = Math.min(Math.max(dpr, 2), 2.5); // 고사양: 네이티브(최대 2.5)
+  } else if (coarsePointer) {
+    // 실기기 제보: 고DPR 폰을 1.5로 캡하면 절반 해상도 확대라 액자 모서리
+    // 계단이 심함 — 기본을 2.0 캡으로 상향 (베이킹 후 씬이 가벼워져 감당 가능)
+    ratio = Math.min(dpr, 2);
   } else {
-    ratio = coarsePointer ? Math.min(dpr, 1.5) : Math.min(Math.max(dpr, 1.5), 2);
+    ratio = Math.min(Math.max(dpr, 1.5), 2);
   }
   renderer.setPixelRatio(ratio);
   renderer.setSize(window.innerWidth, window.innerHeight);
