@@ -55,6 +55,48 @@ const GREETINGS = [
   '안녕하세요, 천천히 둘러보세요!',
 ];
 
+// ---- 꼬마악마 (뿔 달린 심술 평론가) — 작품을 꼬아서 평가한다 ----
+const IMP_NAME = '꼬마악마';
+const IMP_REMARKS = [
+  (t) => `『${t}』... 흠, 색만 요란하네요`,
+  (t) => `『${t}』 이 정도는 나도 그리겠는데요?`,
+  (t) => `『${t}』 액자가 아깝... 농담이에요. 반쯤은.`,
+  (t) => `솔직히 『${t}』는 과대평가 아닌가요?`,
+  (t) => `『${t}』 앞에서 다들 감동한 척은... 쳇`,
+  (t) => `『${t}』 나쁘진 않네요. 인정하긴 싫지만.`,
+  (t) => `흥, 『${t}』... 자꾸 눈이 가서 짜증나네`,
+];
+const IMP_GREETINGS = [
+  '왜요. 뭐요.',
+  '흥, 말 걸지 마세요. ...뭐 봐요?',
+  '나 바빠요. 혹평할 작품이 많거든요.',
+];
+const IMP_HURT = [
+  '지금... 때렸어요?! 기억해두죠.',
+  '아야!! 이 미술관 매너 뭐예요?!',
+  '으윽... 뿔 부러지면 책임질 거예요?!',
+  '흑... 안 아프거든요?! 하나도!!',
+];
+const HURT_LINES = [
+  '아야!!',
+  '으앙, 왜 때려요 ㅠㅠ',
+  '아야... 아프단 말이에요',
+];
+const IMP_LOOK = {
+  hairStyle: 'short',
+  hairColor: '#3a2430',
+  skin: '#f2c8a0',
+  eyeStyle: 'round',
+  eyeColor: '#b02e2e',
+  mouth: 'cat',
+  blush: false,
+  top: '#3a3f4a',
+  bottom: '#8e2635',
+  bottomType: 'pants',
+  shoes: '#2b2b33',
+  acc: 'horns',
+};
+
 // 가중치 랜덤 — 인기작(featured)이 더 자주 뽑히게
 function weightedPick(arts) {
   let total = 0;
@@ -125,6 +167,7 @@ export class NpcCrowd {
         nickname: NPC_NAMES[i],
         color: NPC_COLORS[i % NPC_COLORS.length],
         char: randomChibiChar(),
+        persona: 'normal',
         floorArts,
         art,
         state: 'view',
@@ -138,8 +181,35 @@ export class NpcCrowd {
         tz: pose.z,
         try_: pose.ry,
         greetCd: randRange(0, 20), // 입장 직후 일제히 인사하지 않게 분산
+        hurtCd: 0,
       });
     }
+
+    // 꼬마악마 — 작품이 가장 많은 층에 상주하는 심술 평론가 (+1명, 별도 정원)
+    const impFloor = floors.reduce((a, b) => (b.length > a.length ? b : a), floors[0]);
+    const impArt = rand(impFloor);
+    const impPose = this._posedAt(impArt);
+    this.npcs.push({
+      id: 'npc-imp',
+      nickname: IMP_NAME,
+      color: '#b02e2e',
+      char: encodeChibi(IMP_LOOK),
+      persona: 'imp',
+      floorArts: impFloor,
+      art: impArt,
+      state: 'view',
+      viewLeft: randRange(4, VIEW_TIME_MAX),
+      speed: randRange(WALK_SPEED_MIN, WALK_SPEED_MAX),
+      x: impPose.x,
+      y: impPose.y,
+      z: impPose.z,
+      ry: impPose.ry,
+      tx: impPose.x,
+      tz: impPose.z,
+      try_: impPose.ry,
+      greetCd: randRange(0, 15),
+      hurtCd: 0,
+    });
   }
 
   /** 감상 위치 + 겹침 방지용 소폭 좌우 오프셋(벽 접선 방향) */
@@ -174,6 +244,7 @@ export class NpcCrowd {
     const out = {};
     for (const npc of this.npcs) {
       npc.greetCd = Math.max(0, npc.greetCd - d);
+      npc.hurtCd = Math.max(0, npc.hurtCd - d);
       if (npc.state === 'view') {
         npc.viewLeft -= d;
         // 사람이 다가오면 몸을 돌려 바라보고, 이따금 인사한다
@@ -183,7 +254,7 @@ export class NpcCrowd {
           if (npc.greetCd <= 0 && this._chatCooldown <= 0) {
             npc.greetCd = GREET_COOLDOWN;
             this._chatCooldown = CHAT_COOLDOWN * 0.5; // 인사는 조금 더 자주 허용
-            this._chatQueue.push({ name: npc.nickname, text: rand(GREETINGS) });
+            this._chatQueue.push({ name: npc.nickname, text: rand(npc.persona === 'imp' ? IMP_GREETINGS : GREETINGS) });
           }
         } else {
           npc.ry = npc.try_; // 사람이 떠나면 다시 작품을 본다
@@ -235,10 +306,23 @@ export class NpcCrowd {
   }
 
   _maybeRemark(npc) {
-    if (this._chatCooldown > 0 || Math.random() > CHAT_CHANCE) return;
-    this._chatCooldown = CHAT_COOLDOWN;
+    const imp = npc.persona === 'imp';
+    // 꼬마악마는 혹평이 본업이라 더 자주(0.55), 쿨다운도 짧게 쓴다
+    if (this._chatCooldown > 0 || Math.random() > (imp ? 0.55 : CHAT_CHANCE)) return;
+    this._chatCooldown = imp ? CHAT_COOLDOWN * 0.6 : CHAT_COOLDOWN;
     const title = (npc.art && npc.art.title) || '이 작품';
-    this._chatQueue.push({ name: npc.nickname, text: rand(REMARKS)(title) });
+    this._chatQueue.push({ name: npc.nickname, text: rand(imp ? IMP_REMARKS : REMARKS)(title) });
+  }
+
+  /** 맞았을 때 — 아파하는 한마디 (호스트 전용, multiplayer.onNpcHit이 호출) */
+  onHit(id, level) {
+    const npc = this.npcs.find((n) => n.id === id);
+    if (!npc || npc.hurtCd > 0) return;
+    npc.hurtCd = 8;
+    const pool = npc.persona === 'imp' ? IMP_HURT : HURT_LINES;
+    let text = pool[Math.min(pool.length - 1, Math.max(0, (level | 0) - 1))];
+    if (level >= 3 && npc.persona !== 'imp') text = '으앙 ㅠㅠ 그만 때려요!! 진짜 아파요!!';
+    this._chatQueue.push({ name: npc.nickname, text });
   }
 
   /** 대기 중인 NPC 채팅 한 건을 꺼낸다 (없으면 null) */

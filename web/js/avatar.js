@@ -913,6 +913,12 @@ function createChibiAvatarInstance(charId, colorHex, nickname) {
     update(delta, speed) {
       built.update(delta, speed);
     },
+    hit() {
+      built.ouch(); // >_< 표정 + 움찔 스쿼시 (chibi.js 내장)
+    },
+    setWound(level) {
+      built.setWound(level); // 반창고/멍/눈물 얼굴 반영
+    },
     dispose() {
       built.dispose();
       if (label.material.map) label.material.map.dispose();
@@ -1040,9 +1046,30 @@ export function createAvatarInstance(charId, colorHex, nickname) {
   // 그림자가 그려져도 보이지 않는다(픽셀 실측으로 확인한 함정).
   const shadow = attachBlobShadow(inst.group, isChibi ? 0.5 : 0.55);
   const origDispose = inst.dispose;
+  // 치비가 아닌 아바타(GLB류)용 제네릭 '움찔' — 그룹 y 스쿼시 (치비는 자체 리액션)
+  let hitT = 0;
+  const HIT_DUR = 0.5;
   return {
     group: inst.group,
-    update: (delta, speed) => inst.update(delta, speed),
+    update: (delta, speed) => {
+      inst.update(delta, speed);
+      if (hitT > 0) {
+        hitT = Math.max(0, hitT - (delta || 0));
+        const k = Math.sin((hitT / HIT_DUR) * Math.PI);
+        inst.group.scale.y = 1 - 0.14 * k;
+        if (hitT === 0) inst.group.scale.y = 1;
+      }
+    },
+    /** 맞기 리액션 + 상처 반영 (level: 누적 상처 0~3) */
+    hit(level) {
+      if (typeof inst.setWound === 'function') inst.setWound(level);
+      if (typeof inst.hit === 'function') inst.hit(level);
+      else hitT = HIT_DUR;
+    },
+    /** 상처 단계만 반영 (자연 회복 감쇠용 — 리액션 없음) */
+    setWound(level) {
+      if (typeof inst.setWound === 'function') inst.setWound(level);
+    },
     dispose: () => {
       shadow.mat.dispose();
       shadow.geo.dispose();

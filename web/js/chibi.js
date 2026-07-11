@@ -40,6 +40,7 @@ export const CHIBI_ACCESSORIES = [
   { id: 'none', name: '없음' },
   { id: 'ribbon', name: '리본' },
   { id: 'flower', name: '꽃' },
+  { id: 'horns', name: '뿔' },
 ];
 
 export const DEFAULT_CHIBI = {
@@ -160,24 +161,54 @@ function drawEye(ctx, cx, cy, p) {
   ctx.stroke();
 }
 
-function drawFaceCanvas(p) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 512;
+/**
+ * 얼굴을 캔버스에 그린다. fx로 아픔/상처 상태를 표현한다:
+ *   fx.ouch  — 맞은 직후 >_< 표정 (눈·입 오버라이드)
+ *   fx.wound — 누적 상처 0~3 (1: 반창고, 2: +멍/처진 눈썹, 3: +눈물)
+ */
+function drawFaceInto(canvas, p, fx) {
+  const wound = (fx && fx.wound) || 0;
+  const ouch = !!(fx && fx.ouch);
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, 512, 512);
 
   const EYE_Y = 252;
-  drawEye(ctx, 256 - 88, EYE_Y, p);
-  drawEye(ctx, 256 + 88, EYE_Y, p);
+  if (ouch) {
+    // >_< 눈 — 아픔의 만국 공통어
+    ctx.strokeStyle = '#2a2320';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 15;
+    for (const s of [-1, 1]) {
+      const cx = 256 + s * 88;
+      ctx.beginPath();
+      ctx.moveTo(cx - s * 34, EYE_Y - 30);
+      ctx.lineTo(cx + s * 24, EYE_Y + 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - s * 34, EYE_Y + 34);
+      ctx.lineTo(cx + s * 24, EYE_Y + 2);
+      ctx.stroke();
+    }
+  } else {
+    drawEye(ctx, 256 - 88, EYE_Y, p);
+    drawEye(ctx, 256 + 88, EYE_Y, p);
+  }
 
-  // 눈썹 — 머리색 계열의 짧은 아치
+  // 눈썹 — 평소 아치, 상처 2+ 는 팔자(슬픔), 아픔 순간은 안쪽으로 찌푸림
   ctx.strokeStyle = shade(p.hairColor, 0.8);
   ctx.lineCap = 'round';
   ctx.lineWidth = 9;
   for (const s of [-1, 1]) {
     ctx.beginPath();
-    ctx.arc(256 + s * 88, EYE_Y - 58, 36, Math.PI * 1.25, Math.PI * 1.75);
+    if (ouch) {
+      ctx.moveTo(256 + s * 58, EYE_Y - 92);
+      ctx.lineTo(256 + s * 112, EYE_Y - 72);
+    } else if (wound >= 2) {
+      ctx.moveTo(256 + s * 60, EYE_Y - 74);
+      ctx.lineTo(256 + s * 112, EYE_Y - 94);
+    } else {
+      ctx.arc(256 + s * 88, EYE_Y - 58, 36, Math.PI * 1.25, Math.PI * 1.75);
+    }
     ctx.stroke();
   }
 
@@ -185,7 +216,17 @@ function drawFaceCanvas(p) {
   const MY = 368;
   ctx.strokeStyle = '#b0605a';
   ctx.lineCap = 'round';
-  if (p.mouth === 'cat') {
+  if (ouch) {
+    // 크게 벌린 울상
+    ctx.fillStyle = '#a14a44';
+    ctx.beginPath();
+    ctx.ellipse(256, MY, 34, 28, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e58a80';
+    ctx.beginPath();
+    ctx.ellipse(256, MY + 12, 20, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (p.mouth === 'cat') {
     ctx.lineWidth = 9;
     for (const s of [-1, 1]) {
       ctx.beginPath();
@@ -209,7 +250,7 @@ function drawFaceCanvas(p) {
   }
 
   // 볼터치
-  if (p.blush) {
+  if (p.blush && !ouch) {
     ctx.fillStyle = 'rgba(255,140,140,0.38)';
     for (const s of [-1, 1]) {
       ctx.beginPath();
@@ -217,6 +258,41 @@ function drawFaceCanvas(p) {
       ctx.fill();
     }
   }
+
+  // 상처 1+: 오른쪽 볼 반창고
+  if (wound >= 1) {
+    ctx.save();
+    ctx.translate(256 + 152, 326);
+    ctx.rotate(-0.5);
+    ctx.fillStyle = '#e8c9a0';
+    ctx.fillRect(-40, -13, 80, 26);
+    ctx.fillStyle = '#d9b88d';
+    ctx.fillRect(-15, -13, 30, 26);
+    ctx.restore();
+  }
+  // 상처 2+: 왼쪽 볼 멍
+  if (wound >= 2) {
+    ctx.fillStyle = 'rgba(110,90,200,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(256 - 152, 320, 32, 21, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // 상처 3: 그렁그렁 눈물
+  if (wound >= 3 && !ouch) {
+    ctx.fillStyle = 'rgba(130,185,255,0.85)';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(256 + s * 88, EYE_Y + 80, 10, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawFaceCanvas(p) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  drawFaceInto(canvas, p, null);
   return canvas;
 }
 
@@ -344,8 +420,9 @@ export function buildChibi(params) {
   addOutline(skull, 1.045, mats);
   headPivot.add(skull);
 
-  // 얼굴 캡 (+Z 전면) — 캔버스 텍스처
-  const faceTex = new THREE.CanvasTexture(drawFaceCanvas(p));
+  // 얼굴 캡 (+Z 전면) — 캔버스 텍스처 (상처/아픔 시 제자리에서 다시 그린다)
+  const faceCanvas = drawFaceCanvas(p);
+  const faceTex = new THREE.CanvasTexture(faceCanvas);
   faceTex.colorSpace = THREE.SRGBColorSpace;
   texs.push(faceTex);
   const FACE_PHI = 1.85;
@@ -443,6 +520,15 @@ export function buildChibi(params) {
     const knot = new THREE.Mesh(mkGeo(new THREE.SphereGeometry(0.032, 10, 8)), ribMat);
     rib.add(knot);
     hairRoot.add(rib);
+  } else if (p.acc === 'horns') {
+    const hornMat = mkMat(toon('#c0392b'));
+    for (const s of [-1, 1]) {
+      const horn = new THREE.Mesh(mkGeo(new THREE.ConeGeometry(0.055, 0.17, 10)), hornMat);
+      horn.position.set(s * 0.17, 0.33, 0.04);
+      horn.rotation.z = -s * 0.42; // 바깥쪽으로 벌어진 도깨비 뿔
+      addOutline(horn, 1.12, mats);
+      hairRoot.add(horn);
+    }
   } else if (p.acc === 'flower') {
     const fl = new THREE.Group();
     fl.position.set(0.18, 0.25, 0.15);
@@ -467,9 +553,52 @@ export function buildChibi(params) {
   let walkPhase = 0;
   const HEIGHT = 1.34;
 
+  // ---- 맞기 리액션 상태 ----
+  const SQUASH_DUR = 0.55;
+  let wound = 0;   // 누적 상처 0~3 (얼굴에 반창고/멍/눈물)
+  let ouchT = 0;   // >_< 표정 남은 시간
+  let squashT = 0; // 움찔 스쿼시 남은 시간
+
+  function refreshFace() {
+    drawFaceInto(faceCanvas, p, { wound, ouch: ouchT > 0 });
+    faceTex.needsUpdate = true;
+  }
+
+  /** 누적 상처 단계 설정 (0~3) — 회복 감쇠에서도 호출된다 */
+  function setWound(level) {
+    const next = Math.max(0, Math.min(3, Math.floor(level) || 0));
+    if (next === wound) return;
+    wound = next;
+    refreshFace();
+  }
+
+  /** 맞았다! — 움찔 + >_< 표정 (표정은 잠시 후 자동 복귀) */
+  function ouch() {
+    ouchT = 0.85;
+    squashT = SQUASH_DUR;
+    refreshFace();
+  }
+
   function update(delta, speed) {
     const d = Math.min(delta || 0, 0.1);
     t += d;
+
+    // 아픔 표정 타이머 — 끝나면 평상 얼굴(상처 반영)로 복귀
+    if (ouchT > 0) {
+      ouchT -= d;
+      if (ouchT <= 0) {
+        ouchT = 0;
+        refreshFace();
+      }
+    }
+    // 움찔 스쿼시 — 눌렸다 통통 복귀
+    if (squashT > 0) {
+      squashT = Math.max(0, squashT - d);
+      const k = Math.sin((squashT / SQUASH_DUR) * Math.PI);
+      wrapper.scale.set(1 + 0.1 * k, 1 - 0.18 * k, 1 + 0.1 * k);
+    } else if (wrapper.scale.y !== 1) {
+      wrapper.scale.set(1, 1, 1);
+    }
     const spd = Math.max(0, speed || 0);
     const w = Math.min(1, spd / 1.3); // 걷기 블렌드 0~1
     walkPhase += d * (3 + 8.5 * Math.min(spd, 2.4));
@@ -511,5 +640,5 @@ export function buildChibi(params) {
     for (const tx of texs) tx.dispose();
   }
 
-  return { group, height: HEIGHT, update, dispose };
+  return { group, height: HEIGHT, update, dispose, setWound, ouch };
 }
