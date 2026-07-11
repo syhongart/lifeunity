@@ -1079,7 +1079,7 @@ function buildStair(scene, s) {
 }
 
 // 실물 코퍼(우물반자) 천장 — 직교 보 그리드 + 리세스 + 매입등
-function buildCofferCeiling(scene, floorY, segments, lightsOut, theme, lightGrid) {
+function buildCofferCeiling(scene, floorY, segments, lightsOut, theme, lightGrid, fullLights) {
   const ceilY = floorY + BUILDING.clearH;      // 보 밑면
   const beamD = 0.32;                          // 보 깊이
   const beamW = 0.14;
@@ -1153,12 +1153,18 @@ function buildCofferCeiling(scene, floorY, segments, lightsOut, theme, lightGrid
     }
   }
 
-  // 실제 광원은 두지 않는다 — 포인트라이트 15개가 포워드 렌더러의 모든 픽셀
-  // 셰이딩 비용에 곱해져 저사양 GPU를 죽였다(실측: 데스크톱 3fps의 주범 중 하나).
-  // 실내 보강광은 웜 앰비언트 1개(집계부에서 생성)가 대신하고, 천장의 빛나는
-  // 벌브 메시(emissive)와 작품 스포트 베이크 데칼이 국소 무드를 담당한다.
-  void lightGrid;
-  void lightsOut;
+  // 실제 광원 — 층당 소수만. 포인트라이트는 포워드 렌더러의 모든 픽셀 셰이딩
+  // 비용에 곱해지므로 정상 GPU(fullLights)에서만 켠다. 소프트웨어 렌더링/저사양
+  // 에서는 생략하고 집계부의 웜 앰비언트 1개가 실내 보강을 대신한다 (3fps 진단:
+  // 폰 60fps/PC 3fps는 씬이 아니라 그 PC의 GPU 가속 문제 — 전원 화질 저하는 부당).
+  if (fullLights) {
+    for (const [lx, lz] of lightGrid) {
+      const light = new THREE.PointLight(theme.downlight.color, theme.downlight.intensity * 0.7, 9, 2);
+      light.position.set(lx, ceilY - 0.15, lz);
+      scene.add(light);
+      lightsOut.push(light);
+    }
+  }
 
   return bulbMat;
 }
@@ -1235,7 +1241,7 @@ function buildSouthFacade(scene) {
   scene.add(b1wall);
 }
 
-function createBuilding(scene, theme) {
+function createBuilding(scene, theme, fullLights) {
   const B = BUILDING;
   const W = B.maxX - B.minX;
   const D = B.maxZ - B.minZ;
@@ -1285,7 +1291,7 @@ function createBuilding(scene, theme) {
     const f = floorById(id);
     const holesAbove = B.slabHoles[aboveOf[id]] || [];
     const segs = splitRect(outer, holesAbove);
-    const bm = buildCofferCeiling(scene, f.y, segs, lights, theme, lightGrids[id]);
+    const bm = buildCofferCeiling(scene, f.y, segs, lights, theme, lightGrids[id], fullLights);
     if (!bulbMat) bulbMat = bm;
   }
 
@@ -1418,11 +1424,13 @@ function createBuilding(scene, theme) {
     scene.add(post);
   }
 
-  // 다운라이트 대체 웜 앰비언트 — 15개 포인트라이트의 실내 보강을 광원 1개로.
-  // 계수 0.022: daylight 22 → 0.48 (제거된 포인트 15개의 실내 체감 밝기를
-  // 스크린샷 대조로 맞춘 값 — 0.012는 천장부가 죽어 보였음)
-  const warm = new THREE.AmbientLight(theme.downlight.color, theme.downlight.intensity * 0.022);
-  scene.add(warm);
+  // 다운라이트 대체 웜 앰비언트 — 린 모드(fullLights=false)에서 포인트 15개의
+  // 실내 보강을 광원 1개로. 계수 0.022는 스크린샷 대조로 맞춘 값.
+  let warm = null;
+  if (!fullLights) {
+    warm = new THREE.AmbientLight(theme.downlight.color, theme.downlight.intensity * 0.022);
+    scene.add(warm);
+  }
 
   return { downlights: { lights, warm, bulbMat } };
 }
@@ -1927,7 +1935,8 @@ function buildContactShadows(scene) {
   }
 }
 
-export function createMuseum(scene, themeName = 'daylight') {
+export function createMuseum(scene, themeName = 'daylight', opts = {}) {
+  const fullLights = opts.fullLights !== false;
   const isCycle = themeName === 'cycle';
   // cycle 시작 위상: 관람객 현지 시각(시+분) 비례 — 접속 즉시 "지금" 시각의 하늘로 시작
   const initPhase = isCycle ? getLocalPhase() : 0;
@@ -1941,7 +1950,7 @@ export function createMuseum(scene, themeName = 'daylight') {
   const outdoorRefs = createOutdoors(scene, theme);
   buildContactShadows(scene);
 
-  const buildingRefs = createBuilding(scene, theme);
+  const buildingRefs = createBuilding(scene, theme, fullLights);
   const gardenRefs = createGardenTree(scene, theme);
   const downlightRefs = buildingRefs.downlights;
   const lightRefs = createGlobalLights(scene, theme);

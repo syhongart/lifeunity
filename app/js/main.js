@@ -71,6 +71,91 @@ let liteCullAccum = 0;
 let shadowRebakeInterval = 0;
 let shadowRebakeAccum = 0;
 let shadowWarmupDone = false; // 입장 직후 텍스처/지오메트리 지연 생성분 1회 재베이크
+let gpuInfo = { name: '', soft: false }; // GPU 자가 진단 결과 (init에서 채움)
+
+// 소프트웨어 렌더링(하드웨어 가속 꺼짐/원격 데스크톱/블랙리스트) 판별 문자열.
+// 2026년 데스크톱 Chrome/Edge 최다는 WARP("Microsoft Basic Render Driver") —
+// 하드웨어 가속을 수동으로 끄면 SwiftShader가 아니라 WARP로 동작한다 (전문가 진단).
+const SOFT_GPU_RE = /swiftshader|llvmpipe|softpipe|software (?:rasterizer|renderer|adapter)|microsoft basic render|\bwarp\b|gdi generic|mesa offscreen|apple software renderer/i;
+
+// GPU 프로브 — 렌더러 생성 "전"에 1회용 캔버스로 판별한다 (antialias 등
+// 컨텍스트 생성 시점 옵션을 결과에 따라 정해야 하므로).
+// 2차 신호: failIfMajorPerformanceCaveat 컨텍스트가 거부되면 브라우저 스스로
+// "심각한 성능 제약"을 인정한 것 — 렌더러명이 가려진 환경도 잡는다.
+function probeGpu() {
+  const out = { name: '', soft: false };
+  try {
+    const c1 = document.createElement('canvas');
+    const strict =
+      c1.getContext('webgl2', { failIfMajorPerformanceCaveat: true }) ||
+      c1.getContext('webgl', { failIfMajorPerformanceCaveat: true });
+    const caveat = !strict;
+
+    const c2 = document.createElement('canvas');
+    const gl = c2.getContext('webgl2') || c2.getContext('webgl');
+    if (!gl) return { name: '', soft: true }; // WebGL 자체 불가 직전 상태
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    out.name = String(
+      (ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || gl.getParameter(gl.RENDERER) || ''
+    );
+    out.soft = SOFT_GPU_RE.test(out.name) || caveat;
+    const lose = gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext(); // 프로브 컨텍스트 즉시 반납
+  } catch (_) { /* 판별 실패 시 정상 GPU로 간주 */ }
+  return out;
+}
+
+// 소프트웨어 렌더링 안내 배너 — 원인은 이 기기의 브라우저 설정이므로,
+// 화질을 깎는 대신 사용자가 스스로 고칠 수 있게 경로를 알려준다.
+// fatal=true: WebGL 생성 자체가 실패한 경우(Chrome M133+ 블랙리스트).
+function showGpuNotice(gpuName, fatal) {
+  const box = document.createElement('div');
+  box.id = 'lu-gpu-notice';
+  box.style.cssText =
+    'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:1200;' +
+    'max-width:min(92vw,600px);background:linear-gradient(180deg,#fffdf8,#f6f1e4);' +
+    'color:#17140f;border:1px solid rgba(212,175,55,0.55);border-radius:14px;' +
+    'padding:14px 44px 14px 18px;box-shadow:0 12px 32px rgba(20,15,8,0.35);' +
+    "font:13px/1.75 'Helvetica Neue',Helvetica,Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;";
+  const head = fatal
+    ? '<b>이 브라우저에서 3D 그래픽 기능을 사용할 수 없습니다</b><br>'
+    : '<b>이 브라우저가 그래픽카드(GPU) 없이 화면을 그리고 있어요</b> — 그래서 몹시 느립니다.<br>';
+  box.innerHTML =
+    head +
+    '<b>Chrome</b>: 설정 → 시스템(<b>chrome://settings/system</b>) → "그래픽 가속 사용" 켜기 → 다시 시작<br>' +
+    '<b>Edge</b>: 설정 → 시스템 및 성능 → "그래픽 가속 사용" 켜기 + "효율 모드" 끄기<br>' +
+    '<b>Firefox</b>: 설정 → 일반 → 성능 → "권장 성능 설정" 해제 → "하드웨어 가속 사용" 체크<br>' +
+    '그래도 느리면: 원격 데스크톱 여부 확인 · 그래픽 드라이버 업데이트 · ' +
+    'Windows 설정 → 디스플레이 → 그래픽에서 브라우저를 "고성능" GPU로 지정 · ' +
+    '확장프로그램 없는 시크릿 창으로 접속해 비교' +
+    (gpuName ? '<div style="margin-top:6px;font-size:11px;color:#8a8172;">감지된 렌더러: ' + gpuName + '</div>' : '');
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.setAttribute('aria-label', '닫기');
+  close.textContent = '×';
+  close.style.cssText =
+    'position:absolute;top:8px;right:10px;width:26px;height:26px;border:none;background:none;' +
+    'font-size:18px;color:#8a8172;cursor:pointer;';
+  close.addEventListener('click', () => box.remove());
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.textContent = '진단 정보 복사';
+  copyBtn.style.cssText =
+    'display:inline-block;margin-top:8px;padding:5px 14px;border-radius:999px;' +
+    'border:1px solid rgba(212,175,55,0.5);background:rgba(212,175,55,0.12);' +
+    'color:#17140f;font:600 11px/1 inherit;cursor:pointer;';
+  copyBtn.addEventListener('click', () => {
+    const report = JSON.stringify({
+      renderer: gpuName, ua: navigator.userAgent, dpr: window.devicePixelRatio,
+      screen: screen.width + 'x' + screen.height, cores: navigator.hardwareConcurrency || 0,
+      mem: navigator.deviceMemory || 0,
+    });
+    try { navigator.clipboard.writeText(report); copyBtn.textContent = '복사됨!'; } catch (_) { /* 무시 */ }
+  });
+  box.appendChild(copyBtn);
+  box.appendChild(close);
+  document.body.appendChild(box);
+}
 const LITE_ENTER_FPS = 24;
 const LITE_EXIT_FPS = 45;
 const LITE_VISIBLE_NPCS = 3;
@@ -420,7 +505,24 @@ async function init() {
   // 렌더 후 축소)으로 계단 현상을 이중으로 누른다.
   const coarsePointer = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   const spec = readSpec();
-  renderer = new THREE.WebGLRenderer({ antialias: spec !== 'low' });
+
+  // ---- GPU 자가 진단 (렌더러 생성 전 프로브) -------------------------------
+  // "폰 60fps / PC 3fps"는 씬이 아니라 그 PC가 GPU 없이 CPU로 그리고 있다는
+  // 신호다 (전문가 진단: 프레임당 250~330ms는 소프트웨어 래스터라이저의 전형
+  // 배율이고, 드로우콜 지배적이라 해상도를 낮춰도 안 빨라지는 것까지 부합).
+  // 렌더러 생성 "전"에 판별해야 antialias(생성 시점 옵션)를 끌 수 있다.
+  gpuInfo = probeGpu();
+  console.info('[ARTSHOW] GPU:', gpuInfo.name || '(unknown)', gpuInfo.soft ? '— SOFTWARE RENDERING' : '');
+  try {
+    renderer = new THREE.WebGLRenderer({
+      antialias: spec !== 'low' && !gpuInfo.soft, // 소프트웨어 렌더러에서 MSAA 리졸브는 치명적
+      powerPreference: 'high-performance',        // 듀얼 GPU 노트북에서 dGPU 선택 유도
+    });
+  } catch (err) {
+    // Chrome M133+는 GPU 블랙리스트 시 소프트웨어 폴백 없이 WebGL 생성이 실패한다
+    showGpuNotice('', true);
+    throw err;
+  }
   bindHitTap(renderer.domElement);
   // 비네팅 — 가장자리를 살짝 눌러 시선을 화면 중앙(작품)으로 모은다.
   // DOM 오버레이라 GPU 비용 0. 사진 캡처에는 capturePhoto가 동일 그라디언트를
@@ -452,11 +554,22 @@ async function init() {
   // (실기기 제보: 'high' 학습된 데스크톱 대형 화면에서 3fps까지 추락)
   const MAX_RENDER_PIXELS = 8.3e6;
   ratio = Math.min(ratio, Math.sqrt(MAX_RENDER_PIXELS / (window.innerWidth * window.innerHeight)));
+
+  // ---- 포테이토 모드 — 소프트웨어 렌더링에서도 걷게 하는 최후 폴백 --------
+  // 원인은 이 기기의 브라우저 설정이므로 안내 배너로 자가 수리를 유도하되,
+  // 이번 세션도 저해상도·그림자 off·무톤매핑·린 조명·프레임 캡으로 버티게 한다.
+  if (gpuInfo.soft) {
+    ratio = Math.min(ratio, 0.5);
+    showGpuNotice(gpuInfo.name, false);
+    document.documentElement.classList.add('lu-potato'); // HUD blur 해제 (CPU 컴포지팅 절약)
+  }
+
   renderer.setPixelRatio(ratio);
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !gpuInfo.soft;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  // ACES 톤매핑은 프래그먼트당 수십 ALU — CPU 렌더에서는 그대로 비용이라 끈다
+  renderer.toneMapping = gpuInfo.soft ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.92; // 전체 감광 — 갤러리 무드 (기존 1.1)
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   document.body.appendChild(renderer.domElement);
@@ -465,8 +578,11 @@ async function init() {
   //    createArtworks() 내부에서도 동일한 캐시된 프로미스를 await하므로 fetch는 1회만 발생한다.
   const ginfo = await ensureGalleryLoaded();
   const resolvedTheme = resolveAutoTheme(ginfo.theme);
-  createMuseum(scene, resolvedTheme);
+  // 다운라이트(포인트 15개)는 정상 GPU에서만 — 화질은 다수를 위해 유지하고,
+  // 소프트웨어 렌더링/저사양 학습 기기만 웜 앰비언트 1개로 대체한다.
+  createMuseum(scene, resolvedTheme, { fullLights: !gpuInfo.soft && spec !== 'low' });
   await createArtworks(scene);
+  if (gpuInfo.soft) scene.fog = null; // 프래그먼트당 fog 연산 삭감 (포테이토 모드)
 
   // 섀도맵 프리즈 — 씬이 정적(아바타는 블롭 그림자)이므로 그림자를 1회만 굽고
   // 매 프레임 재렌더를 끈다 (실측: 프레임 시간의 62%가 섀도 패스였다).
@@ -1028,8 +1144,20 @@ function handleChatSend(text) {
   }
 }
 
+let potatoAccum = 0;
+
 function animate() {
-  const delta = clock.getDelta();
+  let delta = clock.getDelta();
+
+  // 포테이토 모드 프레임 캡(~20fps) — 소프트웨어 렌더는 프레임 시간이 널뛰어
+  // 입력 지연 체감이 더 나쁘다. 일정한 20fps가 오히려 안정적으로 걸린다.
+  // 건너뛴 시간은 누적해 다음 프레임의 delta로 넘긴다(시뮬 시간 보존).
+  if (gpuInfo.soft) {
+    potatoAccum += delta;
+    if (potatoAccum < 0.048) return;
+    delta = potatoAccum;
+    potatoAccum = 0;
+  }
 
   try {
     // 이동/회전 (트윈/투어 중에는 player.disable 상태이므로 update는 사실상 no-op)
