@@ -103,6 +103,69 @@ function writeSpec(v) {
 }
 let specFastTicks = 0; // 승급용 고FPS 연속 카운트
 
+// ---------------------------------------------------------------------------
+// 첫 방문 행동 온보딩 (터치 전용, UX 감사 §3 경량판) — 모달 대신 "행동으로
+// 배우는" 3단계: 이동 힌트(맥동 링) → 시점 스와이프 힌트 → 투어 안전망 안내.
+// 각 단계는 실제 행동(이동/회전)이 감지되면 넘어가며 localStorage로 1회만.
+// ---------------------------------------------------------------------------
+const ONBOARD_KEY = 'lu-onboard-v1';
+let onboardStep = -1; // -1: 비활성
+let onboardRing = null;
+let onboardPos0 = null;
+let onboardYaw0 = 0;
+let onboardDoneT = 0;
+
+function startOnboarding() {
+  try {
+    if (localStorage.getItem(ONBOARD_KEY)) return;
+  } catch (_) { /* 접근 불가 시 매번 떠도 무해 */ }
+  if (!(typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches)) return;
+  onboardStep = 0;
+  const st = player.getState();
+  onboardPos0 = { x: st.x, z: st.z };
+  // 맥동하는 조이스틱 프리뷰 링 — 플로팅 조이스틱이라 위치가 달라도 동작 일치
+  const styleTag = document.createElement('style');
+  styleTag.textContent = '@keyframes lu-ob-pulse { 0%{transform:translate(-50%,-50%) scale(1);opacity:0.75;} 70%{transform:translate(-50%,-50%) scale(1.25);opacity:0.2;} 100%{transform:translate(-50%,-50%) scale(1);opacity:0.75;} }';
+  document.head.appendChild(styleTag);
+  onboardRing = document.createElement('div');
+  onboardRing.style.cssText =
+    'position:fixed;left:24%;bottom:22%;width:110px;height:110px;border-radius:50%;' +
+    'border:3px solid rgba(255,253,247,0.85);pointer-events:none;z-index:60;' +
+    'transform:translate(-50%,-50%);animation:lu-ob-pulse 1.6s ease-in-out infinite;';
+  document.body.appendChild(onboardRing);
+  setStatus('왼쪽 화면을 누른 채 밀면 걸어요 🚶');
+}
+
+function tickOnboarding() {
+  if (onboardStep < 0) return;
+  const st = player.getState();
+  if (onboardStep === 0) {
+    if (Math.hypot(st.x - onboardPos0.x, st.z - onboardPos0.z) > 1.5) {
+      onboardStep = 1;
+      onboardYaw0 = st.ry;
+      if (onboardRing) {
+        onboardRing.remove();
+        onboardRing = null;
+      }
+      setStatus('잘했어요! 오른쪽 화면을 쓸면 주위를 둘러봐요 👀');
+    }
+  } else if (onboardStep === 1) {
+    let dy = st.ry - onboardYaw0;
+    dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    if (Math.abs(dy) > 0.6) {
+      onboardStep = 2;
+      onboardDoneT = 0;
+      setStatus('작품에 다가가면 설명이 나타나요 — 어려우면 [투어] 버튼을 눌러요 🖼️');
+    }
+  } else if (onboardStep === 2) {
+    onboardDoneT += 1;
+    if (onboardDoneT > 420) { // ~7초(60fps 기준) 후 종료
+      onboardStep = -1;
+      try { localStorage.setItem(ONBOARD_KEY, '1'); } catch (_) { /* 무시 */ }
+    }
+  }
+}
+
 function applyNpcCulling() {
   if (!mp) return;
   const npcs = [];
@@ -165,7 +228,7 @@ function toggleSelfView() {
     selfAvatar.group.visible = true;
     selfPrev = null;
     selfSpeed = 0;
-    setStatus('내 모습 보기 — V키로 1인칭 복귀');
+    setStatus('내 모습 보기 — V키 또는 [시점] 버튼으로 복귀');
   } else if (selfAvatar) {
     selfAvatar.group.visible = false;
   }
@@ -814,6 +877,7 @@ function handleEnter({ nickname, color, char }) {
 
   // 새소리·바람 앰비언트 (사용자 제스처 안에서 시작해야 autoplay 허용됨)
   startAmbient();
+  startOnboarding();
 
   try {
     // 전시별 멀티플레이 룸 — 같은 전시 링크로 들어온 사람끼리만 만난다.
@@ -955,6 +1019,8 @@ function animate() {
       mp.sendState(player.getState());
       mp.update(delta);
     }
+
+    tickOnboarding();
 
     // 3인칭 자기 아바타 — 눈 위치/yaw를 발밑 기준으로 반영 + 속도 평활
     if (thirdPerson && selfAvatar) {

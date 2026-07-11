@@ -219,6 +219,12 @@ export class PlayerController {
           this.moveTouch.dy = (dy * scale) / JOYSTICK_RADIUS;
           this._joyKnob.style.left = this.moveTouch.startX + dx * scale + 'px';
           this._joyKnob.style.top = this.moveTouch.startY + dy * scale + 'px';
+          // 끝까지 밀면 달리기 — 숨은 기능이던 것을 골드 발광으로 가시화 (UX 감사)
+          const running = Math.hypot(this.moveTouch.dx, this.moveTouch.dy) > 0.85;
+          this._joyKnob.style.background = running ? '#ffd97a' : 'rgba(255,253,247,0.85)';
+          this._joyKnob.style.boxShadow = running
+            ? '0 0 16px 5px rgba(212,175,55,0.75)'
+            : '0 2px 6px rgba(0,0,0,0.35)';
         } else if (this.lookTouch && touch.identifier === this.lookTouch.id) {
           const mx = touch.clientX - this.lookTouch.lastX;
           const my = touch.clientY - this.lookTouch.lastY;

@@ -609,6 +609,14 @@ function injectStyles() {
   transition: opacity 0.6s ease;
 }
 .lu-hud.lu-visible { opacity: 1; }
+/* [P0] 인터랙티브 HUD는 가시화와 함께 터치도 복구 (감사 발견 버그) */
+#lu-dock.lu-visible, #lu-controls-toggle.lu-visible { pointer-events: auto; }
+/* 터치 기기: 작품 정보 카드가 오른쪽 시점 드래그 존을 잠식하지 않게 —
+   카드 몸통은 터치를 통과시키고 '크게 보기' 버튼만 반응 (감사 P1) */
+@media (pointer: coarse) {
+  #lu-artwork { pointer-events: none; }
+  #lu-artwork .lu-art-hint { pointer-events: auto; }
+}
 
 #lu-controls {
   top: 16px; left: 16px;
@@ -974,7 +982,7 @@ function injectStyles() {
 /* 책갈피 탭 — 패널 오른쪽 가장자리에 붙어 함께 미끄러진다 */
 #lu-gbtab {
   position: absolute;
-  right: -33px; top: 38%;
+  right: -33px; top: 20%;
   writing-mode: vertical-rl;
   padding: 15px 8px 15px 6px;
   background: rgba(10,10,12,0.72);
@@ -2841,6 +2849,11 @@ export function hideLobby() {
   els.chat.wrap.classList.add('lu-visible');
   els.galleryTitle.classList.add('lu-visible');
   els.guestbook.tab.classList.add('lu-visible');
+  // [P0] 모바일 독·조작법 토글 — 이 두 줄이 빠져 실기기에서 독이 투명+터치불가로
+  // 죽어 있었다 (UX 감사에서 발견). dock은 데스크톱에서 null이므로 가드.
+  if (els.dock) els.dock.classList.add('lu-visible');
+  const controlsToggle = document.getElementById('lu-controls-toggle');
+  if (controlsToggle) controlsToggle.classList.add('lu-visible');
 }
 
 export function showArtworkInfo(art) {
