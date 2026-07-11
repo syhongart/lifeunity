@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { PEER_ROOM_ID, EYE_HEIGHT } from './config.js';
 import { createAvatarInstance } from './avatar.js';
 import { mergeNotes } from './guestbook.js';
+import { isValidPhotoItem } from './feed.js';
 
 // 룸 id는 전시별로 분리된다(같은 전시를 보는 사람끼리만 만난다) — 생성자 옵션으로
 // 주입되며, 미지정 시 기본 전시 룸(PEER_ROOM_ID)을 쓴다.
@@ -38,6 +39,7 @@ export class MultiplayerManager {
     this._wounds = new Map();
     this.onSelfHit = (level) => {}; // 내가 맞았을 때 (main.js가 화면 연출)
     this.onVisitor = (id, info) => {}; // 새 사람 방문자 관측 (통계용 — NPC 제외)
+    this.onPhoto = (item) => {}; // 원격 캡처 사진 수신 (포토월 — main.js가 저장/알림)
     this.onNpcHit = (id, level) => {}; // NPC가 맞았을 때 (호스트 전용 — 아파하는 채팅)
     this.onStatus = (statusText) => {};
     this.onGuestbook = (notes) => {};
@@ -75,6 +77,20 @@ export class MultiplayerManager {
    */
   sendState(state) {
     this._lastState = state;
+  }
+
+  /**
+   * 관람 캡처 공유 — 같은 방 전원에게 썸네일을 전파한다 (방명록과 같은
+   * 로컬 우선 피드 규약: 수신 측이 feed.js 검증 후 localStorage에 병합).
+   */
+  sendPhoto(item) {
+    if (!isValidPhotoItem(item)) return;
+    const msg = { type: 'photo', item, senderId: this.peer ? this.peer.id : null };
+    if (this.isHost) {
+      this._broadcast(msg);
+    } else if (this.hostConn && this.hostConn.open) {
+      this.hostConn.send(msg);
+    }
   }
 
   /**
@@ -310,6 +326,11 @@ export class MultiplayerManager {
           info.x = data.x; info.y = data.y; info.z = data.z; info.ry = data.ry;
           this._updateRemoteAvatar(conn.peer, info);
         }
+      } else if (data.type === 'photo') {
+        if (isValidPhotoItem(data.item)) {
+          this._broadcast({ type: 'photo', item: data.item, senderId: conn.peer }, conn.peer);
+          this.onPhoto(data.item); // 호스트 자신도 수신
+        }
       } else if (data.type === 'hit') {
         // 게스트의 타격 요청 — 검증 후 전원 릴레이 (sx/sz는 요청자 위치)
         this._applyHit({ target: data.target, sx: data.sx, sz: data.sz });
@@ -446,6 +467,8 @@ export class MultiplayerManager {
         if (!ids.has(id)) this._removeAvatar(id);
       }
       this.onPlayerCount(Object.values(players).filter((p) => p && !p.npc).length);
+    } else if (data.type === 'photo') {
+      if (data.senderId !== selfId && isValidPhotoItem(data.item)) this.onPhoto(data.item);
     } else if (data.type === 'hitfx') {
       this._receiveHitFx(String(data.target || ''), Math.max(1, Math.min(3, data.level | 0)));
     } else if (data.type === 'chat') {
