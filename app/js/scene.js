@@ -275,6 +275,7 @@ function applyCycleFrame(cs, frame) {
   cs.scene.background.copy(frame.bgColor);
 
   if (cs.downlights) {
+    if (cs.downlights.warm) cs.downlights.warm.intensity = frame.downlightIntensity * 0.022;
     for (const light of cs.downlights.lights) light.intensity = frame.downlightIntensity;
     cs.downlights.bulbMat.emissiveIntensity = 2.5 * (frame.downlightIntensity / 22);
   }
@@ -1152,13 +1153,12 @@ function buildCofferCeiling(scene, floorY, segments, lightsOut, theme, lightGrid
     }
   }
 
-  // 실제 광원 — 층당 소수만 (성능)
-  for (const [lx, lz] of lightGrid) {
-    const light = new THREE.PointLight(theme.downlight.color, theme.downlight.intensity * 0.7, 9, 2);
-    light.position.set(lx, ceilY - 0.15, lz);
-    scene.add(light);
-    lightsOut.push(light);
-  }
+  // 실제 광원은 두지 않는다 — 포인트라이트 15개가 포워드 렌더러의 모든 픽셀
+  // 셰이딩 비용에 곱해져 저사양 GPU를 죽였다(실측: 데스크톱 3fps의 주범 중 하나).
+  // 실내 보강광은 웜 앰비언트 1개(집계부에서 생성)가 대신하고, 천장의 빛나는
+  // 벌브 메시(emissive)와 작품 스포트 베이크 데칼이 국소 무드를 담당한다.
+  void lightGrid;
+  void lightsOut;
 
   return bulbMat;
 }
@@ -1418,7 +1418,13 @@ function createBuilding(scene, theme) {
     scene.add(post);
   }
 
-  return { downlights: { lights, bulbMat } };
+  // 다운라이트 대체 웜 앰비언트 — 15개 포인트라이트의 실내 보강을 광원 1개로.
+  // 계수 0.022: daylight 22 → 0.48 (제거된 포인트 15개의 실내 체감 밝기를
+  // 스크린샷 대조로 맞춘 값 — 0.012는 천장부가 죽어 보였음)
+  const warm = new THREE.AmbientLight(theme.downlight.color, theme.downlight.intensity * 0.022);
+  scene.add(warm);
+
+  return { downlights: { lights, warm, bulbMat } };
 }
 
 
@@ -1838,7 +1844,9 @@ function createGlobalLights(scene, theme) {
   const sun = new THREE.DirectionalLight(theme.sun.color, theme.sun.intensity);
   sun.position.set(...theme.sun.pos);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(4096, 4096);
+  // 4096² → 2048²: 섀도 패스 필레이트 1/4. 소프트 필터(PCFSoft)가 계단을 뭉개
+  // 주고, 정적 씬은 아래 main.js의 섀도맵 프리즈로 매 프레임 재렌더도 안 한다.
+  sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -0.0005;
   sun.shadow.normalBias = 0.02;
   // 실내 + 근처 실외(정원/조각)까지 그림자 커버 (테마별 태양 각도에 맞춰 조정)

@@ -343,7 +343,7 @@ function createFallbackAvatar(colorHex, nickname) {
   });
   const body = new THREE.Mesh(bodyGeo, bodyMat);
   body.position.y = bodyHeight / 2; // 발바닥 기준
-  body.castShadow = true;
+  body.castShadow = false; // 블롭 그림자가 접지 담당 (섀도맵 프리즈 잔상 방지)
   group.add(body);
   disposables.push(bodyGeo, bodyMat);
 
@@ -358,7 +358,7 @@ function createFallbackAvatar(colorHex, nickname) {
   });
   const head = new THREE.Mesh(headGeo, headMat);
   head.position.y = headY;
-  head.castShadow = true;
+  head.castShadow = false; // 블롭 그림자가 접지 담당
   group.add(head);
   disposables.push(headGeo, headMat);
 
@@ -428,7 +428,9 @@ function createRiggedAvatar(template, colorHex, nickname, animOverride = null, f
   const root = SkeletonUtils.clone(template.scene);
   root.traverse((obj) => {
     if (!obj.isMesh) return;
-    obj.castShadow = true;
+    // 실시간 그림자 제외 — 발밑 블롭 그림자가 접지를 담당하고, 섀도맵은
+    // 정적 씬 프리즈(main.js) 대상이라 움직이는 아바타가 끼면 잔상이 남는다.
+    obj.castShadow = false;
     obj.receiveShadow = false;
   });
   // 메시/머티리얼은 SkeletonUtils.clone(내부적으로 Object3D.clone)이 스켈레톤만

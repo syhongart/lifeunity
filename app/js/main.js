@@ -67,6 +67,10 @@ const visitorLog = new VisitorLog(); // 랜딩 "최근 관람객" 피드
 let liteMode = false;
 let liteToggleCooldown = 0;
 let liteCullAccum = 0;
+// 섀도맵 재베이크 주기(초) — 0이면 정적 테마(프리즈 유지), cycle 테마는 2초
+let shadowRebakeInterval = 0;
+let shadowRebakeAccum = 0;
+let shadowWarmupDone = false; // 입장 직후 텍스처/지오메트리 지연 생성분 1회 재베이크
 const LITE_ENTER_FPS = 24;
 const LITE_EXIT_FPS = 45;
 const LITE_VISIBLE_NPCS = 3;
@@ -460,8 +464,16 @@ async function init() {
   // 2. 갤러리 데이터 로드(1회, 캐시) → 테마 반영 뮤지엄 건축 → 작품 설치
   //    createArtworks() 내부에서도 동일한 캐시된 프로미스를 await하므로 fetch는 1회만 발생한다.
   const ginfo = await ensureGalleryLoaded();
-  createMuseum(scene, resolveAutoTheme(ginfo.theme));
+  const resolvedTheme = resolveAutoTheme(ginfo.theme);
+  createMuseum(scene, resolvedTheme);
   await createArtworks(scene);
+
+  // 섀도맵 프리즈 — 씬이 정적(아바타는 블롭 그림자)이므로 그림자를 1회만 굽고
+  // 매 프레임 재렌더를 끈다 (실측: 프레임 시간의 62%가 섀도 패스였다).
+  // cycle 테마만 태양이 움직이므로 저빈도(2초)로 재베이크한다.
+  renderer.shadowMap.autoUpdate = false;
+  renderer.shadowMap.needsUpdate = true;
+  shadowRebakeInterval = resolvedTheme === 'cycle' ? 2 : 0;
 
   // 리깅 아바타(GLB) 4종 백그라운드 프리로드 — await하지 않는다. 로비에서 닉네임/색/
   // 캐릭터를 고르는 동안 네트워크로 로드가 끝나길 노려, 입장(handleEnter) 시점에 이미
@@ -1118,6 +1130,20 @@ function animate() {
     if (liteCullAccum >= 2) {
       liteCullAccum = 0;
       if (liteMode) applyNpcCulling();
+    }
+
+    // 섀도맵 재베이크 — cycle 테마는 태양이 움직이므로 저빈도 갱신,
+    // 정적 테마는 입장 직후 1회(지연 로드된 액자 등 반영)로 끝.
+    if (shadowRebakeInterval > 0) {
+      shadowRebakeAccum += delta;
+      if (shadowRebakeAccum >= shadowRebakeInterval) {
+        shadowRebakeAccum = 0;
+        renderer.shadowMap.needsUpdate = true;
+      }
+    }
+    if (!shadowWarmupDone && entered) {
+      shadowWarmupDone = true;
+      renderer.shadowMap.needsUpdate = true;
     }
 
     if (thirdPerson && selfAvatar) {
