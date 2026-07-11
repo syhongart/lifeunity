@@ -425,7 +425,9 @@ async function init() {
   vignette.id = 'lu-vignette';
   vignette.style.cssText =
     'position:fixed;inset:0;pointer-events:none;z-index:5;' +
-    'background:radial-gradient(ellipse 72% 62% at 50% 46%, rgba(0,0,0,0) 58%, rgba(8,6,4,0.34) 100%);';
+    'background:radial-gradient(ellipse 72% 62% at 50% 46%,' +
+    ' rgba(8,6,4,0) 50%, rgba(8,6,4,0.03) 62%, rgba(8,6,4,0.09) 72%,' +
+    ' rgba(8,6,4,0.17) 82%, rgba(8,6,4,0.26) 91%, rgba(8,6,4,0.34) 100%);';
   document.body.appendChild(vignette);
 
   const dpr = window.devicePixelRatio || 1;
@@ -619,6 +621,10 @@ function capturePhoto() {
         canvas.width / 2, canvas.height * 0.46, Math.max(canvas.width, canvas.height) * 0.72
       );
       vg.addColorStop(0, 'rgba(8,6,4,0)');
+      vg.addColorStop(0.24, 'rgba(8,6,4,0.03)');
+      vg.addColorStop(0.44, 'rgba(8,6,4,0.09)');
+      vg.addColorStop(0.64, 'rgba(8,6,4,0.17)');
+      vg.addColorStop(0.82, 'rgba(8,6,4,0.26)');
       vg.addColorStop(1, 'rgba(8,6,4,0.34)');
       ctx.fillStyle = vg;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
