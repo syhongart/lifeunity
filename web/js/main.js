@@ -18,6 +18,7 @@ import { preloadAvatarTemplates, createAvatarInstance } from './avatar.js';
 import { NpcCrowd } from './npc.js';
 import { loadNotes, saveNotes, mergeNotes, makeNote } from './guestbook.js';
 import { GalleryStats } from './stats.js';
+import { VisitorLog, PhotoWall } from './feed.js';
 import {
   initUI,
   showLoading,
@@ -58,6 +59,8 @@ let player = null;
 let mp = null; // MultiplayerManager — 입장 전에는 null (sendState/update 가드)
 let npcCrowd = null; // AI 관객 — 호스트가 될 때 npcProvider 안에서 지연 생성
 let stats = null; // 작가 리포트 (전시별 방문·감상 통계 — stats.js)
+const visitorLog = new VisitorLog(); // 랜딩 "최근 관람객" 피드
+const photoWall = new PhotoWall(); // 랜딩 "라이브 포토월" 피드
 let statsDwellTimer = null;
 
 // ---------------------------------------------------------------------------
@@ -453,6 +456,21 @@ function capturePhoto() {
       // canvas.toBlob은 일부 환경에서 콜백이 오지 않는 사례가 있어,
       // 어차피 미리보기용으로 만드는 dataURL에서 동기적으로 Blob을 만든다.
       const outDataUrl = canvas.toDataURL('image/png');
+
+      // 포토월 썸네일(360px JPEG) — 랜딩 피드 + 같은 방 전원에게 전파
+      try {
+        const tw = 360;
+        const th = Math.round((canvas.height / canvas.width) * tw);
+        const thumbCanvas = document.createElement('canvas');
+        thumbCanvas.width = tw;
+        thumbCanvas.height = th;
+        thumbCanvas.getContext('2d').drawImage(canvas, 0, 0, tw, th);
+        const thumb = thumbCanvas.toDataURL('image/jpeg', 0.72);
+        const item = photoWall.addLocal(myNickname, galleryInfo ? galleryInfo.name : '', thumb);
+        if (item && mp) mp.sendPhoto(item);
+      } catch (err) {
+        console.warn('포토월 썸네일 생성 실패 (캡처 자체는 정상):', err);
+      }
       showShareModal({
         blob: dataUrlToBlob(outDataUrl),
         dataUrl: outDataUrl,
@@ -710,7 +728,14 @@ function handleEnter({ nickname, color, char }) {
     mp = new MultiplayerManager(scene, { nickname, color, char, roomId: `${PEER_ROOM_ID}-${roomSuffix}` });
     // 작가 리포트 — 방문자·인기작(체류) 통계. 전시 키는 룸 suffix와 동일 규약.
     stats = new GalleryStats(roomSuffix);
-    mp.onVisitor = (id) => stats.addVisit(id);
+    mp.onVisitor = (id, info) => {
+      stats.addVisit(id);
+      visitorLog.add(info && info.nickname, galleryInfo ? galleryInfo.name : '');
+    };
+    mp.onPhoto = (item) => {
+      photoWall.addRemote(item);
+      setStatus(`${item.name || '누군가'}님이 관람 사진을 남겼어요 📸`);
+    };
     if (statsDwellTimer) clearInterval(statsDwellTimer);
     statsDwellTimer = setInterval(() => {
       if (!mp || !stats) return;
