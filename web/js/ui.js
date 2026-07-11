@@ -1552,24 +1552,6 @@ function buildLobby() {
   editLink.addEventListener('click', () => openAvatarMaker());
 
   // 색상 스와치
-  const swatchLabel = el('div', { className: 'lu-field-label', text: '아바타 색상', style: 'margin-top:20px;' });
-  const swatches = el('div', { className: 'lu-swatches' });
-  AVATAR_COLORS.forEach((color, i) => {
-    const btn = el('button', {
-      className: 'lu-swatch' + (i === 0 ? ' lu-selected' : ''),
-      type: 'button',
-      title: color,
-      'aria-label': `아바타 색상 ${color}`,
-      style: `background:${color};`,
-    });
-    btn.addEventListener('click', () => {
-      selectedColor = color;
-      swatches.querySelectorAll('.lu-swatch').forEach((s) => s.classList.remove('lu-selected'));
-      btn.classList.add('lu-selected');
-    });
-    swatches.appendChild(btn);
-  });
-
   const enterBtn = el('button', { id: 'lu-enter-btn', type: 'button', text: '입장하기' });
 
   // 전시 선택 섹션 — initGalleryPicker() 호출 전에는 빈 컨테이너
@@ -1589,7 +1571,6 @@ function buildLobby() {
     title, sub, rule,
     nickLabel, nickInput, nickHint,
     charLabel, charsRow, editLink,
-    swatchLabel, swatches,
     enterBtn,
     orDivider, authBox,
     pickerBox,
@@ -1605,6 +1586,10 @@ function buildLobby() {
   function submit() {
     let nickname = nickInput.value.trim().slice(0, MAX_NICKNAME_LEN);
     if (!nickname) nickname = '게스트';
+    // 라벨 색은 닉네임 해시로 자동 배정 — 같은 이름은 늘 같은 색, 선택 UI 제거
+    let colorHash = 0;
+    for (let i = 0; i < nickname.length; i++) colorHash = (colorHash * 31 + nickname.charCodeAt(i)) >>> 0;
+    selectedColor = AVATAR_COLORS[colorHash % AVATAR_COLORS.length];
     // 커스텀 선택 시 저장된 룩으로부터 char 문자열('dcl:'+JSON)을 새로 인코딩한다
     // (manifest 기준 정규화/폴백까지 encodeLook이 처리 — avatarkit.js 계약).
     let char = selectedChar;
