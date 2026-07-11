@@ -6,7 +6,8 @@ import { PEER_ROOM_ID, EYE_HEIGHT } from './config.js';
 import { createAvatarInstance } from './avatar.js';
 import { mergeNotes } from './guestbook.js';
 
-const HOST_ID = PEER_ROOM_ID + '-host';
+// 룸 id는 전시별로 분리된다(같은 전시를 보는 사람끼리만 만난다) — 생성자 옵션으로
+// 주입되며, 미지정 시 기본 전시 룸(PEER_ROOM_ID)을 쓴다.
 const WOUND_HEAL_SECONDS = 20; // 상처 1단계 회복 시간
 const HIT_RANGE = 4.0; // 호스트가 검증하는 최대 타격 거리(m) — 원격 치트 방지 겸 상식선
 const SEND_INTERVAL = 1 / 10; // 10Hz
@@ -17,10 +18,13 @@ export class MultiplayerManager {
    * @param {THREE.Scene} scene
    * @param {{nickname: string, color: string, char?: string}} opts
    */
-  constructor(scene, { nickname, color, char }) {
+  constructor(scene, { nickname, color, char, roomId }) {
     this.scene = scene;
     this.nickname = nickname;
     this.color = color;
+    // PeerJS id 허용 문자만 남긴다 (영숫자·하이픈·언더스코어)
+    this.roomId = String(roomId || PEER_ROOM_ID).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || PEER_ROOM_ID;
+    this._hostId = this.roomId + '-host';
     this.char = char || 'knight'; // 하위호환: 구버전(char 미전송) 원격도 'knight'로 폴백
 
     // 콜백 프로퍼티 (외부에서 할당)
@@ -249,7 +253,9 @@ export class MultiplayerManager {
     if (this._disposed) return;
     this._destroyPeer();
 
-    const peer = new Peer(HOST_ID);
+    // window.LU_PEER_OPTS: 테스트 하네스/셀프호스팅용 시그널링 서버 오버라이드 훅.
+    // 미지정(undefined)이면 PeerJS 공용 클라우드를 쓴다 — 프로덕션 기본.
+    const peer = new Peer(this._hostId, window.LU_PEER_OPTS || undefined);
     this.peer = peer;
 
     peer.on('open', () => {
@@ -372,12 +378,12 @@ export class MultiplayerManager {
     this.isHost = false;
     this.onStatus('서버 연결 중...');
 
-    const peer = new Peer(); // 랜덤 id
+    const peer = new Peer(undefined, window.LU_PEER_OPTS || undefined); // 랜덤 id
     this.peer = peer;
 
     peer.on('open', () => {
       if (this._disposed || this.peer !== peer) return;
-      const conn = peer.connect(HOST_ID, { reliable: true });
+      const conn = peer.connect(this._hostId, { reliable: true });
       this.hostConn = conn;
 
       let opened = false;

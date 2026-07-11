@@ -1141,6 +1141,28 @@
     return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
+  // deflate-raw 압축 발행 (#gz=) — 무압축(#gd=) 대비 URL이 절반 이하로 줄어
+  // 메신저의 긴 주소 잘림을 피한다. CompressionStream 미지원 브라우저는
+  // 호출부에서 무압축으로 폴백한다. 뷰어(artworks.js)는 두 규약 모두 읽는다.
+  function encodeGalleryDataGz(obj) {
+    var jsonBytes = new TextEncoder().encode(JSON.stringify(obj));
+    var stream = new Blob([jsonBytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return new Response(stream).arrayBuffer().then(function (buf) {
+      var bytes = new Uint8Array(buf);
+      var bin = '';
+      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    });
+  }
+
+  // 공유/미리보기 공용 — 가능하면 압축(#gz=), 아니면 무압축(#gd=) 프래그먼트를 만든다
+  function buildShareFragment(json) {
+    if (typeof CompressionStream !== 'undefined') {
+      return encodeGalleryDataGz(json).then(function (enc) { return '#gz=' + enc; });
+    }
+    return Promise.resolve('#gd=' + encodeGalleryData(json));
+  }
+
   $downloadBtn.addEventListener('click', function () {
     if (!validateForExport()) return;
 
@@ -1163,36 +1185,33 @@
     if (!validateForExport()) return;
 
     var json = buildGalleryJson();
-    var encoded;
-    try {
-      encoded = encodeGalleryData(json);
-    } catch (e) {
+    buildShareFragment(json).then(function (fragment) {
+      window.open('./index.html' + fragment, '_blank');
+    }).catch(function () {
       $downloadStatus.textContent = '미리보기 링크 생성에 실패했습니다.';
       $downloadStatus.className = 'action-status error';
-      return;
-    }
-    window.open('./index.html#gd=' + encoded, '_blank');
+    });
   });
 
   $shareLinkBtn.addEventListener('click', function () {
     if (!validateForExport()) return;
 
     var json = buildGalleryJson();
-    var encoded;
-    try {
-      encoded = encodeGalleryData(json);
-    } catch (e) {
+    buildShareFragment(json).then(function (fragment) {
+      var fullUrl;
+      try {
+        fullUrl = new URL('./index.html' + fragment, window.location.href).href;
+      } catch (e) {
+        fullUrl = './index.html' + fragment;
+      }
+      renderShareResult(fullUrl);
+    }).catch(function () {
       $shareStatus.textContent = '공유 링크 생성에 실패했습니다.';
       $shareStatus.className = 'action-status error';
-      return;
-    }
+    });
+  });
 
-    var fullUrl;
-    try {
-      fullUrl = new URL('./index.html#gd=' + encoded, window.location.href).href;
-    } catch (e) {
-      fullUrl = './index.html#gd=' + encoded;
-    }
+  function renderShareResult(fullUrl) {
 
     $shareUrlInput.value = fullUrl;
     $shareResultWrap.style.display = '';
@@ -1207,7 +1226,7 @@
 
     $shareStatus.textContent = '공유 링크를 생성했습니다.';
     $shareStatus.className = 'action-status ok';
-  });
+  }
 
   $copyShareBtn.addEventListener('click', function () {
     var text = $shareUrlInput.value;
