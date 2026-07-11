@@ -195,6 +195,8 @@ function writeSpec(v) {
   } catch (_) { /* 무시 */ }
 }
 let specFastTicks = 0; // 승급용 고FPS 연속 카운트
+// 총 렌더 픽셀 예산(px) — low: 1080p×2, base: ≈1440p×3, high: 4K×2.2 상당
+const PX_BUDGET = { low: 8.3e6, base: 11e6, high: 18e6 };
 
 // ---------------------------------------------------------------------------
 // 첫 방문 행동 온보딩 (터치 전용, UX 감사 §3 경량판) — 모달 대신 "행동으로
@@ -552,10 +554,10 @@ async function init() {
     ratio = Math.min(Math.max(dpr, 1.5), 2);
   }
   // 픽셀 예산 캡 — 큰 모니터(QHD/4K)에서 슈퍼샘플 배율이 총 픽셀 수를
-  // 폭발시키지 않게 1080p×2.0(≈830만 px)을 상한으로 배율을 자동 축소한다.
-  // (실기기 제보: 'high' 학습된 데스크톱 대형 화면에서 3fps까지 추락)
-  const MAX_RENDER_PIXELS = 8.3e6;
-  ratio = Math.min(ratio, Math.sqrt(MAX_RENDER_PIXELS / (window.innerWidth * window.innerHeight)));
+  // 폭발시키지 않게 등급별 상한으로 배율을 자동 축소한다. 씬 경량화(드로우콜
+  // -62%) 후 상향 — 60fps 달성 기기의 "알리아싱 필요해" 제보 반영.
+  const budget = spec === 'high' ? PX_BUDGET.high : spec === 'low' ? PX_BUDGET.low : PX_BUDGET.base;
+  ratio = Math.min(ratio, Math.sqrt(budget / (window.innerWidth * window.innerHeight)));
 
   // ---- 포테이토 모드 — 소프트웨어 렌더링에서도 걷게 하는 최후 폴백 --------
   // 원인은 이 기기의 브라우저 설정이므로 안내 배너로 자가 수리를 유도하되,
@@ -1285,6 +1287,18 @@ function animate() {
             const cur = readSpec();
             if (cur === 'low') writeSpec(null);
             else if (cur === null) writeSpec('high');
+            // 라이브 샤프닝 — 재접속을 기다리지 않고 배율을 한 단계(+0.25)씩
+            // 상향한다. 55fps+가 유지되는 한 10초마다 반복되고, 떨어지면
+            // lite 강등이 되돌리므로 히스테리시스로 안전 (알리아싱 제보 대응).
+            const maxHigh = Math.min(
+              2.5,
+              Math.sqrt(PX_BUDGET.high / (window.innerWidth * window.innerHeight))
+            );
+            const nowRatio = renderer.getPixelRatio();
+            if (!gpuInfo.soft && nowRatio < maxHigh) {
+              renderer.setPixelRatio(Math.min(maxHigh, nowRatio + 0.25));
+              setStatus('화질을 한 단계 높였어요 ✨');
+            }
             specFastTicks = 0;
           }
         } else {
