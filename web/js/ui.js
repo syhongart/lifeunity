@@ -193,6 +193,21 @@ function injectStyles() {
 .lu-cut-s { border-radius: 10px; }
 .lu-cut-l { border-radius: 16px; }
 
+/* 포테이토 모드(소프트웨어 렌더링 감지) — 하드웨어 가속이 꺼진 환경에서는
+   컴포지터도 CPU라 backdrop-filter가 매 프레임 CPU 블러가 된다. 전부 해제하고
+   불투명도를 올려 가독성을 유지한다. */
+.lu-potato #lu-dock .lu-dock-btn, .lu-potato #lu-controls,
+.lu-potato #lu-topbar, .lu-potato #lu-status, .lu-potato #lu-topright .lu-stat,
+.lu-potato #lu-controls-toggle, .lu-potato #lu-more-sheet, .lu-potato .lu-chat-msg,
+.lu-potato #lu-gbtab {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.lu-potato #lu-topbar, .lu-potato .lu-dock-btn, .lu-potato #lu-controls-toggle,
+.lu-potato #lu-status, .lu-potato #lu-topright .lu-stat {
+  background: rgba(23,20,15,0.88);
+}
+
 .lu * { box-sizing: border-box; margin: 0; padding: 0; }
 
 .lu {
