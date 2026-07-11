@@ -1161,23 +1161,26 @@ function injectStyles() {
 
 /* 책갈피 탭 — 패널 오른쪽 가장자리에 붙어 함께 미끄러진다 */
 #lu-gbtab {
-  /* 책갈피 은유를 재질로 지킨다 — 열리는 패널과 같은 크림 종이 */
+  /* 다크 유리 + 골드 라인 책갈피 — 감독 픽 (종이 재질 실험은 회귀) */
   position: absolute;
-  right: -30px; top: max(20%, calc(env(safe-area-inset-top, 0px) + 72px));
+  right: -33px; top: max(20%, calc(env(safe-area-inset-top, 0px) + 72px));
   writing-mode: vertical-rl;
-  padding: 14px 7px;
-  background: linear-gradient(90deg, #f6f1e4, #fffdf8);
-  border: 1px solid rgba(212,175,55,0.40);
-  border-left: none;
-  border-radius: 0 10px 10px 0;
-  color: var(--lu-ink);
-  font-family: var(--lu-font); font-weight: 700;
-  font-size: 11px; letter-spacing: 0.26em;
+  padding: 15px 8px 15px 6px;
+  background: rgba(10,10,12,0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-left: 2px solid var(--lu-gold);
+  border-radius: 0 9px 9px 0;
+  color: rgba(255,255,255,0.92);
+  font-family: var(--lu-font); font-weight: 300;
+  font-size: 12px; letter-spacing: 0.3em;
   cursor: pointer;
   opacity: 0; pointer-events: none;
-  transition: opacity 0.6s ease, transform var(--lu-spring);
+  transition: opacity 0.6s ease, color 0.25s ease, transform var(--lu-spring);
 }
 #lu-gbtab.lu-visible { opacity: 1; pointer-events: auto; }
+#lu-gbtab:hover { color: var(--lu-gold); }
 #lu-gbtab:active { transform: translateX(2px); transition-duration: 0s; }
 #lu-guestbook-head {
   flex: 0 0 auto;
