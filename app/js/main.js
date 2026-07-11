@@ -172,7 +172,7 @@ const SPEC_KEY = 'lu-spec-v2';
 // (실기기 제보: 무겁던 시절 low로 학습된 폰이 최적화 후에도 AA off로 남던 문제).
 // gen3: 소프트웨어 렌더링(WARP) 세션에서 학습된 low가 가속을 켠 뒤에도 남아
 // 화면이 뿌옇던 문제 + 천장/나무 지오메트리 병합(드로우콜 -60%) 반영 재평가.
-const PERF_GEN = 3;
+const PERF_GEN = 4;
 function readSpec() {
   try {
     const raw = localStorage.getItem(SPEC_KEY);
@@ -517,7 +517,7 @@ async function init() {
   console.info('[ARTSHOW] GPU:', gpuInfo.name || '(unknown)', gpuInfo.soft ? '— SOFTWARE RENDERING' : '');
   try {
     renderer = new THREE.WebGLRenderer({
-      antialias: spec !== 'low' && !gpuInfo.soft, // 소프트웨어 렌더러에서 MSAA 리졸브는 치명적
+      antialias: !gpuInfo.soft, // AA off는 소프트웨어 렌더러 전용 — low 스펙도 씬 경량화 후 MSAA 감당 가능
       powerPreference: 'high-performance',        // 듀얼 GPU 노트북에서 dGPU 선택 유도
     });
   } catch (err) {
@@ -561,7 +561,7 @@ async function init() {
   // 원인은 이 기기의 브라우저 설정이므로 안내 배너로 자가 수리를 유도하되,
   // 이번 세션도 저해상도·그림자 off·무톤매핑·린 조명·프레임 캡으로 버티게 한다.
   if (gpuInfo.soft) {
-    ratio = Math.min(ratio, 0.5);
+    ratio = Math.min(ratio, 0.7); // 지오메트리 병합 후 상향 (0.5는 뿌옇다는 실기기 제보)
     showGpuNotice(gpuInfo.name, false);
     document.documentElement.classList.add('lu-potato'); // HUD blur 해제 (CPU 컴포지팅 절약)
   }
@@ -641,6 +641,42 @@ async function init() {
   player.disable();
 
   // 4. UI 초기화 → 로비 표시
+  // 진단 가시화 — FPS 칩 클릭으로 진단 JSON 복사 + 포테이토 모드 상시 배지.
+  // "가속을 켰는데도 느리다" 류 제보에서 모드/GPU를 감으로 추측하지 않기 위함.
+  setTimeout(() => {
+    const chip = document.getElementById('lu-topright');
+    if (chip) {
+      chip.style.cursor = 'pointer';
+      chip.title = '클릭하면 성능 진단 정보가 복사됩니다';
+      chip.addEventListener('click', () => {
+        const report = JSON.stringify({
+          gpu: gpuInfo.name, soft: gpuInfo.soft,
+          pixelRatio: renderer ? renderer.getPixelRatio() : 0,
+          aa: renderer ? renderer.getContext().getContextAttributes().antialias : null,
+          dpr: window.devicePixelRatio, screen: screen.width + 'x' + screen.height,
+          inner: window.innerWidth + 'x' + window.innerHeight,
+          cores: navigator.hardwareConcurrency || 0, spec: readSpec(),
+          calls: renderer ? renderer.info.render.calls : 0,
+          ua: navigator.userAgent,
+        });
+        try {
+          navigator.clipboard.writeText(report);
+          setStatus('진단 정보가 복사됐어요 — 붙여넣어 보내주세요');
+        } catch (_) { console.info('[ARTSHOW diag]', report); }
+      });
+    }
+    if (gpuInfo.soft && !document.getElementById('lu-potato-badge')) {
+      const badge = document.createElement('div');
+      badge.id = 'lu-potato-badge';
+      badge.textContent = '소프트웨어 렌더링 모드 — 그래픽 가속이 꺼져 있거나 지원되지 않아요';
+      badge.style.cssText =
+        'position:fixed;left:12px;bottom:12px;z-index:890;padding:6px 12px;border-radius:999px;' +
+        'background:rgba(23,20,15,0.88);color:#e6c458;border:1px solid rgba(212,175,55,0.5);' +
+        "font:600 11px/1.5 'Helvetica Neue',Helvetica,Arial,'Apple SD Gothic Neo',sans-serif;pointer-events:none;";
+      document.body.appendChild(badge);
+    }
+  }, 0);
+
   initUI({
     onEnter: handleEnter,
     onChatSend: handleChatSend,
@@ -1156,7 +1192,7 @@ function animate() {
   // 건너뛴 시간은 누적해 다음 프레임의 delta로 넘긴다(시뮬 시간 보존).
   if (gpuInfo.soft) {
     potatoAccum += delta;
-    if (potatoAccum < 0.048) return;
+    if (potatoAccum < 0.034) return; // ~30fps 캡 (씬 경량화 후 상향)
     delta = potatoAccum;
     potatoAccum = 0;
   }
