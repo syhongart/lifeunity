@@ -29,6 +29,64 @@ const easeOutQuad = (u) => 1 - (1 - u) * (1 - u);
 const easeOutBack = (u) => 1 + 2.7 * Math.pow(u - 1, 3) + 1.7 * Math.pow(u - 1, 2);
 
 // ---------------------------------------------------------------------------
+// "아얏!" 사운드 — WebAudio 합성 (에셋 없음). 2음절: "아"(짧게 치솟는 톤) →
+// "얏!"(높은 데서 뚝 떨어지는 톤). 히트마다 피치를 살짝 흔들어 반복감을 줄인다.
+// AudioContext는 지연 생성 — 입장(사용자 제스처) 이후이므로 재생 제약 없음.
+// ---------------------------------------------------------------------------
+let _actx = null;
+let _lastOuch = 0;
+
+function getAudio() {
+  if (!_actx) {
+    try {
+      _actx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (_) { return null; }
+  }
+  if (_actx.state === 'suspended') _actx.resume().catch(() => {});
+  return _actx;
+}
+
+/** 맞았을 때 귀여운 비명 — level 1~3 (셀수록 높고 길게 떨어진다) */
+export function playOuch(levelIn) {
+  const now = performance.now();
+  if (now - _lastOuch < 130) return; // 다발 히트 불협화음 방지
+  _lastOuch = now;
+  const ctx = getAudio();
+  if (!ctx) return;
+  const lv = Math.max(1, Math.min(3, levelIn | 0 || 1));
+  const jit = 0.92 + Math.random() * 0.16;
+  const t0 = ctx.currentTime + 0.01;
+
+  // "아" — 짧게 치솟음
+  const o1 = ctx.createOscillator();
+  o1.type = 'triangle';
+  o1.frequency.setValueAtTime(480 * jit * (1 + 0.1 * (lv - 1)), t0);
+  o1.frequency.exponentialRampToValueAtTime(760 * jit, t0 + 0.07);
+  const g1 = ctx.createGain();
+  g1.gain.setValueAtTime(0.0001, t0);
+  g1.gain.exponentialRampToValueAtTime(0.2, t0 + 0.015);
+  g1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
+  o1.connect(g1).connect(ctx.destination);
+  o1.start(t0);
+  o1.stop(t0 + 0.1);
+
+  // "얏!" — 급낙하
+  const t1 = t0 + 0.1;
+  const fall = 0.16 + 0.05 * lv;
+  const o2 = ctx.createOscillator();
+  o2.type = 'triangle';
+  o2.frequency.setValueAtTime(820 * jit * (1 + 0.14 * (lv - 1)), t1);
+  o2.frequency.exponentialRampToValueAtTime(300 * jit, t1 + fall);
+  const g2 = ctx.createGain();
+  g2.gain.setValueAtTime(0.0001, t1);
+  g2.gain.exponentialRampToValueAtTime(0.24, t1 + 0.02);
+  g2.gain.exponentialRampToValueAtTime(0.0001, t1 + fall + 0.05);
+  o2.connect(g2).connect(ctx.destination);
+  o2.start(t1);
+  o2.stop(t1 + fall + 0.1);
+}
+
+// ---------------------------------------------------------------------------
 // 공유 텍스처 (지연 1회 생성)
 // ---------------------------------------------------------------------------
 let TEX = null;
@@ -280,6 +338,7 @@ export function attachHitFx(group) {
     const T = getTex();
     const level = Math.max(1, Math.min(3, levelIn | 0 || 1));
     clearBurst();
+    playOuch(level); // "아얏!" — 시각 이펙트와 한 몸
     const reduced = liveSprites > GLOBAL_MAX; // 예산 초과 — 핵심 2요소만
 
     const P = { x: 0, y: 1.06, z: 0 }; // 임팩트 포인트 (머리 중심 살짝 위)
