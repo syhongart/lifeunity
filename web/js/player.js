@@ -10,7 +10,7 @@ const WALK_SPEED = 2.5;   // m/s
 const RUN_SPEED = 4.5;    // m/s (Shift)
 const ACCEL = 10.0;       // 가감속 감쇠 계수 (1/s)
 const MOUSE_SENS = 0.0022;      // rad / px
-const TOUCH_LOOK_SENS = 0.0045; // rad / px
+const TOUCH_LOOK_SENS = 0.0058; // rad / px — 실기기 피드백으로 상향(0.0045 → 0.0058)
 const PITCH_LIMIT = THREE.MathUtils.degToRad(89);
 const BOB_AMPLITUDE = 0.03;     // 헤드밥 진폭 (m)
 const BOB_FREQ_WALK = 7.5;      // 걷기 헤드밥 각속도 (rad/s)
@@ -123,6 +123,22 @@ export class PlayerController {
     this.moveTouch = null;  // { id, startX, startY, dx, dy }
     this.lookTouch = null;  // { id, lastX, lastY }
 
+    // ---- 가상 조이스틱 비주얼 (실기기 UX 피드백: 보이지 않는 조작은 없는 조작) ----
+    // 터치한 자리에 링(베이스)+노브가 나타나는 플로팅 방식. pointer-events:none이라
+    // 입력 처리에는 전혀 관여하지 않는 순수 시각 피드백이다.
+    this._joyBase = document.createElement('div');
+    this._joyBase.style.cssText =
+      'position:fixed;width:108px;height:108px;margin:-54px 0 0 -54px;border-radius:50%;' +
+      'border:2px solid rgba(255,255,255,0.4);background:rgba(20,18,14,0.22);' +
+      'pointer-events:none;z-index:40;display:none;box-shadow:0 2px 10px rgba(0,0,0,0.25);';
+    this._joyKnob = document.createElement('div');
+    this._joyKnob.style.cssText =
+      'position:fixed;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;' +
+      'background:rgba(255,253,247,0.85);pointer-events:none;z-index:41;display:none;' +
+      'box-shadow:0 2px 6px rgba(0,0,0,0.35);';
+    document.body.appendChild(this._joyBase);
+    document.body.appendChild(this._joyKnob);
+
     this._bindEvents();
   }
 
@@ -174,6 +190,12 @@ export class PlayerController {
             dx: 0,
             dy: 0,
           };
+          this._joyBase.style.left = touch.clientX + 'px';
+          this._joyBase.style.top = touch.clientY + 'px';
+          this._joyKnob.style.left = touch.clientX + 'px';
+          this._joyKnob.style.top = touch.clientY + 'px';
+          this._joyBase.style.display = 'block';
+          this._joyKnob.style.display = 'block';
         } else if (touch.clientX >= half && this.lookTouch === null) {
           this.lookTouch = {
             id: touch.identifier,
@@ -195,6 +217,8 @@ export class PlayerController {
           const scale = len > JOYSTICK_RADIUS ? JOYSTICK_RADIUS / len : 1;
           this.moveTouch.dx = (dx * scale) / JOYSTICK_RADIUS; // -1 ~ 1
           this.moveTouch.dy = (dy * scale) / JOYSTICK_RADIUS;
+          this._joyKnob.style.left = this.moveTouch.startX + dx * scale + 'px';
+          this._joyKnob.style.top = this.moveTouch.startY + dy * scale + 'px';
         } else if (this.lookTouch && touch.identifier === this.lookTouch.id) {
           const mx = touch.clientX - this.lookTouch.lastX;
           const my = touch.clientY - this.lookTouch.lastY;
@@ -215,6 +239,8 @@ export class PlayerController {
       for (const touch of e.changedTouches) {
         if (this.moveTouch && touch.identifier === this.moveTouch.id) {
           this.moveTouch = null;
+          this._joyBase.style.display = 'none';
+          this._joyKnob.style.display = 'none';
         } else if (this.lookTouch && touch.identifier === this.lookTouch.id) {
           this.lookTouch = null;
         }
@@ -277,6 +303,11 @@ export class PlayerController {
       inputX = this.moveTouch.dx;
       inputZ = this.moveTouch.dy;
       const mag = Math.hypot(inputX, inputZ);
+      if (mag < 0.14) {
+        // 데드존 — 엄지 미세 떨림으로 슬금슬금 걷지 않게
+        inputX = 0;
+        inputZ = 0;
+      }
       speed = WALK_SPEED + (RUN_SPEED - WALK_SPEED) * Math.min(1, Math.max(0, (mag - 0.85) / 0.15));
     } else {
       const len = Math.hypot(inputX, inputZ);

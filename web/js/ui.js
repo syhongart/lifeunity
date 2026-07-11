@@ -679,6 +679,10 @@ function injectStyles() {
   width: min(340px, calc(100vw - 32px));
   display: flex; flex-direction: column; gap: 8px;
 }
+/* 터치 기기 기본: 입력창을 접어 하단을 가상 조이스틱 영역으로 비워둔다.
+   (실기기 UX 피드백 — 전폭 채팅 입력창이 왼쪽 엄지를 삼켜 키보드가 올라오던 문제) */
+#lu-chat.lu-chat-collapsed #lu-chat-input { display: none; }
+#lu-chat.lu-chat-collapsed { pointer-events: none; }
 #lu-chat-log {
   display: flex; flex-direction: column; gap: 3px;
   max-height: 220px; overflow: hidden;
@@ -1586,6 +1590,18 @@ function buildMobileDock() {
   // 터치 기기 전용 액션 독 — 키보드 단축키(M/T)의 대체 진입점
   if (!IS_TOUCH) return null;
 
+  const chatBtn = el('button', {
+    className: 'lu-dock-btn', type: 'button', 'aria-label': '채팅 열기/닫기',
+    text: '채팅',
+  });
+  chatBtn.addEventListener('click', () => {
+    const wrap = els && els.chat && els.chat.wrap;
+    if (!wrap) return;
+    const collapsed = wrap.classList.toggle('lu-chat-collapsed');
+    if (!collapsed && els.chat.input) els.chat.input.focus();
+    else if (els.chat.input) els.chat.input.blur();
+  });
+
   const listBtn = el('button', {
     className: 'lu-dock-btn', type: 'button', 'aria-label': '작품 목록',
     text: '목록',
@@ -1617,7 +1633,7 @@ function buildMobileDock() {
   });
 
   // 방명록은 화면 왼쪽 책갈피 탭(#lu-gbtab)이 담당하므로 독 버튼은 두지 않는다
-  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [listBtn, tourBtn, selfViewBtn, captureBtn]);
+  const dock = el('div', { id: 'lu-dock', className: 'lu lu-hud' }, [chatBtn, listBtn, tourBtn, selfViewBtn, captureBtn]);
   document.body.appendChild(dock);
   return dock;
 }
@@ -1654,6 +1670,7 @@ function buildChat() {
     spellcheck: 'false',
   });
   const wrap = el('div', { id: 'lu-chat', className: 'lu lu-hud' }, [log, input]);
+  if (IS_TOUCH) wrap.classList.add('lu-chat-collapsed');
   document.body.appendChild(wrap);
 
   // 입력창 포커스 중 키 이벤트가 플레이어 조작(WASD)으로 전파되지 않도록 차단
