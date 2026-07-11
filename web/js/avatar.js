@@ -10,6 +10,7 @@ import { GLTFLoader } from '../vendor/GLTFLoader.js';
 import * as SkeletonUtils from '../vendor/SkeletonUtils.js';
 import { buildDclAvatar, decodeLook, retargetClipForDcl } from './avatarkit.js';
 import { buildChibi, decodeChibi, CHIBI_CHAR_PREFIX } from './chibi.js';
+import { attachHitFx } from './hitfx.js';
 
 // ---------------------------------------------------------------------------
 // 캐릭터 정의 — 로비 선택 UI(ui.js)와 템플릿 로더가 공유하는 단일 진실 소스
@@ -1045,6 +1046,8 @@ export function createAvatarInstance(charId, colorHex, nickname) {
   // 반경은 몸 실루엣보다 확실히 크게 — 치비 치마 폭(~0.6m)이 원반을 다 가리면
   // 그림자가 그려져도 보이지 않는다(픽셀 실측으로 확인한 함정).
   const shadow = attachBlobShadow(inst.group, isChibi ? 0.5 : 0.55);
+  // 만화식 타격 이펙트 — 최상위 group에 부착 (내부 래퍼는 회전·스쿼시 대상이라 금지)
+  const fx = attachHitFx(inst.group);
   const origDispose = inst.dispose;
   // 치비가 아닌 아바타(GLB류)용 제네릭 '움찔' — 그룹 y 스쿼시 (치비는 자체 리액션)
   let hitT = 0;
@@ -1053,6 +1056,7 @@ export function createAvatarInstance(charId, colorHex, nickname) {
     group: inst.group,
     update: (delta, speed) => {
       inst.update(delta, speed);
+      fx.update(delta);
       if (hitT > 0) {
         hitT = Math.max(0, hitT - (delta || 0));
         const k = Math.sin((hitT / HIT_DUR) * Math.PI);
@@ -1065,12 +1069,14 @@ export function createAvatarInstance(charId, colorHex, nickname) {
       if (typeof inst.setWound === 'function') inst.setWound(level);
       if (typeof inst.hit === 'function') inst.hit(level);
       else hitT = HIT_DUR;
+      fx.hit(level);
     },
     /** 상처 단계만 반영 (자연 회복 감쇠용 — 리액션 없음) */
     setWound(level) {
       if (typeof inst.setWound === 'function') inst.setWound(level);
     },
     dispose: () => {
+      fx.dispose();
       shadow.mat.dispose();
       shadow.geo.dispose();
       origDispose.call(inst);
