@@ -533,6 +533,48 @@
     </div>
   </section>
 
+
+  <!-- ============ PRICING (P2 임시 운영: 결제 대신 활성화 코드) ============ -->
+  <section class="recruit" id="pricing" style="background:#faf7ef;color:inherit;">
+    <div class="section-inner">
+      <div class="eyebrow reveal">Pricing</div>
+      <h2 class="reveal" style="color:#1c1a16;">요금제</h2>
+      <p class="reveal" style="color:#6b6459;">지금은 무료로 시작하고, 더 큰 전시가 필요할 때 올리세요.</p>
+      <div class="reveal" style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin:36px 0 20px;text-align:left;">
+        <div style="flex:1;min-width:240px;max-width:320px;border:1px solid #e2dccc;border-radius:14px;padding:26px;background:#fff;">
+          <div style="font-size:13px;letter-spacing:0.12em;color:#8a8172;">FREE</div>
+          <div style="font-size:30px;font-weight:600;margin:8px 0 16px;color:#1c1a16;">0원</div>
+          <ul style="list-style:none;padding:0;margin:0;font-size:14px;line-height:2;color:#4a453c;">
+            <li>✓ 전시 공유 링크 무제한</li>
+            <li>✓ 작품 6점 · 대표작 1점</li>
+            <li>✓ 기본 테마 (맑은 오후·시간연동)</li>
+            <li>✓ 멀티플레이 · 방명록 · AI 관객</li>
+          </ul>
+        </div>
+        <div style="flex:1;min-width:240px;max-width:320px;border:2px solid #b28a2e;border-radius:14px;padding:26px;background:#fff;position:relative;">
+          <div style="position:absolute;top:-11px;right:18px;background:#b28a2e;color:#fff;font-size:11px;letter-spacing:0.1em;padding:3px 10px;border-radius:999px;">EARLY BIRD</div>
+          <div style="font-size:13px;letter-spacing:0.12em;color:#b28a2e;">PREMIUM</div>
+          <div style="font-size:30px;font-weight:600;margin:8px 0 16px;color:#1c1a16;">월 4,900원 <span style="font-size:13px;color:#8a8172;">(예정)</span></div>
+          <ul style="list-style:none;padding:0;margin:0;font-size:14px;line-height:2;color:#4a453c;">
+            <li>✓ 작품 14점 · 대표작 2점</li>
+            <li>✓ 모든 전시 테마 (석양·야간·시네마틱)</li>
+            <li>✓ 커스텀 도메인 연결 <span style="color:#8a8172;">(준비 중)</span></li>
+            <li>✓ 우선 지원</li>
+          </ul>
+        </div>
+      </div>
+      <div class="reveal" style="max-width:560px;margin:0 auto;font-size:14px;color:#6b6459;">
+        <p style="margin:0 0 10px;">결제 연동 준비 중입니다 — 지금은 <b>활성화 코드</b>로 프리미엄을 켤 수 있어요. 코드는 <a href="mailto:syhongartist@gmail.com" style="color:#b28a2e;">메일 문의</a>로 받아보세요.</p>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <input id="planCodeInput" type="text" placeholder="ART-XXXX-XXXX" spellcheck="false" autocomplete="off"
+            style="padding:10px 14px;border:1px solid #d5cdb8;border-radius:8px;font-size:14px;letter-spacing:0.08em;width:200px;text-transform:uppercase;">
+          <button id="planCodeBtn" type="button" class="btn btn-gold" style="cursor:pointer;">프리미엄 활성화</button>
+        </div>
+        <p id="planCodeMsg" style="margin-top:10px;font-size:13px;min-height:18px;"></p>
+      </div>
+    </div>
+  </section>
+
   <!-- ============ FOOTER ============ -->
   <footer>
     <div class="footer-inner">
@@ -734,6 +776,46 @@
     });
 
 })();
+</script>
+<script>
+  (function () {
+    var PLAN_KEY = 'artshow-plan-v1';
+    var input = document.getElementById('planCodeInput');
+    var btn = document.getElementById('planCodeBtn');
+    var msg = document.getElementById('planCodeMsg');
+    if (!input || !btn || !msg) return;
+
+    function isPremium() {
+      try { return localStorage.getItem(PLAN_KEY) === 'premium'; } catch (e) { return false; }
+    }
+    function codeValid(code) {
+      code = String(code || '').trim().toUpperCase();
+      if (!/^ART-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(code)) return false;
+      var h = 5381;
+      for (var i = 0; i < code.length; i++) h = ((h << 5) + h + code.charCodeAt(i)) >>> 0;
+      return h % 9973 === 777;
+    }
+    function renderState() {
+      if (isPremium()) {
+        msg.textContent = '✓ 이 브라우저에서 프리미엄이 활성화되어 있습니다. 스튜디오에서 모든 기능을 사용할 수 있어요.';
+        msg.style.color = '#3f7a3a';
+        btn.textContent = '활성화됨';
+        btn.disabled = true;
+        input.disabled = true;
+      }
+    }
+    btn.addEventListener('click', function () {
+      if (codeValid(input.value)) {
+        try { localStorage.setItem(PLAN_KEY, 'premium'); } catch (e) { /* 무시 */ }
+        renderState();
+      } else {
+        msg.textContent = '코드가 올바르지 않습니다. 형식: ART-XXXX-XXXX';
+        msg.style.color = '#b0433a';
+      }
+    });
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') btn.click(); });
+    renderState();
+  })();
 </script>
 </body>
 </html>

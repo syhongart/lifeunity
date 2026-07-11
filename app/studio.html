@@ -697,9 +697,35 @@
   'use strict';
 
   var STORAGE_KEY = 'artshow-studio-draft-v1';
-  var MAX_ARTWORKS = 14;
-  var MAX_FEATURED = 2;
+  // ---- 플랜 (P2 임시 운영: 결제 대신 활성화 코드 — 랜딩 요금제 섹션에서 등록) ----
+  var PLAN_KEY = 'artshow-plan-v1';
+  function planIsPremium() {
+    try { return localStorage.getItem(PLAN_KEY) === 'premium'; } catch (e) { return false; }
+  }
+  var PREMIUM = planIsPremium();
+  var FREE_THEMES = ['daylight', 'auto'];
+
+  var MAX_ARTWORKS = PREMIUM ? 14 : 6;
+  var MAX_FEATURED = PREMIUM ? 2 : 1;
   var THEMES = ['daylight', 'sunset', 'night', 'auto', 'cycle'];
+
+  // 플랜 배지 — 헤더 h1 옆
+  (function () {
+    var h1 = document.querySelector('h1');
+    if (!h1) return;
+    var badge = document.createElement('span');
+    badge.id = 'planBadge';
+    badge.textContent = PREMIUM ? 'PREMIUM' : 'FREE';
+    badge.style.cssText = 'font-size:12px;vertical-align:middle;margin-left:10px;padding:3px 10px;border:1px solid rgba(178,138,46,0.6);border-radius:999px;color:#b28a2e;letter-spacing:0.08em;';
+    h1.appendChild(badge);
+    if (!PREMIUM) {
+      var up = document.createElement('a');
+      up.href = '../#pricing';
+      up.textContent = '업그레이드 ↗';
+      up.style.cssText = 'font-size:12px;margin-left:8px;color:#b28a2e;vertical-align:middle;';
+      h1.appendChild(up);
+    }
+  })();
 
   var state = {
     id: '',
@@ -1076,9 +1102,30 @@
     scheduleSave();
   });
 
+  // 무료 플랜 테마 잠금 — 카드에 자물쇠 배지 + 선택 차단
+  if (!PREMIUM) {
+    var lockCards = document.querySelectorAll('.theme-card');
+    for (var ci = 0; ci < lockCards.length; ci++) {
+      var themeName = lockCards[ci].getAttribute('data-theme');
+      if (FREE_THEMES.indexOf(themeName) === -1) {
+        lockCards[ci].style.opacity = '0.45';
+        var lockBadge = document.createElement('span');
+        lockBadge.textContent = '\uD83D\uDD12 프리미엄';
+        lockBadge.style.cssText = 'font-size:11px;color:#b28a2e;margin-left:auto;white-space:nowrap;';
+        lockCards[ci].appendChild(lockBadge);
+        lockCards[ci].querySelector('input').disabled = true;
+      }
+    }
+  }
+
   for (var ti = 0; ti < $themeRadios.length; ti++) {
     $themeRadios[ti].addEventListener('change', function () {
       if (this.checked) {
+        if (!PREMIUM && FREE_THEMES.indexOf(this.value) === -1) {
+          this.checked = false;
+          window.alert('이 테마는 프리미엄 플랜 전용입니다.\n랜딩 페이지의 요금제에서 활성화 코드를 등록해 주세요.');
+          return;
+        }
         state.theme = this.value;
         renderTheme();
         scheduleSave();
@@ -1088,7 +1135,11 @@
 
   $addBtn.addEventListener('click', function () {
     if (state.artworks.length >= MAX_ARTWORKS) {
-      window.alert('작품은 최대 ' + MAX_ARTWORKS + '점까지 등록할 수 있습니다.');
+      window.alert(
+        PREMIUM
+          ? '작품은 최대 ' + MAX_ARTWORKS + '점까지 등록할 수 있습니다.'
+          : '무료 플랜은 작품 ' + MAX_ARTWORKS + '점까지입니다.\n프리미엄(작품 14점 + 대표작 2점 + 모든 테마)은 랜딩의 요금제를 확인해 주세요.'
+      );
       return;
     }
     state.artworks.push({
