@@ -334,6 +334,16 @@ async function init() {
   const spec = readSpec();
   renderer = new THREE.WebGLRenderer({ antialias: spec !== 'low' });
   bindHitTap(renderer.domElement);
+  // 비네팅 — 가장자리를 살짝 눌러 시선을 화면 중앙(작품)으로 모은다.
+  // DOM 오버레이라 GPU 비용 0. 사진 캡처에는 capturePhoto가 동일 그라디언트를
+  // 캔버스에 합성해 화면과 같은 무드로 저장된다.
+  const vignette = document.createElement('div');
+  vignette.id = 'lu-vignette';
+  vignette.style.cssText =
+    'position:fixed;inset:0;pointer-events:none;z-index:5;' +
+    'background:radial-gradient(ellipse 72% 62% at 50% 46%, rgba(0,0,0,0) 58%, rgba(8,6,4,0.34) 100%);';
+  document.body.appendChild(vignette);
+
   const dpr = window.devicePixelRatio || 1;
   let ratio;
   if (spec === 'low') {
@@ -348,7 +358,7 @@ async function init() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 0.92; // 전체 감광 — 갤러리 무드 (기존 1.1)
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   document.body.appendChild(renderer.domElement);
 
@@ -515,6 +525,15 @@ function capturePhoto() {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.drawImage(img, 0, 0);
+      // 화면과 동일한 비네팅을 사진에도 — 라이브 무드 그대로 저장
+      const vg = ctx.createRadialGradient(
+        canvas.width / 2, canvas.height * 0.46, Math.min(canvas.width, canvas.height) * 0.4,
+        canvas.width / 2, canvas.height * 0.46, Math.max(canvas.width, canvas.height) * 0.72
+      );
+      vg.addColorStop(0, 'rgba(8,6,4,0)');
+      vg.addColorStop(1, 'rgba(8,6,4,0.34)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       drawWatermark(ctx, canvas.width, canvas.height, galleryInfo ? galleryInfo.name : '');
 
       // canvas.toBlob은 일부 환경에서 콜백이 오지 않는 사례가 있어,
