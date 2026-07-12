@@ -31,6 +31,25 @@ function hash6(s) { // djb2 — 제목이 같으면 영구 동일 슬러그 (SEO
   return h.toString(16).padStart(8, '0').slice(0, 6);
 }
 
+// 제목 키워드 → 주제 이모티콘 (첫 매치 승리, 슬러그·SEO 타이틀에는 미포함)
+const EMOJI_RULES = [
+  [/법무/, '⚖️'],
+  [/블로그|일지 공개/, '📝'],
+  [/네이밍|마스코트|아야모|치비|캐릭터 전면/, '🧸'],
+  [/fps|프레임|드로우콜|성능|베이크드|픽셀|렌더링|포테이토|저사양/i, '⚡'],
+  [/하늘|HDRI|별|은하수/i, '🌌'],
+  [/나무|정원/, '🌳'],
+  [/그림자/, '🌗'],
+  [/일몰|사이클|cycle|테마/i, '🌅'],
+  [/타격|이펙트|콕 찌|VFX|HUD/i, '💥'],
+  [/모바일|햄버거|독 /, '📱'],
+  [/충돌|회피|통과/, '🚶'],
+  [/방명록/, '📖'],
+  [/스크롤|레일/, '📜'],
+  [/랜딩|카드|배지|CTA|타이포|조판|그린|골드|디자인|플레이트|라운드|비네팅|로비|리파인|조명/, '🎨'],
+];
+const emojiFor = t => (EMOJI_RULES.find(([re]) => re.test(t)) || [null, '🛠️'])[1];
+
 // ---------- 마크다운 → HTML (개발일지 서브셋: h3/불릿/표/굵게/코드/링크) ----------
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function inline(s) {
@@ -61,6 +80,14 @@ function mdToHtml(md) {
       continue;
     }
     if (/^```/.test(raw)) { flushPara(); flushList(); flushTable(); fence = []; continue; }
+    const img = raw.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (img) {
+      flushPara(); flushList(); flushTable();
+      const isrc = img[2].replace('../devlog/img/', './img/'); // DEVLOG.md(docs/) 기준 → 블로그 기준 경로
+      out.push(`<figure class="shot"><img src="${esc(isrc)}" alt="${esc(img[1])}" loading="lazy">` +
+        (img[1] ? `<figcaption>${inline(img[1])}</figcaption>` : '') + `</figure>`);
+      continue;
+    }
     if (/^\|/.test(raw.trim())) { flushPara(); flushList(); (table ||= []).push(raw.trim()); continue; }
     flushTable();
     const h3 = raw.match(/^### (.+)/);
@@ -105,6 +132,10 @@ transition:border-color .2s,transform .2s}
 .card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
 .card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
 .card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
 article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
 article ul{margin:0 0 16px;padding-left:20px}
 article li{margin:0 0 6px;color:var(--ink-body)}
@@ -176,7 +207,7 @@ entries.forEach((e, i) => {
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
 <div class="eyebrow">${e.date}</div>
-<h1>${esc(e.title)}</h1>
+<h1><span class="emo">${emojiFor(e.title)}</span>${esc(e.title)}</h1>
 <p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 ${mdToHtml(e.body)}
 </article>
@@ -199,7 +230,7 @@ ${pn.length ? `<div class="pn">${pn.join('')}</div>` : ''}`;
 
 const cards = entries.map(e => `<a class="card" href="./${e.slug}.html">
   <span class="d">${e.date}</span>
-  <h2>${esc(e.title)}</h2>
+  <h2><span class="emo">${emojiFor(e.title)}</span>${esc(e.title)}</h2>
   <p>${esc(excerpt(e.body))}</p>
 </a>`).join('\n');
 

@@ -35,6 +35,10 @@ transition:border-color .2s,transform .2s}
 .card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
 .card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
 .card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
 article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
 article ul{margin:0 0 16px;padding-left:20px}
 article li{margin:0 0 6px;color:var(--ink-body)}
@@ -71,7 +75,7 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
 <div class="eyebrow">2026-07-11</div>
-<h1>나무 전면 업그레이드 — blob → 디테일 트리, 비용 +2콜</h1>
+<h1><span class="emo">🌳</span>나무 전면 업그레이드 — blob → 디테일 트리, 비용 +2콜</h1>
 <p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 <h3>원인</h3>
 <ul><li>감독 질문: "동그란 나무를 잎 있는 것으로 다 바꾸면 비용이 올라가려나?"</li></ul>
@@ -81,6 +85,7 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <ul><li>sharedTreeMats(): 모든 디테일 트리가 수피/잎 재질 공유.</li><li>bakeGroupByMaterial(): 그룹의 월드 변환을 지오메트리에 굽고 머티리얼별 병합 (알파 잎은 castShadow 제외 — 투명 그림자 아티팩트 방지).</li><li>배경 21그루 blob → 디테일 트리 교체 + 근거리 5그루·중정 큰 나무도 같은 병합 경로로 (기존 개별 76콜×6도 함께 정리).</li></ul>
 <h3>결과</h3>
 <ul><li>드로우콜 255→<strong>257(+2)</strong>, 트라이앵글 +4.4k, renderMs 2.8→3.0. "잎 있는 나무 전면 교체"가 사실상 무비용으로 완료.</li></ul>
+<figure class="shot"><img src="./img/exterior-day.jpg" alt="잎과 가지가 살아 있는 디테일 트리 — 낮 사이클의 정원" loading="lazy"><figcaption>잎과 가지가 살아 있는 디테일 트리 — 낮 사이클의 정원</figcaption></figure>
 </article>
 <div class="pn"><a href="./2026-07-11-dc3ce8.html"><span class="lbl">← 이전 기록</span>그림자 강화 — 대비 3층위 상향</a><a href="./2026-07-11-2e71bf.html" style="text-align:right"><span class="lbl">다음 기록 →</span>기본 전시 cycle 테마 전환 + 잠복 버그 수정 (fog 널 가드)</a></div>
 </div>

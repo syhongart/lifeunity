@@ -35,6 +35,10 @@ transition:border-color .2s,transform .2s}
 .card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
 .card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
 .card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
 article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
 article ul{margin:0 0 16px;padding-left:20px}
 article li{margin:0 0 6px;color:var(--ink-body)}
@@ -71,7 +75,7 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
 <div class="eyebrow">2026-07-12</div>
-<h1>개발일지 공개 블로그 /devlog/ — 37건 일괄 발행 + SEO 기반</h1>
+<h1><span class="emo">📝</span>개발일지 공개 블로그 /devlog/ — 37건 일괄 발행 + SEO 기반</h1>
 <p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 <h3>원인</h3>
 <ul><li>감독 결정: 개발일지를 블로그로 공개하자. 워드프레스·노션·위키 비교 후 자체 사이트 /devlog/ 채택(0원·자동 발행·브랜드 일관·SEO 가능).</li></ul>
@@ -81,8 +85,9 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <ul><li>scripts/build-devlog.mjs (의존성 0): DEVLOG.md → devlog/index.html + 글별 페이지 37건. 슬러그 = 날짜+제목 해시(제목 불변 시 영구 URL).</li><li>SEO: canonical, OG, JSON-LD(Blog/BlogPosting), sitemap.xml, robots.txt. BASE_URL 한 곳만 바꾸면 도메인 이전 대응.</li><li>디자인: 랜딩 갤러리 플레이트 토큰 재사용(종이 배경·백지 카드·청자 그린 액센트·radius 3px·keep-all). 상단 다크그린 바 + 이전/다음 글 내비.</li><li>랜딩 내비(데스크톱·햄버거 시트)·푸터에 "개발일지" 링크 추가.</li><li>배포 스크립트에 devlog/·sitemap·robots 추가 + <strong>guide.html 루트 누락 회귀 복구</strong>(세션 중 재구성한 스크립트가 빠뜨려 라이브 가이드 404였음).</li></ul>
 <h3>결과</h3>
 <ul><li>QA(배포 레이아웃 미러): 카드 37·canonical·JSON-LD·표 렌더·모바일 가로 스크롤 없음·내비/푸터 링크·sitemap/robots 200 — 전부 통과.</li><li>이후 운영: 일지 커밋 시 build-devlog.mjs 실행 후 배포하면 자동 발행.</li><li>잔여: 구글 서치 콘솔·네이버 서치어드바이저 등록(감독), artshow 이전 후가 적기 — sitemap의 BASE가 artshow 주소 규약(랜딩 OG와 동일).</li></ul>
+<figure class="shot"><img src="./img/devlog-blog.jpg" alt="개발일지 목록 — 갤러리 플레이트 스타일" loading="lazy"><figcaption>개발일지 목록 — 갤러리 플레이트 스타일</figcaption></figure>
 </article>
-<div class="pn"><a href="./2026-07-12-5deb90.html"><span class="lbl">← 이전 기록</span>좌측 스크롤 진행 레일 철회 (감독 피드백)</a></div>
+<div class="pn"><a href="./2026-07-12-5deb90.html"><span class="lbl">← 이전 기록</span>좌측 스크롤 진행 레일 철회 (감독 피드백)</a><a href="./2026-07-12-cec0b0.html" style="text-align:right"><span class="lbl">다음 기록 →</span>개발일지 블로그 — 실사 캡처 + 주제 이모티콘 (감독 제안)</a></div>
 </div>
 <footer>&copy; 2026 ARTSHOW. — 만드는 과정을 기록합니다.</footer>
 </body>
