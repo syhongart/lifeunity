@@ -35,7 +35,8 @@ const MAX_NICKNAME_LEN = 12;
 let els = null;              // 생성된 DOM 요소 캐시
 let callbacks = { onEnter: null, onChatSend: null };
 let selectedColor = AVATAR_COLORS[0];
-// 치비(자체 코드 생성) 아바타 — 유일한 캐릭터 (서드파티 캐릭터 전면 삭제).
+// 아야모(Ayamo) — 자체 제작 유일 캐릭터. 이름은 법무 실사 청신호로 확정
+// (2026-07-12 devlog). 내부 식별자는 치비 시절 그대로(chibi: 프로토콜 하위호환).
 const LU_CHIBI_STORAGE_KEY = 'lu-chibi-look-v1';
 const LU_CHIBI_THUMB_KEY = 'lu-chibi-look-thumb-v1';
 function readStoredChibi() {
@@ -1546,7 +1547,7 @@ function buildLobby() {
   const chibiBtn = el('button', {
     className: 'lu-char-btn lu-char-custom lu-selected',
     type: 'button',
-    'aria-label': '치비 아바타 꾸미기',
+    'aria-label': '아야모 꾸미기',
   });
   function syncChibiButtonVisual() {
     const thumb = readStoredChibiThumb();
@@ -1554,11 +1555,11 @@ function buildLobby() {
       chibiBtn.style.backgroundImage = `url('${thumb}')`;
       chibiBtn.classList.add('lu-has-thumb');
       chibiBtn.textContent = '';
-      chibiBtn.appendChild(el('span', { text: '치비' }));
+      chibiBtn.appendChild(el('span', { text: '아야모' }));
     } else {
       chibiBtn.style.backgroundImage = '';
       chibiBtn.classList.remove('lu-has-thumb');
-      chibiBtn.textContent = '🧸 치비';
+      chibiBtn.textContent = '🧸 아야모';
     }
   }
   syncChibiButtonVisual();
@@ -2370,6 +2371,11 @@ function buildShareModal() {
 // DCL 커스터마이저와 동일한 모달 CSS(lu-am-*)를 재사용하되 탭 없이 한 화면이다.
 // 프리뷰는 createAvatarInstance('chibi:'+JSON)를 그대로 재사용한다.
 // ---------------------------------------------------------------------------
+// 스와치 팔레트 — 아바타킷(DCL) 삭제로 편입된 자체 상수 (치비 메이커 전용)
+const SKIN_TONES = ['#ffe0c8', '#ffd9bd', '#f0c8a8', '#e0b090', '#c98d66', '#a06844', '#7a4a2f'];
+const HAIR_COLORS = ['#2b2b33', '#6b4530', '#8a5a3b', '#c9a227', '#d96c2c', '#8a4be0', '#4a5568', '#d8d3ca'];
+const EYE_COLORS = ['#2b2b33', '#7a4a2f', '#3f6f8f', '#4f7a3a', '#b02e2e', '#6a4c93'];
+
 const CHIBI_CLOTH_COLORS = [
   '#ff8fab', '#ffd166', '#7ec4cf', '#95d5b2', '#5468c4',
   '#b799ff', '#fffdf7', '#3a3f4a', '#e0596e', '#d96c2c',
@@ -2377,7 +2383,7 @@ const CHIBI_CLOTH_COLORS = [
 
 function buildChibiMaker() {
   const closeX = el('button', { id: 'lu-am-close', type: 'button', 'aria-label': '닫기', text: '×' });
-  const title = el('div', { className: 'lu-am-title', text: '치비 만들기' });
+  const title = el('div', { className: 'lu-am-title', text: '아야모 꾸미기' });
   const head = el('div', { className: 'lu-am-head' }, [title, closeX]);
 
   const canvas = el('canvas', { width: '300', height: '400' });
@@ -2411,6 +2417,8 @@ function buildChibiMaker() {
     fill.position.set(-1.8, 1.1, 1.6);
     previewScene.add(fill);
     previewRotator = new THREE.Group();
+    // 치비는 +Z 저작 + π 래퍼로 -Z를 본다 — 카메라(+Z)에서 정면이 보이게 π 시작
+    previewRotator.rotation.y = Math.PI;
     previewScene.add(previewRotator);
   }
 
@@ -2555,7 +2563,7 @@ function buildChibiMaker() {
   function open() {
     chibiParams = normalizeChibi(Object.assign({}, DEFAULT_CHIBI, readStoredChibi() || {}));
     ensurePreviewRenderer();
-    previewRotator.rotation.y = 0;
+    previewRotator.rotation.y = Math.PI; // 정면(카메라 쪽)부터 — 얼굴을 꾸미는 화면이므로
     rebuildPreview();
     renderPanel();
     overlay.classList.add('lu-open');
