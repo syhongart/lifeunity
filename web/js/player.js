@@ -147,18 +147,18 @@ export class PlayerController {
 .lu-joy-base::after { content: ''; position: absolute; inset: 5px; border-radius: 50%;
   border: 1px dashed rgba(253,251,245,0.22);
   transition: border-color 0.15s ease, box-shadow 0.15s ease; }
-.lu-joy-base.lu-run::after { border-color: rgba(212,175,55,0.9); border-style: solid;
-  box-shadow: 0 0 10px rgba(212,175,55,0.5), inset 0 0 8px rgba(212,175,55,0.25); }
+.lu-joy-base.lu-run::after { border-color: rgba(95,158,125,0.9); border-style: solid;
+  box-shadow: 0 0 10px rgba(95,158,125,0.5), inset 0 0 8px rgba(95,158,125,0.25); }
 .lu-joy-knob { position: fixed; width: 44px; height: 44px; margin: -22px 0 0 -22px;
   border-radius: 50%; background: radial-gradient(circle at 32% 28%, #fffdf8, #e8e2d2);
   border: 1px solid rgba(23,20,15,0.28);
   box-shadow: 0 3px 8px rgba(10,8,4,0.40), inset 0 -2px 4px rgba(23,20,15,0.14);
   pointer-events: none; z-index: 41; opacity: 0; transition: opacity 0.12s ease; }
 .lu-joy-knob.lu-live { opacity: 1; }
-.lu-joy-knob.lu-run { background: radial-gradient(circle at 32% 28%, #ffe9a8, #d4af37);
-  border-color: rgba(120,92,20,0.55);
-  box-shadow: 0 0 0 1px rgba(212,175,55,0.9), 0 0 14px rgba(212,175,55,0.55),
-    inset 0 -2px 4px rgba(120,92,20,0.30); }`;
+.lu-joy-knob.lu-run { background: radial-gradient(circle at 32% 28%, #b8e4c9, #5f9e7d);
+  border-color: rgba(32,74,52,0.55);
+  box-shadow: 0 0 0 1px rgba(95,158,125,0.9), 0 0 14px rgba(95,158,125,0.55),
+    inset 0 -2px 4px rgba(32,74,52,0.30); }`;
       document.head.appendChild(st);
     }
     this._joyBase = document.createElement('div');

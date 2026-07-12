@@ -26,6 +26,8 @@
 
 ## 기타 대기 항목
 
+- og.png(SNS 공유 썸네일) 청자 그린 브랜드로 재생성
+
 - 블렌더 커스텀 건물 파이프라인 구현 (규약 문서 docs/BLENDER-BUILDING-GUIDE.md
   완료 — three-mesh-bvh 충돌, Empty 슬롯 임포터, 스튜디오 검증기)
 - 실계정/실결제 (현재 활성화 코드 목업)

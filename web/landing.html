@@ -20,12 +20,12 @@
 <style>
   :root {
     /* 브랜드 토큰 — 앱 내부(ui.js)와 동일한 크림 종이/잉크/골드 */
-    --gold: #d4af37;
-    --gold-deep: #b28a2e;
-    --gold-soft: rgba(212,175,55,0.5);
+    --gold: #5f9e7d;
+    --gold-deep: #3f7a5c;
+    --gold-soft: rgba(95,158,125,0.5);
     --paper: #fdfbf5;
     --r-card: 3px;        /* 갤러리 플레이트 — 유일한 radius */
-    --gold-text: #8a6d23; /* 크림 위 골드 텍스트 (대비 4.6:1) */
+    --gold-text: #3d6b50; /* 크림 위 골드 텍스트 (대비 4.6:1) */
     --ink-body: #57503f;  /* 본문 잉크 — dim보다 반 톤 진하게 */
     --paper-deep: #f6f1e4;
     --ink: #17140f;
@@ -190,8 +190,8 @@
     border: 1px solid var(--gold);
   }
   .btn-gold:hover {
-    background: #e8c355;
-    border-color: #e8c355;
+    background: #7cb894;
+    border-color: #7cb894;
   }
   .btn-outline {
     background: transparent;
@@ -209,7 +209,7 @@
   }
   .btn-outline-dark:hover {
     border-color: var(--gold);
-    color: #97772a;
+    color: #38614a;
   }
 
   .scroll-cue {
@@ -232,7 +232,7 @@
   .scroll-cue .line {
     width: 1px;
     height: 46px;
-    background: linear-gradient(to bottom, rgba(212,175,55,0.9), rgba(212,175,55,0));
+    background: linear-gradient(to bottom, rgba(95,158,125,0.9), rgba(95,158,125,0));
     position: relative;
     overflow: hidden;
   }
@@ -491,7 +491,7 @@
     text-decoration: none; letter-spacing: 0.03em;
     transition: background 0.2s ease;
   }
-  .topnav .nav-cta:hover { background: #e8c355; }
+  .topnav .nav-cta:hover { background: #7cb894; }
   @media (max-width: 720px) {
     .topnav { gap: 12px; padding: 12px 16px; }
   }
@@ -501,9 +501,9 @@
   .hero-badge {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 7px 16px; border-radius: var(--r-card); margin-bottom: 18px;
-    border: 1px solid rgba(212,175,55,0.45); color: var(--gold);
+    border: 1px solid rgba(95,158,125,0.45); color: var(--gold);
     font-size: 12.5px; letter-spacing: 0.12em;
-    background: rgba(212,175,55,0.08);
+    background: rgba(95,158,125,0.08);
   }
   .hero-badge .pulse {
     width: 7px; height: 7px; border-radius: 50%; background: #7ddf8a;
@@ -628,7 +628,7 @@
   .hero::before {
     content: "";
     position: absolute; inset: clamp(14px, 2.5vw, 28px);
-    border: 1px solid rgba(212,175,55,0.28);
+    border: 1px solid rgba(95,158,125,0.28);
     pointer-events: none; z-index: 1;
   }
   .hero-caption {
@@ -914,8 +914,8 @@
     beams.forEach(function (b) {
       var x = cx + b.drift;
       var grad = ctx.createLinearGradient(x, -H * 0.1, x + Math.sin(b.angle) * H, H * 0.9);
-      grad.addColorStop(0, "rgba(212,175,55,0.05)");
-      grad.addColorStop(1, "rgba(212,175,55,0)");
+      grad.addColorStop(0, "rgba(95,158,125,0.05)");
+      grad.addColorStop(1, "rgba(95,158,125,0)");
       ctx.save();
       ctx.translate(x, 0);
       ctx.rotate(b.angle);
@@ -939,7 +939,7 @@
       var tw = 0.7 + 0.3 * Math.sin(t * p.twinkleSpeed + p.twinklePhase);
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(212,175,55," + (p.baseAlpha * tw).toFixed(3) + ")";
+      ctx.fillStyle = "rgba(95,158,125," + (p.baseAlpha * tw).toFixed(3) + ")";
       ctx.fill();
     }
     rafId = requestAnimationFrame(tick);
