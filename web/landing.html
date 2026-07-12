@@ -302,37 +302,37 @@
     .feature-grid { grid-template-columns: 1fr; }
   }
   .feature-card {
-    /* 설명문 카드 → 실사 스크린샷 카드 — "설명하지 말고 보여준다" (감독 피드백) */
+    /* 타이포 주도 미니멀 카드 — 사진의 명암이 크림 페이지의 차분함을 깨서
+       이미지 없이 번호·제목·한 줄로 (감독 피드백: "대비가 너무 크다") */
     background: #ffffff;
-    padding: 0;
+    padding: 34px 32px 36px;
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border-light);
     border-radius: var(--r-card);
-    overflow: hidden;
     transition: border-color 0.25s ease;
   }
-  .feature-card:hover { border-color: var(--green-500); }
-  .fc-img { aspect-ratio: 4 / 3; overflow: hidden; }
-  .fc-img img {
-    width: 100%; height: 100%; object-fit: cover; display: block;
-    transform: scale(1.001);
-    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .feature-card:hover .fc-img img { transform: scale(1.045); }
-  .fc-body { padding: 20px 24px 24px; }
-  .fc-body::before {
+  .feature-card::before {
     /* 도록의 챕터 룰 */
     content: ""; display: block;
     width: 40px; height: 2px;
     background: linear-gradient(90deg, var(--green-700), var(--green-300));
-    margin-bottom: 14px;
+    margin-bottom: 22px;
     transition: width 0.25s ease;
   }
-  .feature-card:hover .fc-body::before { width: 64px; }
+  .feature-card:hover { border-color: var(--green-500); }
+  .feature-card:hover::before { width: 64px; }
+  .fc-num {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--green-600);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 12px;
+  }
   .feature-card h3 {
-    margin: 0 0 6px;
-    font-size: 19px;
+    margin: 0 0 8px;
+    font-size: 21px;
     font-weight: 600;
     letter-spacing: -0.005em;
     color: var(--ink);
@@ -723,27 +723,21 @@
       <div class="feature-grid">
 
         <div class="feature-card reveal">
-          <div class="fc-img"><img src="./app/assets/landing/floors.jpg" alt="미술관 중앙 홀 — 작품이 걸린 벽과 2층 메자닌" loading="lazy"></div>
-          <div class="fc-body">
-            <h3>네 개 층의 미술관</h3>
-            <p>지하 미디어관부터 옥상 테라스까지, 걸어서.</p>
-          </div>
+          <div class="fc-num">01</div>
+          <h3>네 개 층의 미술관</h3>
+          <p>지하 미디어관부터 옥상 테라스까지, 걸어서.</p>
         </div>
 
         <div class="feature-card reveal">
-          <div class="fc-img"><img src="./app/assets/landing/together.jpg" alt="아야모 관람객이 작품 앞에 서 있는 모습" loading="lazy"></div>
-          <div class="fc-body">
-            <h3>함께 걷는 관람</h3>
-            <p>낯선 이와 같은 작품 앞에, 나란히.</p>
-          </div>
+          <div class="fc-num">02</div>
+          <h3>함께 걷는 관람</h3>
+          <p>낯선 이와 같은 작품 앞에, 나란히.</p>
         </div>
 
         <div class="feature-card reveal">
-          <div class="fc-img"><img src="./app/assets/landing/invite.jpg" alt="정원에서 본 미술관 — 유리 커튼월과 나무" loading="lazy"></div>
-          <div class="fc-body">
-            <h3>링크 하나로 초대</h3>
-            <p>가입 없이, 누르는 순간 당신의 미술관.</p>
-          </div>
+          <div class="fc-num">03</div>
+          <h3>링크 하나로 초대</h3>
+          <p>가입 없이, 누르는 순간 당신의 미술관.</p>
         </div>
 
       </div>
