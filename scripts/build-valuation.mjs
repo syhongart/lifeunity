@@ -18,7 +18,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const BASE_URL = 'https://syhongart.github.io/artshow';
+const BASE_URL = 'https://syhongart.github.io/openartshow';
 const SITE = 'ARTSHOW';
 const HIST = join(ROOT, 'docs', 'valuation-history.json');
 const TRACTION = join(ROOT, 'docs', 'traction.json');

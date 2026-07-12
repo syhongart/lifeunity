@@ -9,7 +9,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const BASE_URL = 'https://syhongart.github.io/artshow'; // 랜딩 OG와 동일 규약
+const BASE_URL = 'https://syhongart.github.io/openartshow'; // 랜딩 OG와 동일 규약
 const SITE = 'ARTSHOW';
 const OUT = join(ROOT, 'devlog');
 

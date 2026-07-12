@@ -4,9 +4,9 @@ ARTSHOW는 **웹 브라우저만으로 접속하는 3D 가상 전시 플랫폼**
 
 ## 라이브 링크
 
-- **랜딩 페이지**: https://syhongart.github.io/artshow/
-- **전시장 입장**: https://syhongart.github.io/artshow/app/
-- **작가 스튜디오**: https://syhongart.github.io/artshow/app/studio.html
+- **랜딩 페이지**: https://syhongart.github.io/openartshow/
+- **전시장 입장**: https://syhongart.github.io/openartshow/app/
+- **작가 스튜디오**: https://syhongart.github.io/openartshow/app/studio.html
 
 ## 주요 기능
 
@@ -69,7 +69,7 @@ artshow/
 ## 새 전시 열기
 
 ### 방법 A — 공유 링크 발행 (권장, 서버·가입 불필요)
-1. https://syhongart.github.io/artshow/app/studio.html 접속
+1. https://syhongart.github.io/openartshow/app/studio.html 접속
 2. 전시 제목·설명·작품(이미지 URL, 최대 14점 + 대표작 2점) 입력
 3. **[공유 링크 만들기]** → 전시 데이터가 압축되어 URL(#gz=)에 통째로 담긴 링크 생성
 4. 그 링크를 SNS/메신저에 공유 — 받는 사람은 클릭 즉시 그 전시에 입장
