@@ -25,6 +25,14 @@
     --gold-soft: rgba(95,158,125,0.5);
     --paper: #fdfbf5;
     --r-card: 3px;        /* 갤러리 플레이트 — 유일한 radius */
+    /* 청자 그린 스케일 — 단색 액센트에서 시스템으로 (감독: "강한 색도, 다양하게") */
+    --green-100: #e3efe7;  /* 연한 워시 */
+    --green-300: #8fd0ab;  /* 하이라이트 */
+    --green-500: #5f9e7d;  /* 기본 액센트 (=--gold 값) */
+    --green-600: #4e8a6a;
+    --green-700: #3f7a5c;  /* 딥 */
+    --green-800: #2c5844;  /* 포레스트 — 힘줄 곳 */
+    --green-900: #14261d;  /* 심연 — 다크 섹션 배경용 */
     --gold-text: #3d6b50; /* 크림 위 골드 텍스트 (대비 4.6:1) */
     --ink-body: #57503f;  /* 본문 잉크 — dim보다 반 톤 진하게 */
     --paper-deep: #f6f1e4;
@@ -185,13 +193,13 @@
   }
   .btn:active { transform: translateY(1px); }
   .btn-gold {
-    background: var(--gold);
-    color: #0a0a0b;
-    border: 1px solid var(--gold);
+    background: var(--green-800);
+    color: #eef7f1;
+    border: 1px solid var(--green-800);
   }
   .btn-gold:hover {
-    background: #7cb894;
-    border-color: #7cb894;
+    background: var(--green-600);
+    border-color: var(--green-600);
   }
   .btn-outline {
     background: transparent;
@@ -304,10 +312,10 @@
     transition: border-color 0.25s ease;
   }
   .feature-card::before {
-    /* 도록의 챕터 룰 — 골드가 테두리 장식이 아니라 타이포의 일부 */
+    /* 도록의 챕터 룰 — 딥에서 하이라이트로 흐르는 그린 그라디언트 */
     content: ""; display: block;
     width: 40px; height: 2px;
-    background: var(--gold);
+    background: linear-gradient(90deg, var(--green-700), var(--green-300));
     margin-bottom: 10px;
     transition: width 0.25s ease;
   }
@@ -316,7 +324,7 @@
   .feature-icon {
     width: 30px;
     height: 30px;
-    color: var(--gold-text);
+    color: var(--green-600);
   }
   .feature-icon svg { width: 100%; height: 100%; display: block; }
   .feature-card h3 {
@@ -388,7 +396,7 @@
 
   /* ---------- Recruit ---------- */
   .recruit {
-    background: var(--bg-dark);
+    background: #101d16; /* 커뮤니티(--green-900)와 푸터(--bg-dark-2) 사이 계조 */
     color: var(--text-light);
     text-align: center;
   }
@@ -487,11 +495,11 @@
   .topnav .nav-cta {
     margin-left: auto;
     padding: 9px 20px; border-radius: var(--r-card);
-    background: var(--gold); color: #16130a; font-size: 13.5px; font-weight: 600;
+    background: var(--green-800); color: #eef7f1; font-size: 13.5px; font-weight: 600;
     text-decoration: none; letter-spacing: 0.03em;
     transition: background 0.2s ease;
   }
-  .topnav .nav-cta:hover { background: #7cb894; }
+  .topnav .nav-cta:hover { background: var(--green-600); }
   @media (max-width: 720px) {
     .topnav { gap: 12px; padding: 12px 16px; }
   }
@@ -517,7 +525,7 @@
 
   /* ---------- 라이브 포토월 & 최근 관람객 ---------- */
   .community {
-    background: var(--bg-dark); color: var(--text-light);
+    background: var(--green-900); color: var(--text-light); /* 심연 그린 — 페이지 리듬 */
     padding: clamp(64px, 10vw, 120px) 0;
   }
   .community .section-inner { max-width: 1080px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
@@ -584,7 +592,7 @@
   .plan-card::before {
     content: ""; display: block;
     width: 40px; height: 2px;
-    background: var(--gold);
+    background: linear-gradient(90deg, var(--green-700), var(--green-300));
     margin-bottom: 18px;
     transition: width 0.25s ease;
   }
@@ -593,7 +601,7 @@
   .plan-card--featured::before { width: 64px; }
   .plan-badge {
     position: absolute; top: -11px; right: 18px;
-    background: var(--gold-deep); color: #fff;
+    background: var(--green-800); color: #eaf5ee;
     font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
     padding: 3px 12px; border-radius: var(--r-card);
   }
