@@ -550,12 +550,16 @@
   .ab-ic.n { background: #03c75a; }
   .auth-note { margin: 12px 0 0; font-size: 12px; line-height: 1.7; color: #8a8172; }
   .topnav .nav-cta {
+    /* 히어로의 "지금 입장하기"와 중복 노출 방지 — 히어로를 지나야 나타난다 */
+    opacity: 0; pointer-events: none; transform: translateY(-4px);
+    transition: opacity 0.3s ease, transform 0.3s ease, background 0.2s ease;
     margin-left: 14px;
     padding: 9px 20px; border-radius: var(--r-card);
     background: var(--green-800); color: #eef7f1; font-size: 13.5px; font-weight: 600;
     text-decoration: none; letter-spacing: 0.03em;
     transition: background 0.2s ease;
   }
+  .topnav .nav-cta.is-shown { opacity: 1; pointer-events: auto; transform: none; }
   .topnav .nav-cta:hover { background: var(--green-600); }
   @media (max-width: 720px) {
     .topnav { gap: 12px; padding: 12px 16px; }
@@ -1265,6 +1269,16 @@
     });
   });
   renderNav();
+
+  // 상단 입장하기 CTA — 히어로 CTA가 화면에서 사라진 뒤에만 노출 (중복 방지)
+  var navCta = document.querySelector('.topnav .nav-cta');
+  var hero = document.querySelector('.hero');
+  function syncNavCta() {
+    var passed = window.scrollY > (hero ? hero.offsetHeight * 0.6 : 400);
+    navCta.classList.toggle('is-shown', passed);
+  }
+  window.addEventListener('scroll', syncNavCta, { passive: true });
+  syncNavCta();
 })();
 </script>
 </body>
