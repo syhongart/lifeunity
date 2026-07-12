@@ -4,13 +4,21 @@
     "devlogs": 21,
     "asset": 10100,
     "mktLow": 40400,
-    "mktHigh": 121200
+    "mktHigh": 121200,
+    "realized": 10100,
+    "galleries": 0,
+    "mau": 0,
+    "mrr": 0
   },
   {
     "date": "2026-07-12",
-    "devlogs": 44,
-    "asset": 12400,
-    "mktLow": 49600,
-    "mktHigh": 148800
+    "devlogs": 45,
+    "galleries": 0,
+    "mau": 0,
+    "mrr": 0,
+    "asset": 12500,
+    "realized": 12500,
+    "mktLow": 50000,
+    "mktHigh": 150000
   }
 ]
