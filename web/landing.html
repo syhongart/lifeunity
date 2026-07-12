@@ -495,6 +495,8 @@
     letter-spacing: 0.04em; transition: color 0.2s;
   }
   .topnav .nav-links a:hover { color: #fff; }
+  .nav-burger { display: none; }
+  .nav-sheet { display: none; }
   .nav-auth { margin-left: auto; display: flex; align-items: center; gap: 12px; }
   .nav-auth-link {
     background: none; border: none; cursor: pointer; font-family: inherit;
@@ -701,15 +703,47 @@
 
   /* 모바일 — 내비 pill 행 유지 + 히어로 CTA 스택 (디자이너 감사 ⑥) */
   @media (max-width: 720px) {
-    .topnav { flex-wrap: wrap; row-gap: 8px; padding: 10px 16px 8px; }
-    .topnav .nav-links {
-      display: flex; order: 3; width: 100%;
-      gap: 18px; overflow-x: auto; -webkit-overflow-scrolling: touch;
-      scrollbar-width: none; padding-bottom: 2px;
+    /* 모바일 — 심플 햄버거 (감독 지시). 링크 필로우/인증/CTA는 시트 안으로 */
+    .topnav { padding: 12px 16px; }
+    .topnav .nav-links, .topnav .nav-auth, .topnav .nav-cta { display: none; }
+    .nav-burger {
+      display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
+      margin-left: auto; width: 40px; height: 40px; padding: 9px;
+      background: none; border: none; cursor: pointer;
     }
-    .topnav .nav-links::-webkit-scrollbar { display: none; }
-    .topnav .nav-links a { font-size: 12.5px; white-space: nowrap; }
-    section[id] { scroll-margin-top: 96px; }
+    .nav-burger span {
+      display: block; height: 1.5px; width: 100%;
+      background: rgba(242,242,240,0.9);
+      transition: transform 0.25s ease, opacity 0.2s ease;
+    }
+    .nav-burger[aria-expanded="true"] span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+    .nav-burger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+    .nav-burger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+    .nav-sheet {
+      display: block; position: fixed; left: 0; right: 0; top: 56px; z-index: 90;
+      background: rgba(10,12,10,0.96);
+      border-bottom: 1px solid rgba(95,158,125,0.35);
+      padding: 8px 20px 18px;
+      transform: translateY(-8px); opacity: 0; pointer-events: none;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+    .nav-sheet.is-open { transform: none; opacity: 1; pointer-events: auto; }
+    .nav-sheet > a {
+      display: block; padding: 13px 2px;
+      font-size: 15px; font-weight: 500; color: rgba(242,242,240,0.9);
+      border-bottom: 1px solid rgba(242,242,240,0.08);
+    }
+    .nav-sheet > a:last-of-type { border-bottom: none; }
+    .ns-divider { height: 1px; background: rgba(242,242,240,0.14); margin: 6px 0; }
+    .ns-auth { display: flex; align-items: center; gap: 14px; padding: 12px 2px; }
+    .ns-auth .nav-auth-link { font-size: 14px; padding: 0; }
+    .ns-auth .nav-auth-profile { font-size: 14px; }
+    .ns-enter {
+      display: block; margin-top: 10px; padding: 13px;
+      background: var(--green-800); color: #eef7f1; text-align: center;
+      border-radius: var(--r-card); font-size: 14px; font-weight: 600;
+    }
+    section[id] { scroll-margin-top: 72px; }
     .hero-cta { width: 100%; max-width: 340px; flex-direction: column; gap: 12px; }
     .hero-cta .btn { width: 100%; }
     .hero-caption { display: none; }
@@ -721,6 +755,9 @@
   <!-- ============ HERO ============ -->
   <nav class="topnav" aria-label="주 메뉴">
     <a class="nav-logo" href="#top">ARTSHOW<span class="dot">.</span></a>
+    <button class="nav-burger" id="navBurger" type="button" aria-label="메뉴 열기" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
     <div class="nav-links">
       <a href="#exhibitions">전시</a>
       <a href="#photowall">포토월</a>
@@ -733,6 +770,15 @@
       <button class="nav-auth-link" type="button" data-auth-open>회원가입</button>
     </div>
     <a class="nav-cta" href="./app/">입장하기</a>
+    <div class="nav-sheet" id="navSheet">
+      <a href="#exhibitions">전시</a>
+      <a href="#photowall">포토월</a>
+      <a href="#pricing">요금제</a>
+      <a href="./guide.html">가이드</a>
+      <div class="ns-divider"></div>
+      <div class="ns-auth" id="nsAuth"></div>
+      <a class="ns-enter" href="./app/">입장하기</a>
+    </div>
   </nav>
 
   <section class="hero" id="top">
@@ -1231,8 +1277,24 @@
       return p && p.name ? p : null;
     } catch (e) { return null; }
   }
+  var nsAuth = document.getElementById('nsAuth');
   function renderNav() {
     var p = readProfile();
+    if (nsAuth) nsAuth.innerHTML = p
+      ? '<span class="nav-auth-profile"><span class="ini">' + p.initial + '</span>' + p.name + '님</span>' +
+        '<button class="nav-auth-link" type="button" id="nsLogout">로그아웃</button>'
+      : '<button class="nav-auth-link" type="button" data-auth-open>로그인</button>' +
+        '<span class="nav-auth-sep"></span>' +
+        '<button class="nav-auth-link" type="button" data-auth-open>회원가입</button>';
+    if (nsAuth && p) {
+      nsAuth.querySelector('#nsLogout').addEventListener('click', function () {
+        try { localStorage.removeItem(KEY); } catch (e) {}
+        renderNav();
+      });
+    }
+    if (nsAuth) Array.prototype.forEach.call(nsAuth.querySelectorAll('[data-auth-open]'), function (b) {
+      b.addEventListener('click', function () { closeSheet(); overlay.hidden = false; });
+    });
     if (p) {
       navAuth.innerHTML =
         '<span class="nav-auth-profile"><span class="ini">' + p.initial + '</span>' + p.name + '님</span>' +
@@ -1279,6 +1341,22 @@
   }
   window.addEventListener('scroll', syncNavCta, { passive: true });
   syncNavCta();
+
+  // 모바일 햄버거
+  var burger = document.getElementById('navBurger');
+  var sheet = document.getElementById('navSheet');
+  function closeSheet() {
+    sheet.classList.remove('is-open');
+    burger.setAttribute('aria-expanded', 'false');
+  }
+  burger.addEventListener('click', function () {
+    var open = !sheet.classList.contains('is-open');
+    sheet.classList.toggle('is-open', open);
+    burger.setAttribute('aria-expanded', String(open));
+  });
+  Array.prototype.forEach.call(sheet.querySelectorAll('a'), function (a) {
+    a.addEventListener('click', closeSheet);
+  });
 })();
 </script>
 </body>
