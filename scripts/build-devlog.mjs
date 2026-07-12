@@ -182,6 +182,7 @@ function shell({ title, desc, path, og, jsonld, bodyHtml }) {
   <nav>
     <a href="../devlog/">개발일지</a>
     <a href="../team/">팀</a>
+    <a href="../valuation/">밸류에이션</a>
     <a href="../guide.html">가이드</a>
     <a href="../app/">입장하기</a>
   </nav>
@@ -258,6 +259,7 @@ const urls = [
   { loc: `${BASE_URL}/`, mod: entries[0].date },
   { loc: `${BASE_URL}/guide.html`, mod: entries[0].date },
   { loc: `${BASE_URL}/team/`, mod: entries[0].date },
+  { loc: `${BASE_URL}/valuation/`, mod: entries[0].date },
   { loc: `${BASE_URL}/devlog/`, mod: entries[0].date },
   ...entries.map(e => ({ loc: `${BASE_URL}/devlog/${e.slug}.html`, mod: e.date })),
 ];

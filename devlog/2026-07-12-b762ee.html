@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>나무 전면 업그레이드 — blob → 디테일 트리, 비용 +2콜 — ARTSHOW 개발일지</title>
-<meta name="description" content="감독 질문: "동그란 나무를 잎 있는 것으로 다 바꾸면 비용이 올라가려나?"">
-<link rel="canonical" href="https://syhongart.github.io/artshow/devlog/2026-07-11-cdd65e.html">
+<title>시장가치 추적기 /valuation/ — 매일 04:00 자동 산출 그래프 (감독 지시) — ARTSHOW 개발일지</title>
+<meta name="description" content="감독 지시: 매일 새벽 4시에 시장가치를 분석하고 그래프로 표현하라.">
+<link rel="canonical" href="https://syhongart.github.io/artshow/devlog/2026-07-12-b762ee.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="ARTSHOW">
-<meta property="og:title" content="나무 전면 업그레이드 — blob → 디테일 트리, 비용 +2콜 — ARTSHOW 개발일지">
-<meta property="og:description" content="감독 질문: "동그란 나무를 잎 있는 것으로 다 바꾸면 비용이 올라가려나?"">
-<meta property="og:url" content="https://syhongart.github.io/artshow/devlog/2026-07-11-cdd65e.html">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"나무 전면 업그레이드 — blob → 디테일 트리, 비용 +2콜","datePublished":"2026-07-11","author":{"@type":"Organization","name":"ARTSHOW"},"mainEntityOfPage":"https://syhongart.github.io/artshow/devlog/2026-07-11-cdd65e.html","inLanguage":"ko"}</script>
+<meta property="og:title" content="시장가치 추적기 /valuation/ — 매일 04:00 자동 산출 그래프 (감독 지시) — ARTSHOW 개발일지">
+<meta property="og:description" content="감독 지시: 매일 새벽 4시에 시장가치를 분석하고 그래프로 표현하라.">
+<meta property="og:url" content="https://syhongart.github.io/artshow/devlog/2026-07-12-b762ee.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"시장가치 추적기 /valuation/ — 매일 04:00 자동 산출 그래프 (감독 지시)","datePublished":"2026-07-12","author":{"@type":"Organization","name":"ARTSHOW"},"mainEntityOfPage":"https://syhongart.github.io/artshow/devlog/2026-07-12-b762ee.html","inLanguage":"ko"}</script>
 <style>
 :root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
 --ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
@@ -76,20 +76,19 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
-<div class="eyebrow">2026-07-11</div>
-<h1><span class="emo">🌳</span>나무 전면 업그레이드 — blob → 디테일 트리, 비용 +2콜</h1>
+<div class="eyebrow">2026-07-12</div>
+<h1><span class="emo">📱</span>시장가치 추적기 /valuation/ — 매일 04:00 자동 산출 그래프 (감독 지시)</h1>
 <p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 <h3>원인</h3>
-<ul><li>감독 질문: "동그란 나무를 잎 있는 것으로 다 바꾸면 비용이 올라가려나?"</li></ul>
+<ul><li>감독 지시: 매일 새벽 4시에 시장가치를 분석하고 그래프로 표현하라.</li></ul>
 <h3>분석</h3>
-<ul><li>실측: 디테일 트리 1그루 = 가지 실린더 17 + 알파 잎 카드 59 ≈ <strong>76 드로우 오브젝트</strong>. 배경 21그루를 그대로 바꾸면 +1,600콜 — 방금 한 최적화가 무너짐.</li><li>그러나 천장에 쓴 병합 기법을 쓰면: 나무 재질(수피 1 + 잎 텍스처 3)을 전 그루가 공유 → 숲 전체를 머티리얼별 4콜로 병합 가능.</li></ul>
+<ul><li>매일 LLM이 밸류를 재추정하면 노이즈가 크다 → <strong>결정론적 공개 모델</strong>이 더 방어 가능하고 그래프도 매끈하다. 신호는 이미 개발일지에 실측으로 쌓임.</li><li>스케줄러 선택: cron 도구는 세션 한정 + 7일 만료. 영구 실행은 GitHub Actions(기본 브랜치·UTC)가 정답 — 둘 다 건다.</li></ul>
 <h3>개선</h3>
-<ul><li>sharedTreeMats(): 모든 디테일 트리가 수피/잎 재질 공유.</li><li>bakeGroupByMaterial(): 그룹의 월드 변환을 지오메트리에 굽고 머티리얼별 병합 (알파 잎은 castShadow 제외 — 투명 그림자 아티팩트 방지).</li><li>배경 21그루 blob → 디테일 트리 교체 + 근거리 5그루·중정 큰 나무도 같은 병합 경로로 (기존 개별 76콜×6도 함께 정리).</li></ul>
+<ul><li>scripts/build-valuation.mjs: 자산가치 = 8,000만 + 개발일지×100만, 시장범위 = 자산×4~×12(조건부). docs/valuation-history.json에 일자별 멱등 upsert → valuation/index.html에 인라인 SVG(자산 실선 + 시장범위 밴드) + 산출 근거 공개 + 면책. dataviz 스킬 기준(단일 시퀀셜 그린, 텍스트는 잉크 토큰, 격자 recessive).</li><li>크로스 내비(개발일지·팀·랜딩 푸터)·sitemap·배포 스크립트에 valuation/ 추가.</li><li>영구 스케줄러 .github/workflows/valuation.yml(04:07 KST=19:07 UTC) — artshow 이전·기본 브랜치·Actions 활성 후 발화. 이번 세션엔 cron 도구로 4시 브리지 실행(세션·7일 한정).</li></ul>
 <h3>결과</h3>
-<ul><li>드로우콜 255→<strong>257(+2)</strong>, 트라이앵글 +4.4k, renderMs 2.8→3.0. "잎 있는 나무 전면 교체"가 사실상 무비용으로 완료.</li></ul>
-<figure class="shot"><img src="./img/exterior-day.jpg" alt="잎과 가지가 살아 있는 디테일 트리 — 낮 사이클의 정원" loading="lazy"><figcaption>잎과 가지가 살아 있는 디테일 트리 — 낮 사이클의 정원</figcaption></figure>
+<ul><li>QA: SVG 렌더·데이터점 2·표 2행·모바일 무가로스크롤·JS 에러 0.</li><li>오늘값: 자산 1.23억 / 시장범위 4.92억~14.76억(개발일지 43건).</li><li>한계 명시: 자기 추정이며 외부 거래 근거 아님. 시장범위는 트랙션 조건부.</li></ul>
 </article>
-<div class="pn"><a href="./2026-07-11-dc3ce8.html"><span class="lbl">← 이전 기록</span>그림자 강화 — 대비 3층위 상향</a><a href="./2026-07-11-2e71bf.html" style="text-align:right"><span class="lbl">다음 기록 →</span>기본 전시 cycle 테마 전환 + 잠복 버그 수정 (fog 널 가드)</a></div>
+<div class="pn"><a href="./2026-07-12-f4698c.html"><span class="lbl">← 이전 기록</span>팀 인사기록 페이지 /team/ — 정규직·계약직 기여도 (감독 지시)</a></div>
 </div>
 <footer>&copy; 2026 ARTSHOW. — 만드는 과정을 기록합니다.</footer>
 </body>

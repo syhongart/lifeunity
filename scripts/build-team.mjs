@@ -179,6 +179,7 @@ const html = `<!DOCTYPE html>
   <nav>
     <a href="../team/">팀</a>
     <a href="../devlog/">개발일지</a>
+    <a href="../valuation/">밸류에이션</a>
     <a href="../guide.html">가이드</a>
     <a href="../app/">입장하기</a>
   </nav>
