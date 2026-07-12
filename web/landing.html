@@ -222,43 +222,15 @@
     color: #38614a;
   }
 
-  .scroll-cue {
-    position: absolute;
-    bottom: 34px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    color: var(--text-dim-light);
+  /* ---------- 좌측 스크롤 진행 바 ---------- */
+  .scroll-rail {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 2px;
+    background: rgba(95,158,125,0.12);
+    z-index: 200; pointer-events: none;
   }
-  .scroll-cue .label {
-    font-size: 10px;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-  }
-  .scroll-cue .line {
-    width: 1px;
-    height: 46px;
-    background: linear-gradient(to bottom, rgba(95,158,125,0.9), rgba(95,158,125,0));
-    position: relative;
-    overflow: hidden;
-  }
-  .scroll-cue .line::after {
-    content: "";
-    position: absolute;
-    left: 0; top: -40%;
-    width: 100%; height: 40%;
-    background: linear-gradient(to bottom, transparent, #fff, transparent);
-    animation: scrollDrip 2.2s ease-in-out infinite;
-  }
-  @keyframes scrollDrip {
-    0%   { transform: translateY(-20%); opacity: 0; }
-    15%  { opacity: 1; }
-    85%  { opacity: 1; }
-    100% { transform: translateY(300%); opacity: 0; }
+  .scroll-rail .fill {
+    display: block; width: 100%; height: 0%;
+    background: linear-gradient(to bottom, var(--green-300), var(--green-600));
   }
 
   /* ---------- Section shell ---------- */
@@ -794,10 +766,6 @@
       <div class="cap-sub">Web · 3D Virtual Museum · B1–Rooftop</div>
       <div class="cap-live" id="heroLiveCount">지금 열린 전시 — 집계 중</div>
     </aside>
-    <div class="scroll-cue">
-      <span class="label">Scroll</span>
-      <span class="line"></span>
-    </div>
   </section>
 
   <!-- ============ FEATURES ============ -->
@@ -1248,6 +1216,7 @@
     }
   }
 </script>
+<div class="scroll-rail" aria-hidden="true"><span class="fill" id="scrollFill"></span></div>
 <div class="auth-overlay" id="authOverlay" hidden>
   <div class="auth-card" role="dialog" aria-modal="true" aria-label="로그인 또는 회원가입">
     <button class="auth-close" id="authClose" type="button" aria-label="닫기">×</button>
@@ -1335,8 +1304,16 @@
     var passed = window.scrollY > (hero ? hero.offsetHeight * 0.6 : 400);
     navCta.classList.toggle('is-shown', passed);
   }
-  window.addEventListener('scroll', syncNavCta, { passive: true });
+  // 좌측 스크롤 진행 바 — 영문 SCROLL 큐 대체 (감독 제안)
+  var scrollFill = document.getElementById('scrollFill');
+  function syncScrollRail() {
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    scrollFill.style.height = (max > 0 ? (window.scrollY / max) * 100 : 0) + '%';
+  }
+  window.addEventListener('scroll', function () { syncNavCta(); syncScrollRail(); }, { passive: true });
+  window.addEventListener('resize', syncScrollRail, { passive: true });
   syncNavCta();
+  syncScrollRail();
 
   // 모바일 햄버거
   var burger = document.getElementById('navBurger');
