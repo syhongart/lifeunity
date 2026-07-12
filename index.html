@@ -302,33 +302,36 @@
     .feature-grid { grid-template-columns: 1fr; }
   }
   .feature-card {
+    /* 설명문 카드 → 실사 스크린샷 카드 — "설명하지 말고 보여준다" (감독 피드백) */
     background: #ffffff;
-    padding: 40px 32px;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 14px;
     border: 1px solid var(--border-light);
     border-radius: var(--r-card);
+    overflow: hidden;
     transition: border-color 0.25s ease;
   }
-  .feature-card::before {
-    /* 도록의 챕터 룰 — 딥에서 하이라이트로 흐르는 그린 그라디언트 */
+  .feature-card:hover { border-color: var(--green-500); }
+  .fc-img { aspect-ratio: 4 / 3; overflow: hidden; }
+  .fc-img img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transform: scale(1.001);
+    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .feature-card:hover .fc-img img { transform: scale(1.045); }
+  .fc-body { padding: 20px 24px 24px; }
+  .fc-body::before {
+    /* 도록의 챕터 룰 */
     content: ""; display: block;
     width: 40px; height: 2px;
     background: linear-gradient(90deg, var(--green-700), var(--green-300));
-    margin-bottom: 10px;
+    margin-bottom: 14px;
     transition: width 0.25s ease;
   }
-  .feature-card:hover { border-color: var(--gold); }
-  .feature-card:hover::before { width: 64px; }
-  .feature-icon {
-    width: 30px;
-    height: 30px;
-    color: var(--green-600);
-  }
-  .feature-icon svg { width: 100%; height: 100%; display: block; }
+  .feature-card:hover .fc-body::before { width: 64px; }
   .feature-card h3 {
-    margin: 0;
+    margin: 0 0 6px;
     font-size: 19px;
     font-weight: 600;
     letter-spacing: -0.005em;
@@ -336,9 +339,9 @@
   }
   .feature-card p {
     margin: 0;
-    font-size: 15px;
+    font-size: 14.5px;
     font-weight: 400;
-    line-height: 1.7;
+    line-height: 1.6;
     color: var(--ink-body);
   }
 
@@ -720,43 +723,27 @@
       <div class="feature-grid">
 
         <div class="feature-card reveal">
-          <div class="feature-icon">
-            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M6 44V20L24 6l18 14v24" />
-              <path d="M6 20a18 14 0 0 1 36 0" />
-              <path d="M14 44V28h20v16" />
-              <path d="M24 44V32" />
-            </svg>
+          <div class="fc-img"><img src="./app/assets/landing/floors.jpg" alt="미술관 중앙 홀 — 작품이 걸린 벽과 2층 메자닌" loading="lazy"></div>
+          <div class="fc-body">
+            <h3>네 개 층의 미술관</h3>
+            <p>지하 미디어관부터 옥상 테라스까지, 걸어서.</p>
           </div>
-          <h3>네 개 층의 미술관</h3>
-          <p>햇살이 드는 중앙 홀, 계단으로 내려가는 지하 미디어관, 바람 부는 옥상 테라스까지. 실제 미술관을 걷듯 발걸음을 옮기며 작품 하나하나와 마주합니다.</p>
         </div>
 
         <div class="feature-card reveal">
-          <div class="feature-icon">
-            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="16" cy="16" r="6" />
-              <circle cx="34" cy="18" r="5" />
-              <path d="M6 42v-4a10 10 0 0 1 10-10h1a10 10 0 0 1 9.6 7.2" />
-              <path d="M26 42v-3a9 9 0 0 1 9-9h1a9 9 0 0 1 8.9 7.6" />
-            </svg>
+          <div class="fc-img"><img src="./app/assets/landing/together.jpg" alt="아야모 관람객이 작품 앞에 서 있는 모습" loading="lazy"></div>
+          <div class="fc-body">
+            <h3>함께 걷는 관람</h3>
+            <p>낯선 이와 같은 작품 앞에, 나란히.</p>
           </div>
-          <h3>함께 걷는 관람</h3>
-          <p>같은 전시장에 들어온 사람들이 작은 아바타로 함께 보입니다. 채팅으로 감상을 나누다 보면, 낯선 이와 같은 작품 앞에 나란히 서는 순간도 찾아옵니다.</p>
         </div>
 
         <div class="feature-card reveal">
-          <div class="feature-icon">
-            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="24" r="6" />
-              <circle cx="36" cy="12" r="6" />
-              <circle cx="36" cy="36" r="6" />
-              <path d="M17.6 21.2 30.4 14.8" />
-              <path d="M17.6 26.8 30.4 33.2" />
-            </svg>
+          <div class="fc-img"><img src="./app/assets/landing/invite.jpg" alt="정원에서 본 미술관 — 유리 커튼월과 나무" loading="lazy"></div>
+          <div class="fc-body">
+            <h3>링크 하나로 초대</h3>
+            <p>가입 없이, 누르는 순간 당신의 미술관.</p>
           </div>
-          <h3>링크 하나로 초대</h3>
-          <p>스튜디오에서 작품을 걸고 소개를 적으면 전시 링크가 만들어집니다. 받은 사람은 설치도 가입도 없이, 링크를 누르는 순간 당신의 미술관에 들어섭니다.</p>
         </div>
 
       </div>
