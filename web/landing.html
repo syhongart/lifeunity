@@ -495,8 +495,62 @@
     letter-spacing: 0.04em; transition: color 0.2s;
   }
   .topnav .nav-links a:hover { color: #fff; }
+  .nav-auth { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .nav-auth-link {
+    background: none; border: none; cursor: pointer; font-family: inherit;
+    font-size: 13px; font-weight: 500; letter-spacing: 0.02em;
+    color: rgba(242,242,240,0.75); padding: 4px 2px;
+    transition: color 0.2s ease;
+  }
+  .nav-auth-link:hover { color: #fff; }
+  .nav-auth-sep { width: 1px; height: 12px; background: rgba(242,242,240,0.25); }
+  .nav-auth-profile { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(242,242,240,0.9); }
+  .nav-auth-profile .ini {
+    width: 24px; height: 24px; border-radius: 50%; display: inline-flex;
+    align-items: center; justify-content: center;
+    background: var(--green-700); color: #eef7f1; font-size: 12px; font-weight: 600;
+  }
+  .auth-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    background: rgba(10,12,10,0.55); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .auth-overlay[hidden] { display: none; }
+  .auth-card {
+    width: min(92vw, 380px); background: #fffdf8; color: var(--ink);
+    border: 1px solid var(--border-light); border-radius: var(--r-card);
+    padding: 30px 28px 24px; position: relative; text-align: left;
+  }
+  .auth-card::before {
+    content: ""; display: block; width: 40px; height: 2px;
+    background: linear-gradient(90deg, var(--green-700), var(--green-300));
+    margin-bottom: 18px;
+  }
+  .auth-close {
+    position: absolute; top: 12px; right: 14px; width: 30px; height: 30px;
+    background: none; border: none; font-size: 20px; color: #8a8172; cursor: pointer;
+  }
+  .auth-title { font-size: 20px; font-weight: 600; }
+  .auth-sub { margin: 6px 0 18px; font-size: 14px; color: var(--ink-body); }
+  .auth-btn {
+    width: 100%; display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; margin-bottom: 8px;
+    background: #fff; border: 1px solid var(--border-light); border-radius: var(--r-card);
+    font-family: inherit; font-size: 14px; font-weight: 500; color: var(--ink);
+    cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .auth-btn:hover { border-color: var(--green-500); background: #fbfdfb; }
+  .auth-btn .ab-ic {
+    width: 26px; height: 26px; border-radius: 50%; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #fff;
+  }
+  .ab-ic.g { background: #4285f4; }
+  .ab-ic.k { background: #fee500; color: #191919; }
+  .ab-ic.n { background: #03c75a; }
+  .auth-note { margin: 12px 0 0; font-size: 12px; line-height: 1.7; color: #8a8172; }
   .topnav .nav-cta {
-    margin-left: auto;
+    margin-left: 14px;
     padding: 9px 20px; border-radius: var(--r-card);
     background: var(--green-800); color: #eef7f1; font-size: 13.5px; font-weight: 600;
     text-decoration: none; letter-spacing: 0.03em;
@@ -509,22 +563,6 @@
 
   .hero h1 { font-size: clamp(44px, 9vw, 96px); letter-spacing: 0.06em; }
   .hero .tagline-ko { font-size: clamp(15px, 2.4vw, 19px); }
-  .hero-badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 7px 16px; border-radius: var(--r-card); margin-bottom: 18px;
-    border: 1px solid rgba(95,158,125,0.45); color: var(--gold);
-    font-size: 12.5px; letter-spacing: 0.12em;
-    background: rgba(95,158,125,0.08);
-  }
-  .hero-badge .pulse {
-    width: 7px; height: 7px; border-radius: 50%; background: #7ddf8a;
-    box-shadow: 0 0 0 0 rgba(125,223,138,0.6); animation: lp-pulse 2s infinite;
-  }
-  @keyframes lp-pulse {
-    0% { box-shadow: 0 0 0 0 rgba(125,223,138,0.55); }
-    70% { box-shadow: 0 0 0 9px rgba(125,223,138,0); }
-    100% { box-shadow: 0 0 0 0 rgba(125,223,138,0); }
-  }
 
   /* ---------- 라이브 포토월 & 최근 관람객 ---------- */
   .community {
@@ -685,13 +723,17 @@
       <a href="#pricing">요금제</a>
       <a href="./guide.html">가이드</a>
     </div>
+    <div class="nav-auth" id="navAuth">
+      <button class="nav-auth-link" type="button" data-auth-open>로그인</button>
+      <span class="nav-auth-sep"></span>
+      <button class="nav-auth-link" type="button" data-auth-open>회원가입</button>
+    </div>
     <a class="nav-cta" href="./app/">입장하기</a>
   </nav>
 
   <section class="hero" id="top">
     <canvas id="heroCanvas" aria-hidden="true"></canvas>
     <div class="hero-content">
-      <div class="hero-badge"><span class="pulse"></span>베타 오픈 — 가입 없이 바로 입장</div>
       <div class="eyebrow">3D Virtual Exhibition Platform</div>
       <h1>ARTSHOW<span class="dot">.</span></h1>
       <div class="tagline-en">Your Museum, One Link</div>
@@ -1159,6 +1201,71 @@
       });
     }
   }
+</script>
+<div class="auth-overlay" id="authOverlay" hidden>
+  <div class="auth-card" role="dialog" aria-modal="true" aria-label="로그인 또는 회원가입">
+    <button class="auth-close" id="authClose" type="button" aria-label="닫기">×</button>
+    <div class="auth-title">로그인 / 회원가입</div>
+    <p class="auth-sub">소셜 계정으로 간편하게 시작하세요.</p>
+    <button class="auth-btn" type="button" data-provider="google"><span class="ab-ic g">G</span>Google로 계속하기</button>
+    <button class="auth-btn" type="button" data-provider="kakao"><span class="ab-ic k">K</span>카카오로 계속하기</button>
+    <button class="auth-btn" type="button" data-provider="naver"><span class="ab-ic n">N</span>네이버로 계속하기</button>
+    <p class="auth-note">계정 연동 준비 중 — 지금은 프로필 미리보기로 동작하며, 전시장 로비와 자동으로 이어집니다.</p>
+  </div>
+</div>
+<script>
+(function () {
+  // 앱(auth.js)과 동일한 저장 규약 — 랜딩에서 로그인하면 로비가 그대로 이어받는다
+  var KEY = 'lu-auth-profile-v1';
+  var NAMES = { google: '아트러버', kakao: '전시나들이', naver: '갤러리워커' };
+  var overlay = document.getElementById('authOverlay');
+  var navAuth = document.getElementById('navAuth');
+
+  function readProfile() {
+    try {
+      var p = JSON.parse(localStorage.getItem(KEY) || 'null');
+      return p && p.name ? p : null;
+    } catch (e) { return null; }
+  }
+  function renderNav() {
+    var p = readProfile();
+    if (p) {
+      navAuth.innerHTML =
+        '<span class="nav-auth-profile"><span class="ini">' + p.initial + '</span>' + p.name + '님</span>' +
+        '<span class="nav-auth-sep"></span>' +
+        '<button class="nav-auth-link" type="button" id="navLogout">로그아웃</button>';
+      document.getElementById('navLogout').addEventListener('click', function () {
+        try { localStorage.removeItem(KEY); } catch (e) {}
+        renderNav();
+      });
+    } else {
+      navAuth.innerHTML =
+        '<button class="nav-auth-link" type="button" data-auth-open>로그인</button>' +
+        '<span class="nav-auth-sep"></span>' +
+        '<button class="nav-auth-link" type="button" data-auth-open>회원가입</button>';
+    }
+    Array.prototype.forEach.call(navAuth.querySelectorAll('[data-auth-open]'), function (b) {
+      b.addEventListener('click', function () { overlay.hidden = false; });
+    });
+  }
+  document.getElementById('authClose').addEventListener('click', function () { overlay.hidden = true; });
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.hidden = true; });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') overlay.hidden = true; });
+  Array.prototype.forEach.call(document.querySelectorAll('.auth-btn'), function (b) {
+    b.addEventListener('click', function () {
+      var provider = b.getAttribute('data-provider');
+      b.disabled = true;
+      setTimeout(function () {
+        var name = NAMES[provider] || '관람객';
+        try { localStorage.setItem(KEY, JSON.stringify({ provider: provider, name: name, initial: name.slice(0, 1) })); } catch (e) {}
+        b.disabled = false;
+        overlay.hidden = true;
+        renderNav();
+      }, 450);
+    });
+  });
+  renderNav();
+})();
 </script>
 </body>
 </html>
