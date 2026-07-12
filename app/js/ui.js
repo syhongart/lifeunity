@@ -2486,7 +2486,7 @@ async function analyzeChibiPhoto(file) {
   if (boxFromDetector) {
     const ar = box.w / box.h;
     if (ar < 0.8) face = 'slim';
-    else if (ar > 0.98) face = 'chubby';
+    else if (ar > 0.98) face = 'square';
   } else {
     // 가정 박스면 피부색 영역의 실측 폭/높이로 근사
     const skinRegion = sample(W * 0.15, H * 0.1, W * 0.85, H * 0.85, (c) => colorDist(c, skinRgb) < 65);
@@ -2503,7 +2503,7 @@ async function analyzeChibiPhoto(file) {
         const w = widths.sort((a, b) => a - b)[widths.length >> 1];
         const ar = w / (maxY - minY);
         if (ar < 0.78) face = 'slim';
-        else if (ar > 0.98) face = 'chubby';
+        else if (ar > 0.98) face = 'square';
       }
     }
   }

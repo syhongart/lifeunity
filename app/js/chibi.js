@@ -46,15 +46,16 @@ export const CHIBI_ACCESSORIES = [
 export const CHIBI_FACE_SHAPES = [
   { id: 'round', name: '동글' },
   { id: 'slim', name: '갸름' },
-  { id: 'chubby', name: '통통' },
+  { id: 'square', name: '각짐' },
   { id: 'vline', name: '브이라인' },
 ];
-// 두상 변형 정의 — 스케일(x,y,z 배수) + 턱 테이퍼(아래 반구 조임 강도)
+// 두상 변형 정의 — 스케일(x,y,z 배수) + 턱 테이퍼 + 턱 플랫(각진 턱)
+// 감독 지시: 뚱뚱하게 만들지 않는다 — 전 형태 은은한 변형만, 살찌는 확대 금지.
 const FACE_SHAPE_DEF = {
-  round: { sx: 1, sy: 1, sz: 1, taper: 0 },
-  slim: { sx: 0.93, sy: 1.07, sz: 0.97, taper: 0.05 },
-  chubby: { sx: 1.1, sy: 0.94, sz: 1.05, taper: 0 },
-  vline: { sx: 0.97, sy: 1.03, sz: 0.98, taper: 0.3 },
+  round: { sx: 1, sy: 1, sz: 1, taper: 0, flat: 0 },
+  slim: { sx: 0.95, sy: 1.05, sz: 0.98, taper: 0.05, flat: 0 },
+  square: { sx: 1.03, sy: 0.97, sz: 1.0, taper: 0, flat: 0.5 },
+  vline: { sx: 0.97, sy: 1.03, sz: 0.98, taper: 0.3, flat: 0 },
 };
 
 export const DEFAULT_CHIBI = {
@@ -94,7 +95,7 @@ export function normalizeChibi(p) {
     eyeStyle: pick(src.eyeStyle, EYE_IDS, DEFAULT_CHIBI.eyeStyle),
     eyeColor: hex(src.eyeColor, DEFAULT_CHIBI.eyeColor),
     mouth: pick(src.mouth, MOUTH_IDS, DEFAULT_CHIBI.mouth),
-    face: pick(src.face, FACE_IDS, DEFAULT_CHIBI.face),
+    face: pick(src.face === 'chubby' ? 'square' : src.face, FACE_IDS, DEFAULT_CHIBI.face),
     blush: src.blush !== false,
     top: hex(src.top, DEFAULT_CHIBI.top),
     bottom: hex(src.bottom, DEFAULT_CHIBI.bottom),
@@ -432,16 +433,21 @@ export function buildChibi(params) {
 
   const HEAD_R = 0.3;
   const fsDef = FACE_SHAPE_DEF[p.face] || FACE_SHAPE_DEF.round;
-  // 턱 테이퍼 — 구의 아래 반구를 깊이에 비례해 조여 브이라인/갸름 턱을 만든다
+  // 턱 성형 — 테이퍼(아래 반구 조임 → 브이라인/갸름)와 플랫(하단 눌러 각진 턱)
   const taperJaw = (geo) => {
-    if (!fsDef.taper) return geo;
+    if (!fsDef.taper && !fsDef.flat) return geo;
     const pos = geo.attributes.position;
+    const FLAT_Y = -HEAD_R * 0.72; // 이 깊이 아래를 눌러 평평한 턱선을 만든다
     for (let i = 0; i < pos.count; i++) {
       const y = pos.getY(i);
-      if (y < 0) {
+      if (y >= 0) continue;
+      if (fsDef.taper) {
         const f = 1 - fsDef.taper * Math.min(1, -y / HEAD_R);
         pos.setX(i, pos.getX(i) * f);
         pos.setZ(i, pos.getZ(i) * f);
+      }
+      if (fsDef.flat && y < FLAT_Y) {
+        pos.setY(i, FLAT_Y + (y - FLAT_Y) * (1 - fsDef.flat));
       }
     }
     pos.needsUpdate = true;
