@@ -35,6 +35,10 @@ transition:border-color .2s,transform .2s}
 .card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
 .card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
 .card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
 article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
 article ul{margin:0 0 16px;padding-left:20px}
 article li{margin:0 0 6px;color:var(--ink-body)}
@@ -71,7 +75,7 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
 <div class="eyebrow">2026-07-12</div>
-<h1>마스코트 이름 확정 — 아야모(Ayamo) 표기 일괄 적용</h1>
+<h1><span class="emo">🧸</span>마스코트 이름 확정 — 아야모(Ayamo) 표기 일괄 적용</h1>
 <p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 <h3>경위</h3>
 <ul><li>감독 확정. 3라운드 네이밍(카피라이터) × 3회 법무 실사를 거친 유일한 청신호 이름 — 시그니처 리액션 "아얏!"에서 온 조어.</li></ul>
@@ -79,6 +83,7 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <ul><li>화면 표기 교체: 로비 버튼(🧸 아야모), 메이커 제목("아야모 꾸미기"), 가이드·README. 내부 식별자(chibi.js, 'chibi:' 프로토콜)는 하위호환 유지.</li><li>가이드의 낡은 안내(제거된 "아바타 색상 선택") → 아야모 꾸미기 안내로 교정.</li><li>잔재 버그 2건 동반 수정: ① 메이커의 SKIN_TONES 참조가 삭제된 avatarkit을 가리켜 크래시 — 자체 팔레트 편입 ② 메이커 프리뷰가 뒷모습부터 시작(π 저작 관례) — open 시 정면 리셋.</li><li>도메인 DNS 프로브: ayamo.com 등록됨 / .io·.art·.kr·.co.kr 미해석(가용 가능성 — 등록기관 확인 필요).</li></ul>
 <h3>남은 절차 (감독 몫)</h3>
 <ul><li>KIPRIS 유사검색(9/41/42/25/28류) → 도메인·SNS 핸들 선확보 → 상표 출원.</li></ul>
+<figure class="shot"><img src="./img/ayamo-maker.jpg" alt="아야모 꾸미기 — 헤어·표정·의상·팔레트" loading="lazy"><figcaption>아야모 꾸미기 — 헤어·표정·의상·팔레트</figcaption></figure>
 </article>
 <div class="pn"><a href="./2026-07-12-05e4b5.html"><span class="lbl">← 이전 기록</span>[법무] 네이밍 최종 실사 — 아야모 🟢 청신호 (전 후보 중 유일)</a><a href="./2026-07-12-8adc9e.html" style="text-align:right"><span class="lbl">다음 기록 →</span>랜딩 "갤러리 플레이트" 개편 — 라운드박스 현대화 + 타이포 대비 복구</a></div>
 </div>

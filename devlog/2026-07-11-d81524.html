@@ -35,6 +35,10 @@ transition:border-color .2s,transform .2s}
 .card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
 .card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
 .card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
 article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
 article ul{margin:0 0 16px;padding-left:20px}
 article li{margin:0 0 6px;color:var(--ink-body)}
@@ -71,7 +75,7 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
 <div class="eyebrow">2026-07-11</div>
-<h1>베이크드 라이팅 — 모바일 프레임 개선</h1>
+<h1><span class="emo">⚡</span>베이크드 라이팅 — 모바일 프레임 개선</h1>
 <p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 <h3>원인 (무엇이 문제였나)</h3>
 <ul><li>실기기(모바일)에서 "조작이 쉽지 않다"는 제보에 이어, 저사양 폰에서 프레임이 충분히 나오지 않을 구조적 요인이 확인됨.</li><li>증상: 최신 폰·데스크톱에서는 55~60fps 예상이나, 보급형·구형 폰과 고해상도(DPR 3) 기기에서 20~30fps 수준으로 떨어질 위험.</li></ul>
@@ -87,6 +91,7 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <h3>결과 (수치 검증)</h3>
 <div class="tbl"><table><thead><tr><th>지표</th><th>개선 전</th><th>개선 후</th><th>변화</th></tr></thead><tbody><tr><td>실시간 조명</td><td>33개</td><td><strong>19개</strong></td><td>−42%</td></tr><tr><td>SpotLight</td><td>14개</td><td><strong>0개</strong></td><td>−100%</td></tr><tr><td>드로우콜</td><td>555</td><td><strong>477</strong></td><td>−14%</td></tr><tr><td>시각 품질</td><td>—</td><td>스크린샷 대조로 동등 확인</td><td>유지</td></tr></tbody></table></div>
 <ul><li>픽셀당 조명 연산에서 가장 비싼 스포트라이트가 0이 되어, 저사양 폰의 프레임 개선 폭이 가장 클 것으로 예상. 실기기 FPS 계측(우상단 표시)으로 후속 확인 예정.</li><li>남은 개선 후보: ① 다운라이트 15개 베이킹(조명 19→4) ② 액자·치비 파츠 지오메트리 병합(드로우콜 477→300대) ③ 저사양 감지 시 AI 관객 수 축소.</li></ul>
+<figure class="shot"><img src="./img/interior-gallery.jpg" alt="2층 발코니에서 내려다본 1층 전시실" loading="lazy"><figcaption>2층 발코니에서 내려다본 1층 전시실</figcaption></figure>
 </article>
 <div class="pn"><a href="./2026-07-11-6fa433.html" style="text-align:right"><span class="lbl">다음 기록 →</span>AI 관객 겹침 해소 + 짝 대화 + 드로우콜 병합 + 적응형 저사양 모드</a></div>
 </div>

@@ -35,6 +35,10 @@ transition:border-color .2s,transform .2s}
 .card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
 .card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
 .card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
 article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
 article ul{margin:0 0 16px;padding-left:20px}
 article li{margin:0 0 6px;color:var(--ink-body)}
@@ -71,7 +75,7 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
 <div class="eyebrow">2026-07-12</div>
-<h1>SCROLL 큐 제거 → 좌측 2px 진행 레일 (감독 제안)</h1>
+<h1><span class="emo">📱</span>SCROLL 큐 제거 → 좌측 2px 진행 레일 (감독 제안)</h1>
 <p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 <h3>개선</h3>
 <ul><li>히어로 하단 영문 "SCROLL" 텍스트 큐(+드립 애니메이션) 제거.</li><li>좌측 가장자리 고정 2px 레일: 트랙은 그린 12% 투명, 채움은 그린 300→600 세로 그라디언트가 스크롤 진행도만큼 차오름. 텍스트 없이 위치 감각을 제공 — 국문 페이지에 영문 UI 큐가 섞이는 문제도 해소.</li></ul>
