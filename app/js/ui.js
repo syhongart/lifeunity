@@ -1,6 +1,6 @@
 // web/js/ui.js
 // ARTSHOW Museum — UI 모듈 (DOM/CSS 전부 JS에서 동적 생성)
-// MoMA 미니멀 미학: Helvetica, 화이트/블랙, 골드(#d4af37) 포인트
+// MoMA 미니멀 미학: Helvetica, 화이트/블랙, 골드(#5f9e7d) 포인트
 
 import * as THREE from 'three';
 import { AVATAR_COLORS } from './config.js';
@@ -25,7 +25,7 @@ import {
   onAuthChange,
 } from './auth.js';
 
-const GOLD = '#d4af37';
+const GOLD = '#5f9e7d'; // 브랜드 액센트 — 청자(비취) 그린 (2026-07-12 감독 결정, 구 골드)
 const MAX_CHAT_MESSAGES = 8;
 const MAX_NICKNAME_LEN = 12;
 
@@ -440,7 +440,7 @@ function injectStyles() {
 .lu-am-btn-primary {
   color: #111; background: var(--lu-gold); border-color: var(--lu-gold);
 }
-.lu-am-btn-primary:hover { background: #c9a02f; border-color: #c9a02f; color: #111; }
+.lu-am-btn-primary:hover { background: #4e8a6a; border-color: #4e8a6a; color: #111; }
 
 #lu-enter-btn {
   width: 100%; margin-top: 30px;
@@ -449,10 +449,10 @@ function injectStyles() {
   color: #17140f; background: var(--lu-gold);
   border: 1px solid var(--lu-gold); border-radius: 999px;
   padding: 15px 0; cursor: pointer;
-  box-shadow: 0 6px 20px rgba(212,175,55,0.35);
+  box-shadow: 0 6px 20px rgba(95,158,125,0.35);
   transition: transform 0.15s ease, box-shadow 0.25s ease;
 }
-#lu-enter-btn:hover { transform: translateY(-1px); box-shadow: 0 9px 26px rgba(212,175,55,0.45); }
+#lu-enter-btn:hover { transform: translateY(-1px); box-shadow: 0 9px 26px rgba(95,158,125,0.45); }
 
 /* ------------------------------ 전시 선택 ------------------------------ */
 .lu-picker-note {
@@ -628,7 +628,7 @@ function injectStyles() {
   color: rgba(253,251,245,0.85);
 }
 #lu-topright .lu-stat b {
-  font-weight: 600; font-variant-numeric: tabular-nums; color: #e6c458;
+  font-weight: 600; font-variant-numeric: tabular-nums; color: #8fd0ab;
 }
 /* 성능 지표는 디버그 정보 — 터치 기기 1차 HUD에서 제외 (게임 HUD 감사) */
 @media (pointer: coarse) { #lu-topright { display: none; } }
@@ -658,7 +658,7 @@ function injectStyles() {
 .lu-topbar-count {
   display: flex; align-items: center; gap: 5px; flex: none;
   font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
-  color: #e6c458;
+  color: #8fd0ab;
 }
 .lu-topbar-count::before {
   content: ''; width: 5px; height: 5px; border-radius: 50%;
@@ -747,7 +747,7 @@ function injectStyles() {
   color: #1c1a16;
   padding: 26px 26px 22px;
   border-radius: 16px;
-  border: 1px solid rgba(212,175,55,0.28);
+  border: 1px solid rgba(95,158,125,0.28);
   box-shadow: 0 18px 50px rgba(20,15,8,0.30), 0 2px 8px rgba(20,15,8,0.12);
   transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
 }
@@ -755,12 +755,12 @@ function injectStyles() {
   /* 골드 상단 레일 — 챔퍼 모서리와 정렬되는 좌측 기점 짧은 선 */
   content: '';
   position: absolute; top: 0; left: var(--lu-ch-l, 14px); width: 44px; height: 3px;
-  background: linear-gradient(90deg, var(--lu-gold), rgba(212,175,55,0));
+  background: linear-gradient(90deg, var(--lu-gold), rgba(95,158,125,0));
 }
 #lu-artwork.lu-open { transform: translate(0, -50%); }
 #lu-artwork .lu-art-eyebrow {
   font-size: 9.5px; letter-spacing: 0.34em;
-  color: #b28a2e; margin-bottom: 10px;
+  color: #3f7a5c; margin-bottom: 10px;
 }
 #lu-artwork .lu-art-title {
   font-size: 21px; font-weight: 600; line-height: 1.32;
@@ -784,8 +784,8 @@ function injectStyles() {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 11.5px; letter-spacing: 0.05em; color: #6b6459;
   font-family: var(--lu-font); font-weight: 500;
-  background: rgba(212,175,55,0.10);
-  border: 1px solid rgba(212,175,55,0.45); border-radius: 999px;
+  background: rgba(95,158,125,0.10);
+  border: 1px solid rgba(95,158,125,0.45); border-radius: 999px;
   cursor: pointer;
   padding: 8px 16px; text-align: center;
   transition: background 0.25s ease, color 0.25s ease;
@@ -887,9 +887,9 @@ function injectStyles() {
 }
 /* 주 행동(캡처) — 화면 유일의 골드 면 */
 .lu-dock-btn.lu-gold {
-  background: linear-gradient(180deg, #e0bd4e, #c9a02f);
-  border-color: rgba(255,236,170,0.65);
-  box-shadow: inset 0 1px 0 rgba(255,246,214,0.55);
+  background: linear-gradient(180deg, #6fae8c, #4e8a6a);
+  border-color: rgba(199,232,213,0.65);
+  box-shadow: inset 0 1px 0 rgba(223,240,228,0.55);
   color: var(--lu-ink);
 }
 .lu-dock-btn.lu-gold .lu-dock-label { opacity: 1; }
@@ -901,8 +901,8 @@ function injectStyles() {
 }
 /* 토글 ON — 골드 헤어라인 + 좌측 노치 (면 채움 금지) */
 .lu-dock-btn.lu-on {
-  border-color: rgba(212,175,55,0.85);
-  color: #e6c458;
+  border-color: rgba(95,158,125,0.85);
+  color: #8fd0ab;
 }
 .lu-dock-btn.lu-on::before {
   content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px;
@@ -915,7 +915,7 @@ function injectStyles() {
   background: rgba(23,20,15,0.82);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(212,175,55,0.45); /* 시트 유일 골드 — '열림' 신호 */
+  border-top: 1px solid rgba(95,158,125,0.45); /* 시트 유일 골드 — '열림' 신호 */
   transform: translateY(105%);
   transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -1144,11 +1144,11 @@ function injectStyles() {
   flex: 0 0 auto;
   display: flex; align-items: flex-start; justify-content: space-between;
   padding: 24px 24px 16px;
-  border-bottom: 1px solid rgba(212,175,55,0.35);
+  border-bottom: 1px solid rgba(95,158,125,0.35);
 }
 #lu-guestbook-title .lu-gb-eyebrow {
   display: block;
-  font-size: 9.5px; letter-spacing: 0.34em; color: #b28a2e;
+  font-size: 9.5px; letter-spacing: 0.34em; color: #3f7a5c;
   margin-bottom: 6px;
 }
 #lu-guestbook-title .lu-gb-main {
@@ -1187,7 +1187,7 @@ function injectStyles() {
 .lu-gbook-note::before {
   content: '“';
   position: absolute; top: 2px; right: 12px;
-  font-size: 34px; line-height: 1; color: rgba(212,175,55,0.28);
+  font-size: 34px; line-height: 1; color: rgba(95,158,125,0.28);
   font-family: Georgia, serif;
 }
 #lu-guestbook-body > .lu-gbook-note:last-child { margin-bottom: 14px; }
@@ -1213,7 +1213,7 @@ function injectStyles() {
 #lu-guestbook-footer {
   flex: 0 0 auto;
   padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid rgba(212,175,55,0.30);
+  border-top: 1px solid rgba(95,158,125,0.30);
   background: rgba(255,254,251,0.7);
 }
 #lu-gbook-input {
@@ -1227,7 +1227,7 @@ function injectStyles() {
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 #lu-gbook-input::placeholder { color: #b3ab99; }
-#lu-gbook-input:focus { border-color: var(--lu-gold); box-shadow: 0 0 0 3px rgba(212,175,55,0.15); }
+#lu-gbook-input:focus { border-color: var(--lu-gold); box-shadow: 0 0 0 3px rgba(95,158,125,0.15); }
 .lu-gbook-footer-row {
   display: flex; align-items: center; justify-content: space-between;
   margin-top: 10px;
@@ -1244,9 +1244,9 @@ function injectStyles() {
   padding: 9px 22px;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-  box-shadow: 0 3px 12px rgba(212,175,55,0.35);
+  box-shadow: 0 3px 12px rgba(95,158,125,0.35);
 }
-#lu-gbook-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(212,175,55,0.45); }
+#lu-gbook-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(95,158,125,0.45); }
 #lu-gbook-submit:disabled {
   background: transparent; color: #b3ab99;
   border-color: #ddd3ba; box-shadow: none; cursor: default;
@@ -2110,7 +2110,7 @@ function renderGuestbookNotes(notes) {
     body.appendChild(el('div', { className: 'lu-gbook-empty', text: '첫 방명록을 남겨보세요' }));
     return;
   }
-  const DOT_COLORS = ['#e07a5f', '#81b29a', '#d4af37', '#8e7dbe', '#6a8caf', '#d68fb8'];
+  const DOT_COLORS = ['#e07a5f', '#81b29a', '#5f9e7d', '#8e7dbe', '#6a8caf', '#d68fb8'];
   notes.forEach((note) => {
     const name = note.name || '게스트';
     let hash = 0;

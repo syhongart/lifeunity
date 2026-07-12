@@ -14,10 +14,10 @@
 import * as THREE from 'three';
 
 const INK = '#463a30';          // chibi 외곽선과 동일 잉크 브라운 — 한 그림처럼
-const GOLD = '#d4af37';
-const GOLD_HI = '#ffd75e';
+const GOLD = '#5f9e7d'; // 브랜드 그린 (구 골드 — 변수명은 하위 호환상 유지)
+const GOLD_HI = '#8fd0ab';
 const CREAM = '#fff8e7';
-const SPARK_TINTS = ['#ffd75e', '#fff8e7', '#ffd75e', '#ff8fab']; // 1/4 핑크 포인트
+const SPARK_TINTS = ['#8fd0ab', '#fff8e7', '#8fd0ab', '#ff8fab']; // 1/4 핑크 포인트
 
 const GLOBAL_MAX = 80;          // 씬 전역 동시 FX 스프라이트 상한
 let liveSprites = 0;            // 전역 카운터 — 초과 히트는 축소 모드로
@@ -113,9 +113,9 @@ function texStarburst() {
   x.closePath();
   const g = x.createRadialGradient(0, 0, 0, 0, 0, 118);
   g.addColorStop(0, '#ffffff');
-  g.addColorStop(0.32, '#fff3c4');
+  g.addColorStop(0.32, '#dff0e4');
   g.addColorStop(0.72, GOLD);
-  g.addColorStop(1, '#c89b2a');
+  g.addColorStop(1, '#3f7a5c');
   x.fillStyle = g;
   x.fill();
   x.strokeStyle = INK;

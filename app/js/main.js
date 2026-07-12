@@ -115,7 +115,7 @@ function showGpuNotice(gpuName, fatal) {
   box.style.cssText =
     'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:1200;' +
     'max-width:min(92vw,600px);background:linear-gradient(180deg,#fffdf8,#f6f1e4);' +
-    'color:#17140f;border:1px solid rgba(212,175,55,0.55);border-radius:14px;' +
+    'color:#17140f;border:1px solid rgba(95,158,125,0.55);border-radius:14px;' +
     'padding:14px 44px 14px 18px;box-shadow:0 12px 32px rgba(20,15,8,0.35);' +
     "font:13px/1.75 'Helvetica Neue',Helvetica,Arial,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;";
   const head = fatal
@@ -143,7 +143,7 @@ function showGpuNotice(gpuName, fatal) {
   copyBtn.textContent = '진단 정보 복사';
   copyBtn.style.cssText =
     'display:inline-block;margin-top:8px;padding:5px 14px;border-radius:999px;' +
-    'border:1px solid rgba(212,175,55,0.5);background:rgba(212,175,55,0.12);' +
+    'border:1px solid rgba(95,158,125,0.5);background:rgba(95,158,125,0.12);' +
     'color:#17140f;font:600 11px/1 inherit;cursor:pointer;';
   copyBtn.addEventListener('click', () => {
     const report = JSON.stringify({
@@ -670,7 +670,7 @@ async function init() {
       badge.textContent = '소프트웨어 렌더링 모드 — 그래픽 가속이 꺼져 있거나 지원되지 않아요';
       badge.style.cssText =
         'position:fixed;left:12px;bottom:12px;z-index:890;padding:6px 12px;border-radius:999px;' +
-        'background:rgba(23,20,15,0.88);color:#e6c458;border:1px solid rgba(212,175,55,0.5);' +
+        'background:rgba(23,20,15,0.88);color:#8fd0ab;border:1px solid rgba(95,158,125,0.5);' +
         "font:600 11px/1.5 'Helvetica Neue',Helvetica,Arial,'Apple SD Gothic Neo',sans-serif;pointer-events:none;";
       document.body.appendChild(badge);
     }
@@ -865,7 +865,7 @@ function drawWatermark(ctx, w, h, galleryName) {
   ctx.fillText(galleryName || 'ARTSHOW 전시', pad, h - pad - 6 * s);
 
   // 우하단 — ARTSHOW(골드, letter-spacing) + 사이트 URL
-  ctx.fillStyle = '#d4af37';
+  ctx.fillStyle = '#5f9e7d';
   ctx.font = `300 ${Math.round(16 * s)}px Helvetica, Arial, sans-serif`;
   drawLetterSpacedRight(ctx, 'ARTSHOW', w - pad, h - pad - 22 * s, 2.5 * s);
 

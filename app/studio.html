@@ -18,7 +18,7 @@
 <meta name="twitter:image" content="https://syhongart.github.io/artshow/app/assets/og.png">
 <style>
   :root {
-    --gold: #d4af37;
+    --gold: #5f9e7d;
     --bg: #0a0a0a;
     --bg-panel: #131313;
     --bg-field: #1c1c1c;
@@ -716,13 +716,13 @@
     var badge = document.createElement('span');
     badge.id = 'planBadge';
     badge.textContent = PREMIUM ? 'PREMIUM' : 'FREE';
-    badge.style.cssText = 'font-size:12px;vertical-align:middle;margin-left:10px;padding:3px 10px;border:1px solid rgba(178,138,46,0.6);border-radius:999px;color:#b28a2e;letter-spacing:0.08em;';
+    badge.style.cssText = 'font-size:12px;vertical-align:middle;margin-left:10px;padding:3px 10px;border:1px solid rgba(178,138,46,0.6);border-radius:999px;color:#3f7a5c;letter-spacing:0.08em;';
     h1.appendChild(badge);
     if (!PREMIUM) {
       var up = document.createElement('a');
       up.href = '../#pricing';
       up.textContent = '업그레이드 ↗';
-      up.style.cssText = 'font-size:12px;margin-left:8px;color:#b28a2e;vertical-align:middle;';
+      up.style.cssText = 'font-size:12px;margin-left:8px;color:#3f7a5c;vertical-align:middle;';
       h1.appendChild(up);
     }
   })();
@@ -1111,7 +1111,7 @@
         lockCards[ci].style.opacity = '0.45';
         var lockBadge = document.createElement('span');
         lockBadge.textContent = '\uD83D\uDD12 프리미엄';
-        lockBadge.style.cssText = 'font-size:11px;color:#b28a2e;margin-left:auto;white-space:nowrap;';
+        lockBadge.style.cssText = 'font-size:11px;color:#3f7a5c;margin-left:auto;white-space:nowrap;';
         lockCards[ci].appendChild(lockBadge);
         lockCards[ci].querySelector('input').disabled = true;
       }
