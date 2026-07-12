@@ -61,6 +61,8 @@
     color: var(--text-dark);
     font-family: "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     font-weight: 400;
+    word-break: keep-all;      /* 한국어 — 어절 중간 절단 금지 */
+    overflow-wrap: break-word;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
     width: 100%;
@@ -692,6 +694,7 @@
   .hero-caption .cap-live { margin-top: 6px; font-size: 11px; color: var(--gold-deep); letter-spacing: 0.08em; }
 
   /* 모바일 — 내비 pill 행 유지 + 히어로 CTA 스택 (디자이너 감사 ⑥) */
+  @media (min-width: 721px) { br.m-only { display: none; } }
   @media (max-width: 720px) {
     /* 모바일 — 심플 햄버거 (감독 지시). 링크 필로우/인증/CTA는 시트 안으로 */
     .topnav { padding: 12px 16px; }
@@ -803,7 +806,7 @@
       <div class="section-head reveal">
         <div class="eyebrow">Experience</div>
         <h2>스크롤하지 말고, 걸어 들어오세요</h2>
-        <p>화면 속 이미지가 아니라, 벽에 걸린 작품 앞에 서게 됩니다.</p>
+        <p>화면 속 이미지가 아니라,<br class="m-only"> 벽에 걸린 작품 앞에 서게 됩니다.</p>
       </div>
       <div class="feature-grid">
 
@@ -818,7 +821,7 @@
             </svg>
           </div>
           <h3>네 개 층의 미술관</h3>
-          <p>지하 미디어관부터 옥상 테라스까지, 걸어서.</p>
+          <p>지하 미디어관부터 옥상 테라스까지,<br class="m-only"> 걸어서.</p>
         </div>
 
         <div class="feature-card reveal">
@@ -832,7 +835,7 @@
             </svg>
           </div>
           <h3>함께 걷는 관람</h3>
-          <p>낯선 이와 같은 작품 앞에, 나란히.</p>
+          <p>낯선 이와 같은 작품 앞에,<br class="m-only"> 나란히.</p>
         </div>
 
         <div class="feature-card reveal">
@@ -845,7 +848,7 @@
             </svg>
           </div>
           <h3>링크 하나로 초대</h3>
-          <p>가입 없이, 누르는 순간 당신의 미술관.</p>
+          <p>가입 없이,<br class="m-only"> 누르는 순간 당신의 미술관.</p>
         </div>
 
       </div>
