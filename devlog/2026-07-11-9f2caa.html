@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>비네팅 경계선 제거 (폴오프 스무딩) — ARTSHOW 개발일지</title>
+<meta name="description" content="감독 피드백: "비네팅 경계가 살짝 보여" — 화면 가장자리 어두워짐이 시작되는">
+<link rel="canonical" href="https://syhongart.github.io/artshow/devlog/2026-07-11-9f2caa.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="ARTSHOW">
+<meta property="og:title" content="비네팅 경계선 제거 (폴오프 스무딩) — ARTSHOW 개발일지">
+<meta property="og:description" content="감독 피드백: "비네팅 경계가 살짝 보여" — 화면 가장자리 어두워짐이 시작되는">
+<meta property="og:url" content="https://syhongart.github.io/artshow/devlog/2026-07-11-9f2caa.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"비네팅 경계선 제거 (폴오프 스무딩)","datePublished":"2026-07-11","author":{"@type":"Organization","name":"ARTSHOW"},"mainEntityOfPage":"https://syhongart.github.io/artshow/devlog/2026-07-11-9f2caa.html","inLanguage":"ko"}</script>
+<style>
+:root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
+--ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
+--g700:#3f7a5c;--g800:#2c5844;--g900:#14261d;--r:3px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+font-size:15px;line-height:1.75;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+a{color:var(--gold-text);text-decoration:none}
+.top{display:flex;align-items:center;gap:18px;padding:14px 22px;background:var(--g900);color:#f2f2f0}
+.top .logo{font-weight:700;letter-spacing:0.04em;color:#fff;font-size:16px}
+.top .logo .dot{color:var(--gold)}
+.top nav{margin-left:auto;display:flex;gap:18px;font-size:13px}
+.top nav a{color:rgba(242,242,240,0.75)} .top nav a:hover{color:#fff}
+.wrap{max-width:760px;margin:0 auto;padding:48px 22px 90px}
+.eyebrow{font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:var(--gold-text);font-weight:600}
+h1{font-size:clamp(26px,4.5vw,36px);line-height:1.3;margin:10px 0 6px;letter-spacing:-0.01em}
+.lead{color:var(--ink-body);margin:0 0 34px}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin:0 0 14px;
+transition:border-color .2s,transform .2s}
+.card:hover{border-color:var(--g300);transform:translateY(-1px)}
+.card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
+.card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
+.card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
+article ul{margin:0 0 16px;padding-left:20px}
+article li{margin:0 0 6px;color:var(--ink-body)}
+article p{color:var(--ink-body)}
+article strong{color:var(--ink)}
+article code{background:var(--paper-deep);border:1px solid var(--line);border-radius:var(--r);padding:1px 5px;font-size:12.5px}
+article pre{background:var(--g900);color:#e8efe9;padding:14px 16px;border-radius:var(--r);overflow-x:auto;font-size:12.5px;line-height:1.6}
+article pre code{background:none;border:none;color:inherit;padding:0}
+.tbl{overflow-x:auto;margin:0 0 16px}
+table{border-collapse:collapse;font-size:13px;min-width:420px}
+th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;color:var(--ink-body)}
+th{background:var(--paper-deep);color:var(--ink);font-weight:600}
+.meta{color:var(--ink-dim);font-size:13px;margin:0 0 30px}
+.pn{display:flex;gap:12px;margin-top:50px;flex-wrap:wrap}
+.pn a{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;font-size:13px}
+.pn a:hover{border-color:var(--g300)}
+.pn .lbl{display:block;font-size:11px;letter-spacing:0.14em;color:var(--ink-dim);margin-bottom:4px}
+.back{display:inline-block;margin-bottom:26px;font-size:13px}
+footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;color:var(--ink-dim);font-size:12.5px}
+@media(max-width:520px){.top nav{gap:12px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="../">ARTSHOW<span class="dot">.</span></a>
+  <nav>
+    <a href="../devlog/">개발일지</a>
+    <a href="../guide.html">가이드</a>
+    <a href="../app/">입장하기</a>
+  </nav>
+</header>
+<div class="wrap">
+
+<a class="back" href="./">← 개발일지 전체</a>
+<article>
+<div class="eyebrow">2026-07-11</div>
+<h1>비네팅 경계선 제거 (폴오프 스무딩)</h1>
+<p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
+<h3>원인</h3>
+<ul><li>감독 피드백: "비네팅 경계가 살짝 보여" — 화면 가장자리 어두워짐이 시작되는 지점에 은은한 링(경계)이 감지됨.</li></ul>
+<h3>분석</h3>
+<ul><li>비네팅 그라디언트가 2스톱(투명 58% → 0.34 100%)이라, 58% 지점에서 밝기 기울기가 0에서 최대치로 <strong>불연속 점프</strong>. 사람 눈은 밝기 자체보다 기울기의 급변(마하 밴드 효과)에 민감해 스톱 위치가 선처럼 보인다.</li></ul>
+<h3>개선</h3>
+<ul><li>DOM 오버레이 그라디언트를 6스톱 이즈드 커브로 교체: 0@50% → 0.03@62% → 0.09@72% → 0.17@82% → 0.26@91% → 0.34@100% (smoothstep 근사). 시작점도 58%→50%로 당겨 더 일찍, 더 얕게 시작.</li><li>사진 캡처(capturePhoto)의 캔버스 radial gradient에도 동일 비율의 중간 스톱을 추가해 화면과 저장 사진의 무드 일치 유지.</li></ul>
+<h3>결과</h3>
+<ul><li>픽셀 프로파일 검증(흰 배경 위 오버레이 단독 캡처, 중앙→우측 수평 스캔): 인접 픽셀 밝기 차 최대 1레벨, 기울기 급변 최대 2/255 — 지각 임계 이하. 인게임 스크린샷에서 링 없이 코너만 자연스럽게 눌림.</li></ul>
+</article>
+<div class="pn"><a href="./2026-07-11-ad4ea5.html"><span class="lbl">← 이전 기록</span>로비(입장 화면) 심플화</a><a href="./2026-07-11-d9f6f7.html" style="text-align:right"><span class="lbl">다음 기록 →</span>캐릭터 몸 충돌 — 통과 방지 + 회피 조향</a></div>
+</div>
+<footer>&copy; 2026 ARTSHOW. — 만드는 과정을 기록합니다.</footer>
+</body>
+</html>

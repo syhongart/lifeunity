@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>데스크톱 3fps 심층 조사 — 조명 19→5 + 섀도맵 프리즈 — ARTSHOW 개발일지</title>
+<meta name="description" content="픽셀 예산 캡 이후에도 감독 PC에서 여전히 3fps — 해상도(필레이트) 문제가">
+<link rel="canonical" href="https://syhongart.github.io/artshow/devlog/2026-07-11-2795e3.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="ARTSHOW">
+<meta property="og:title" content="데스크톱 3fps 심층 조사 — 조명 19→5 + 섀도맵 프리즈 — ARTSHOW 개발일지">
+<meta property="og:description" content="픽셀 예산 캡 이후에도 감독 PC에서 여전히 3fps — 해상도(필레이트) 문제가">
+<meta property="og:url" content="https://syhongart.github.io/artshow/devlog/2026-07-11-2795e3.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"데스크톱 3fps 심층 조사 — 조명 19→5 + 섀도맵 프리즈","datePublished":"2026-07-11","author":{"@type":"Organization","name":"ARTSHOW"},"mainEntityOfPage":"https://syhongart.github.io/artshow/devlog/2026-07-11-2795e3.html","inLanguage":"ko"}</script>
+<style>
+:root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
+--ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
+--g700:#3f7a5c;--g800:#2c5844;--g900:#14261d;--r:3px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+font-size:15px;line-height:1.75;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+a{color:var(--gold-text);text-decoration:none}
+.top{display:flex;align-items:center;gap:18px;padding:14px 22px;background:var(--g900);color:#f2f2f0}
+.top .logo{font-weight:700;letter-spacing:0.04em;color:#fff;font-size:16px}
+.top .logo .dot{color:var(--gold)}
+.top nav{margin-left:auto;display:flex;gap:18px;font-size:13px}
+.top nav a{color:rgba(242,242,240,0.75)} .top nav a:hover{color:#fff}
+.wrap{max-width:760px;margin:0 auto;padding:48px 22px 90px}
+.eyebrow{font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:var(--gold-text);font-weight:600}
+h1{font-size:clamp(26px,4.5vw,36px);line-height:1.3;margin:10px 0 6px;letter-spacing:-0.01em}
+.lead{color:var(--ink-body);margin:0 0 34px}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin:0 0 14px;
+transition:border-color .2s,transform .2s}
+.card:hover{border-color:var(--g300);transform:translateY(-1px)}
+.card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
+.card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
+.card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
+article ul{margin:0 0 16px;padding-left:20px}
+article li{margin:0 0 6px;color:var(--ink-body)}
+article p{color:var(--ink-body)}
+article strong{color:var(--ink)}
+article code{background:var(--paper-deep);border:1px solid var(--line);border-radius:var(--r);padding:1px 5px;font-size:12.5px}
+article pre{background:var(--g900);color:#e8efe9;padding:14px 16px;border-radius:var(--r);overflow-x:auto;font-size:12.5px;line-height:1.6}
+article pre code{background:none;border:none;color:inherit;padding:0}
+.tbl{overflow-x:auto;margin:0 0 16px}
+table{border-collapse:collapse;font-size:13px;min-width:420px}
+th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;color:var(--ink-body)}
+th{background:var(--paper-deep);color:var(--ink);font-weight:600}
+.meta{color:var(--ink-dim);font-size:13px;margin:0 0 30px}
+.pn{display:flex;gap:12px;margin-top:50px;flex-wrap:wrap}
+.pn a{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;font-size:13px}
+.pn a:hover{border-color:var(--g300)}
+.pn .lbl{display:block;font-size:11px;letter-spacing:0.14em;color:var(--ink-dim);margin-bottom:4px}
+.back{display:inline-block;margin-bottom:26px;font-size:13px}
+footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;color:var(--ink-dim);font-size:12.5px}
+@media(max-width:520px){.top nav{gap:12px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="../">ARTSHOW<span class="dot">.</span></a>
+  <nav>
+    <a href="../devlog/">개발일지</a>
+    <a href="../guide.html">가이드</a>
+    <a href="../app/">입장하기</a>
+  </nav>
+</header>
+<div class="wrap">
+
+<a class="back" href="./">← 개발일지 전체</a>
+<article>
+<div class="eyebrow">2026-07-11</div>
+<h1>데스크톱 3fps 심층 조사 — 조명 19→5 + 섀도맵 프리즈</h1>
+<p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
+<h3>원인</h3>
+<ul><li>픽셀 예산 캡 이후에도 감독 PC에서 여전히 3fps — 해상도(필레이트) 문제가 아니라는 뜻. 심층 계측 지시.</li></ul>
+<h3>분석 (헤드리스 계측, 기기 독립 지표)</h3>
+<ul><li>조명 <strong>19개</strong>: 다운라이트 PointLight 15 + hemi + ambient + 방향광 2. 포워드 렌더러는 모든 픽셀 셰이딩에서 조명 전부를 계산 — 15개 포인트가 픽셀당 비용에 곱해져 약한 GPU를 죽인다.</li><li>그림자: 태양 4096² PCFSoft 섀도맵을 <strong>정적인 씬인데 매 프레임 재렌더</strong> (캐스터 메시 653개). 프레임 시간 분해: 21.3ms 중 섀도 관련 13.3ms(62%).</li><li>드로우콜 606·트라이앵글 5.5만은 양호 — 병목 아님.</li></ul>
+<h3>개선</h3>
+<ul><li><strong>다운라이트 15개 제거</strong> → 웜 앰비언트 1개(계수 0.022, 스크린샷 대조로 보정)로 대체. 천장 벌브 emissive·작품 스포트 베이크 데칼이 국소 무드 유지. cycle 테마의 시간대별 강도 변화도 웜 앰비언트로 계승.</li><li><strong>섀도맵 프리즈</strong>: shadowMap.autoUpdate=false — 입장 시 1회 베이크, cycle 테마만 2초 주기 재베이크(태양 이동). 아바타는 castShadow 전면 해제(발밑 블롭 그림자가 접지 담당 — 프리즈 잔상 방지).</li><li>태양 섀도맵 4096²→2048² (섀도 패스 필레이트 1/4).</li></ul>
+<h3>결과</h3>
+<ul><li>재계측: 조명 19→5, renderMs 21.3→10.6 (2.0배). 소프트웨어 렌더러 기준이므로 실 GPU에서는 셰이더 단순화 효과가 더 큼.</li><li>실내 밝기 스크린샷 대조 — 웜 계수 0.012는 천장부가 죽어 0.022로 확정.</li></ul>
+</article>
+<div class="pn"><a href="./2026-07-11-f70135.html"><span class="lbl">← 이전 기록</span>데스크톱 3fps 추락 — 픽셀 예산 캡 + 라이브 강등 + 블러 다이어트</a><a href="./2026-07-11-f5dcde.html" style="text-align:right"><span class="lbl">다음 기록 →</span>PC 3fps 최종 진단 — 소프트웨어 렌더링 감지 + 포테이토 모드 (전문가 자문)</a></div>
+</div>
+<footer>&copy; 2026 ARTSHOW. — 만드는 과정을 기록합니다.</footer>
+</body>
+</html>
