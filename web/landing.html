@@ -744,6 +744,10 @@
       border-radius: var(--r-card); font-size: 14px; font-weight: 600;
     }
     section[id] { scroll-margin-top: 72px; }
+    /* 1열 전폭 카드에서 좌측 정렬은 오른쪽이 비어 기울어 보인다 — 중앙 구성 */
+    .feature-card { align-items: center; text-align: center; padding: 30px 24px 32px; }
+    .feature-card::before { margin-left: auto; margin-right: auto; }
+    .fc-icon { width: 56px; height: 56px; margin-bottom: 14px; }
     .hero-cta { width: 100%; max-width: 340px; flex-direction: column; gap: 12px; }
     .hero-cta .btn { width: 100%; }
     .hero-caption { display: none; }
