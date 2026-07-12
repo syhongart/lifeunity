@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>개발일지 블로그 — 실사 캡처 + 주제 이모티콘 (감독 제안) — ARTSHOW 개발일지</title>
-<meta name="description" content="감독 제안: 블로그에 이미지 캡처와 이모티콘도 넣자. 글자만 있는">
-<link rel="canonical" href="https://syhongart.github.io/artshow/devlog/2026-07-12-cec0b0.html">
+<title>사진 → 아야모 + 얼굴형 파츠 (감독 제안) — ARTSHOW 개발일지</title>
+<meta name="description" content="감독 제안: "사진을 넣으면 귀엽게 비슷하게 만들 수 있을까? 얼굴형도 하자."">
+<link rel="canonical" href="https://syhongart.github.io/artshow/devlog/2026-07-12-7f2f6e.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="ARTSHOW">
-<meta property="og:title" content="개발일지 블로그 — 실사 캡처 + 주제 이모티콘 (감독 제안) — ARTSHOW 개발일지">
-<meta property="og:description" content="감독 제안: 블로그에 이미지 캡처와 이모티콘도 넣자. 글자만 있는">
-<meta property="og:url" content="https://syhongart.github.io/artshow/devlog/2026-07-12-cec0b0.html">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"개발일지 블로그 — 실사 캡처 + 주제 이모티콘 (감독 제안)","datePublished":"2026-07-12","author":{"@type":"Organization","name":"ARTSHOW"},"mainEntityOfPage":"https://syhongart.github.io/artshow/devlog/2026-07-12-cec0b0.html","inLanguage":"ko"}</script>
+<meta property="og:title" content="사진 → 아야모 + 얼굴형 파츠 (감독 제안) — ARTSHOW 개발일지">
+<meta property="og:description" content="감독 제안: "사진을 넣으면 귀엽게 비슷하게 만들 수 있을까? 얼굴형도 하자."">
+<meta property="og:url" content="https://syhongart.github.io/artshow/devlog/2026-07-12-7f2f6e.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"사진 → 아야모 + 얼굴형 파츠 (감독 제안)","datePublished":"2026-07-12","author":{"@type":"Organization","name":"ARTSHOW"},"mainEntityOfPage":"https://syhongart.github.io/artshow/devlog/2026-07-12-7f2f6e.html","inLanguage":"ko"}</script>
 <style>
 :root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
 --ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
@@ -75,16 +75,19 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
 <div class="eyebrow">2026-07-12</div>
-<h1><span class="emo">📝</span>개발일지 블로그 — 실사 캡처 + 주제 이모티콘 (감독 제안)</h1>
+<h1><span class="emo">🧸</span>사진 → 아야모 + 얼굴형 파츠 (감독 제안)</h1>
 <p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 <h3>원인</h3>
-<ul><li>감독 제안: 블로그에 이미지 캡처와 이모티콘도 넣자. 글자만 있는 목록은 결과물이 안 보인다.</li></ul>
+<ul><li>감독 제안: "사진을 넣으면 귀엽게 비슷하게 만들 수 있을까? 얼굴형도 하자." 제페토/미모지식 사진→아바타의 미니 버전.</li></ul>
+<h3>분석</h3>
+<ul><li>아야모는 부품 조합식이라 "사진과 똑같이"가 아니라 "특징을 읽어 가장 비슷한 부품을 자동 선택"하는 문제 — 팔레트 최근접 매칭으로 충분.</li><li>얼굴 사진은 민감정보라 서버 전송 없는 기기 내 분석이 법무상 정답 (동의·보관 규제 전면 회피). 운영원칙과도 일치.</li></ul>
 <h3>개선</h3>
-<ul><li>생성기에 이미지 문법 지원: 일지 원문의 <code>![캡션](경로)</code> 한 줄이 figure+캡션으로 렌더(지연 로딩, 플레이트 테두리).</li><li>촬영 파이프라인 재구축(롤백으로 소실): 미러에 프리캠·GPU 프로브 우회·HUD 숨김 훅 주입, 사이클 12프레임 샘플링 후 낮·일몰·밤 선별.</li><li>대표 7건에 실사 캡처 연결 — 디테일 트리(낮), 은하수(밤), 석양 사이클, 전시실 내부, 아야모 꾸미기, 모바일 햄버거, 블로그 자신.</li><li>제목 키워드 → 주제 이모티콘 자동 부여(⚖️법무 ⚡성능 🧸캐릭터 🌌하늘 🎨디자인 …). 슬러그·SEO 타이틀에는 미포함 — URL 불변.</li></ul>
+<ul><li><strong>얼굴형 파츠 신설</strong>(치비 최초 형태 파라미터): 동글·갸름·통통·브이라인. 두상 스케일 + 턱 테이퍼(아래 반구 조임)로 구현, 헤어·액세서리는 hairRoot 스케일 추종으로 두피 뚫림 방지. 구버전 저장 룩은 동글 폴백.</li><li><strong>📷 사진으로 시작하기</strong>: 꾸미기 창에서 사진 선택 → 320px 캔버스에서 피부색(볼 밴드 중앙값)·머리색(이마 위 밴드, 피부 제외)·눈동자색(눈 패치, 피부보다 어두운 픽셀)·헤어 길이(턱 아래 좌우 머리색 픽셀 비율→숏컷/단발/트윈테일)·얼굴형(얼굴 영역 가로세로비) 추정. FaceDetector 지원 브라우저는 정밀 박스, 미지원은 셀피 구도 가정.</li><li>분석은 전부 브라우저 안 — 안내 문구로 명시("저장·전송되지 않아요").</li></ul>
 <h3>결과</h3>
-<ul><li>QA: 카드 38건 전부 이모티콘, 이미지 7장 정상 로드(404 0건), 본문 figure 렌더·캡션 확인. 이미지 총 ~0.7MB(JPEG 82).</li><li>이후 규약: 일지 작성 시 QA 캡처를 devlog/img/에 저장하고 <code>![캡션](../devlog/img/파일.jpg)</code>로 참조하면 자동 발행.</li></ul>
+<ul><li>QA(합성 초상 2종): 밝은 피부·검은 긴머리·갸름 → f0c8a8/2b2b33/트윈테일/ 갸름 ✓, 어두운 피부·주황 숏컷·통통 → 7a4a2f/d96c2c/숏컷/통통 ✓.</li><li>잡은 버그: 얼굴 비율 계산에서 2px 표본 폭을 두 번 곱해 전원 통통 판정되던 문제(실측 ar 1.022로 경계 0.98 재조정).</li></ul>
+<figure class="shot"><img src="./img/photo-to-ayamo.jpg" alt="사진으로 시작하기 버튼과 얼굴형 파츠가 추가된 아야모 꾸미기" loading="lazy"><figcaption>사진으로 시작하기 버튼과 얼굴형 파츠가 추가된 아야모 꾸미기</figcaption></figure>
 </article>
-<div class="pn"><a href="./2026-07-12-4bce7f.html"><span class="lbl">← 이전 기록</span>개발일지 공개 블로그 /devlog/ — 37건 일괄 발행 + SEO 기반</a><a href="./2026-07-12-7f2f6e.html" style="text-align:right"><span class="lbl">다음 기록 →</span>사진 → 아야모 + 얼굴형 파츠 (감독 제안)</a></div>
+<div class="pn"><a href="./2026-07-12-cec0b0.html"><span class="lbl">← 이전 기록</span>개발일지 블로그 — 실사 캡처 + 주제 이모티콘 (감독 제안)</a></div>
 </div>
 <footer>&copy; 2026 ARTSHOW. — 만드는 과정을 기록합니다.</footer>
 </body>

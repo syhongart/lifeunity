@@ -43,6 +43,19 @@ export const CHIBI_ACCESSORIES = [
   { id: 'flower', name: '꽃' },
   { id: 'horns', name: '뿔' },
 ];
+export const CHIBI_FACE_SHAPES = [
+  { id: 'round', name: '동글' },
+  { id: 'slim', name: '갸름' },
+  { id: 'chubby', name: '통통' },
+  { id: 'vline', name: '브이라인' },
+];
+// 두상 변형 정의 — 스케일(x,y,z 배수) + 턱 테이퍼(아래 반구 조임 강도)
+const FACE_SHAPE_DEF = {
+  round: { sx: 1, sy: 1, sz: 1, taper: 0 },
+  slim: { sx: 0.93, sy: 1.07, sz: 0.97, taper: 0.05 },
+  chubby: { sx: 1.1, sy: 0.94, sz: 1.05, taper: 0 },
+  vline: { sx: 0.97, sy: 1.03, sz: 0.98, taper: 0.3 },
+};
 
 export const DEFAULT_CHIBI = {
   skin: '#ffd9bd',
@@ -51,6 +64,7 @@ export const DEFAULT_CHIBI = {
   eyeStyle: 'sparkle',
   eyeColor: '#7a4a2f',
   mouth: 'smile',
+  face: 'round',
   blush: true,
   top: '#ff8fab',
   bottom: '#5468c4',
@@ -62,6 +76,7 @@ export const DEFAULT_CHIBI = {
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 const ID_OF = (list) => new Set(list.map((x) => x.id));
 const HAIR_IDS = ID_OF(CHIBI_HAIR_STYLES);
+const FACE_IDS = ID_OF(CHIBI_FACE_SHAPES);
 const EYE_IDS = ID_OF(CHIBI_EYE_STYLES);
 const MOUTH_IDS = ID_OF(CHIBI_MOUTH_STYLES);
 const BOTTOM_IDS = ID_OF(CHIBI_BOTTOM_TYPES);
@@ -79,6 +94,7 @@ export function normalizeChibi(p) {
     eyeStyle: pick(src.eyeStyle, EYE_IDS, DEFAULT_CHIBI.eyeStyle),
     eyeColor: hex(src.eyeColor, DEFAULT_CHIBI.eyeColor),
     mouth: pick(src.mouth, MOUTH_IDS, DEFAULT_CHIBI.mouth),
+    face: pick(src.face, FACE_IDS, DEFAULT_CHIBI.face),
     blush: src.blush !== false,
     top: hex(src.top, DEFAULT_CHIBI.top),
     bottom: hex(src.bottom, DEFAULT_CHIBI.bottom),
@@ -415,8 +431,25 @@ export function buildChibi(params) {
   wrapper.add(headPivot);
 
   const HEAD_R = 0.3;
-  const skull = new THREE.Mesh(mkGeo(new THREE.SphereGeometry(HEAD_R, 32, 24)), skinMat);
-  skull.scale.set(1, 0.95, 0.97);
+  const fsDef = FACE_SHAPE_DEF[p.face] || FACE_SHAPE_DEF.round;
+  // 턱 테이퍼 — 구의 아래 반구를 깊이에 비례해 조여 브이라인/갸름 턱을 만든다
+  const taperJaw = (geo) => {
+    if (!fsDef.taper) return geo;
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i);
+      if (y < 0) {
+        const f = 1 - fsDef.taper * Math.min(1, -y / HEAD_R);
+        pos.setX(i, pos.getX(i) * f);
+        pos.setZ(i, pos.getZ(i) * f);
+      }
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+    return geo;
+  };
+  const skull = new THREE.Mesh(mkGeo(taperJaw(new THREE.SphereGeometry(HEAD_R, 32, 24))), skinMat);
+  skull.scale.set(1 * fsDef.sx, 0.95 * fsDef.sy, 0.97 * fsDef.sz);
   skull.position.y = 0.25;
   addOutline(skull, 1.045, mats);
   headPivot.add(skull);
@@ -428,7 +461,7 @@ export function buildChibi(params) {
   texs.push(faceTex);
   const FACE_PHI = 1.85;
   const faceGeo = mkGeo(
-    new THREE.SphereGeometry(HEAD_R * 1.012, 32, 24, Math.PI / 2 - FACE_PHI / 2, FACE_PHI, Math.PI * 0.33, Math.PI * 0.4)
+    taperJaw(new THREE.SphereGeometry(HEAD_R * 1.012, 32, 24, Math.PI / 2 - FACE_PHI / 2, FACE_PHI, Math.PI * 0.33, Math.PI * 0.4))
   );
   const faceMat = mkMat(
     new THREE.MeshToonMaterial({ map: faceTex, transparent: true, alphaTest: 0.02 })
@@ -442,6 +475,9 @@ export function buildChibi(params) {
   const HAIR_R = HEAD_R * 1.07;
   const hairRoot = new THREE.Group();
   hairRoot.position.copy(skull.position);
+  // 헤어(셸·꼬리·액세서리 전부 hairRoot 자식)는 두상 스케일을 따라간다 —
+  // 안 그러면 통통/갸름에서 두피가 헤어를 뚫는다
+  hairRoot.scale.set(fsDef.sx, fsDef.sy, fsDef.sz);
   headPivot.add(hairRoot);
   const tailPivots = []; // 찰랑임 애니메이션 대상
 

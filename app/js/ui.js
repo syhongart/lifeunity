@@ -13,6 +13,7 @@ import {
   CHIBI_MOUTH_STYLES,
   CHIBI_BOTTOM_TYPES,
   CHIBI_ACCESSORIES,
+  CHIBI_FACE_SHAPES,
   encodeChibi,
   normalizeChibi,
 } from './chibi.js';
@@ -348,6 +349,17 @@ function injectStyles() {
   border: 1px solid #eee;
   position: relative;
   touch-action: none;
+}
+.lu-am-preview-col {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; gap: 10px;
+  width: 300px;
+}
+.lu-am-photo-btn { width: 100%; }
+.lu-am-photo-note {
+  font-size: 11px; line-height: 1.5;
+  color: #8a8478;
+  text-align: center;
 }
 .lu-am-preview canvas { display: block; width: 100%; height: 100%; cursor: grab; }
 .lu-am-preview.lu-dragging canvas { cursor: grabbing; }
@@ -1417,6 +1429,7 @@ function injectStyles() {
   .lu-am-card { max-width: 92vw; max-height: 88vh; }
   .lu-am-body { flex-direction: column; overflow-y: auto; padding: 14px; gap: 14px; }
   .lu-am-preview { width: 100%; max-width: 260px; height: 320px; margin: 0 auto; }
+  .lu-am-preview-col { width: 100%; max-width: 260px; margin: 0 auto; }
   .lu-am-panel { min-height: 0; }
   .lu-am-tabpage { max-height: 40vh; }
 }
@@ -2381,6 +2394,143 @@ const CHIBI_CLOTH_COLORS = [
   '#b799ff', '#fffdf7', '#3a3f4a', '#e0596e', '#d96c2c',
 ];
 
+// ---------------------------------------------------------------------------
+// 사진 → 아야모 추정 (전부 브라우저 안 — 사진은 저장·전송되지 않는다)
+// 색은 팔레트 최근접 매칭, 형태는 얼굴 박스 비율·머리카락 픽셀 분포 휴리스틱.
+// FaceDetector가 있으면(크롬 일부) 정확한 박스, 없으면 셀피 구도 가정 박스.
+// ---------------------------------------------------------------------------
+function hexToRgb(hex) {
+  return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+}
+function colorDist(a, b) {
+  // 인지 가중 유클리드 — 초록에 민감, 파랑에 둔감
+  const dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
+  return Math.sqrt(2 * dr * dr + 4 * dg * dg + 3 * db * db);
+}
+function nearestHex(palette, rgb) {
+  let best = palette[0], bd = Infinity;
+  for (const hex of palette) {
+    const d = colorDist(hexToRgb(hex), rgb);
+    if (d < bd) { bd = d; best = hex; }
+  }
+  return best;
+}
+function medianRgb(pixels) {
+  if (!pixels.length) return null;
+  const ch = (i) => pixels.map((p) => p[i]).sort((a, b) => a - b)[pixels.length >> 1];
+  return [ch(0), ch(1), ch(2)];
+}
+
+async function analyzeChibiPhoto(file) {
+  // 축소 캔버스에 그리기 (긴 변 320px — 분석엔 충분, 속도 우선)
+  const bmp = await createImageBitmap(file);
+  const scale = 320 / Math.max(bmp.width, bmp.height);
+  const W = Math.max(2, Math.round(bmp.width * scale));
+  const H = Math.max(2, Math.round(bmp.height * scale));
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bmp, 0, 0, W, H);
+  bmp.close && bmp.close();
+  const data = ctx.getImageData(0, 0, W, H).data;
+  const px = (x, y) => {
+    const i = ((y | 0) * W + (x | 0)) * 4;
+    return [data[i], data[i + 1], data[i + 2]];
+  };
+  const sample = (x0, y0, x1, y1, filter) => {
+    const out = [];
+    for (let y = Math.max(0, y0 | 0); y < Math.min(H, y1); y += 2) {
+      for (let x = Math.max(0, x0 | 0); x < Math.min(W, x1); x += 2) {
+        const c = px(x, y);
+        if (!filter || filter(c)) out.push(c);
+      }
+    }
+    return out;
+  };
+
+  // 얼굴 박스 — FaceDetector 가능하면 사용, 아니면 셀피 구도 가정
+  let box = { x: W * 0.3, y: H * 0.2, w: W * 0.4, h: H * 0.46 };
+  let boxFromDetector = false;
+  if (typeof window !== 'undefined' && 'FaceDetector' in window) {
+    try {
+      const faces = await new window.FaceDetector({ maxDetectedFaces: 1 }).detect(cv);
+      if (faces && faces[0]) {
+        const b = faces[0].boundingBox;
+        box = { x: b.x, y: b.y, w: b.width, h: b.height };
+        boxFromDetector = true;
+      }
+    } catch (_) { /* 미지원/실패 — 가정 박스 유지 */ }
+  }
+
+  // 1) 피부색: 볼 밴드(박스 중하단) 중앙값
+  const skinPx = sample(box.x + box.w * 0.25, box.y + box.h * 0.45, box.x + box.w * 0.75, box.y + box.h * 0.78);
+  const skinRgb = medianRgb(skinPx) || hexToRgb(DEFAULT_CHIBI.skin);
+
+  // 2) 머리색: 박스 위쪽 밴드에서 피부와 먼 픽셀 중앙값
+  const hairPx = sample(
+    box.x + box.w * 0.05, Math.max(0, box.y - box.h * 0.22), box.x + box.w * 0.95, box.y + box.h * 0.12,
+    (c) => colorDist(c, skinRgb) > 90
+  );
+  const hairRgb = medianRgb(hairPx) || hexToRgb(DEFAULT_CHIBI.hairColor);
+
+  // 3) 눈동자색: 좌우 눈 위치 패치에서 피부보다 어두운 픽셀
+  const skinLum = (skinRgb[0] + skinRgb[1] * 2 + skinRgb[2]) / 4;
+  const eyePatch = (cxr) => sample(
+    box.x + box.w * (cxr - 0.09), box.y + box.h * 0.34, box.x + box.w * (cxr + 0.09), box.y + box.h * 0.48,
+    (c) => (c[0] + c[1] * 2 + c[2]) / 4 < skinLum * 0.72
+  );
+  const eyeRgb = medianRgb([...eyePatch(0.31), ...eyePatch(0.69)]);
+
+  // 4) 얼굴형: 박스 가로/세로 비율 (감지 박스일 때만 신뢰)
+  let face = 'round';
+  if (boxFromDetector) {
+    const ar = box.w / box.h;
+    if (ar < 0.8) face = 'slim';
+    else if (ar > 0.98) face = 'chubby';
+  } else {
+    // 가정 박스면 피부색 영역의 실측 폭/높이로 근사
+    const skinRegion = sample(W * 0.15, H * 0.1, W * 0.85, H * 0.85, (c) => colorDist(c, skinRgb) < 65);
+    if (skinRegion.length > 40) {
+      // 표본 수만으로는 비율을 못 구해 행별 폭 집계
+      let minY = H, maxY = 0, widths = [];
+      for (let y = H * 0.1; y < H * 0.85; y += 2) {
+        let cnt = 0;
+        for (let x = W * 0.15; x < W * 0.85; x += 2) if (colorDist(px(x, y), skinRgb) < 65) cnt++;
+        if (cnt > 4) { minY = Math.min(minY, y); maxY = Math.max(maxY, y); widths.push(cnt * 2); }
+      }
+      if (maxY > minY && widths.length) {
+        // cnt는 2px 스텝 표본 수라 *2가 이미 실제 픽셀 폭 — 여기서 또 곱하면 안 된다
+        const w = widths.sort((a, b) => a - b)[widths.length >> 1];
+        const ar = w / (maxY - minY);
+        if (ar < 0.78) face = 'slim';
+        else if (ar > 0.98) face = 'chubby';
+      }
+    }
+  }
+
+  // 5) 헤어 길이: 턱 아래 좌우 영역의 머리색 픽셀 비율
+  const belowY0 = box.y + box.h * 0.9;
+  const sideArea = (x0, x1) => {
+    const zone = sample(x0, belowY0, x1, Math.min(H, belowY0 + box.h * 0.8), (c) => colorDist(c, hairRgb) < 80);
+    const total = Math.max(1, ((x1 - x0) / 2) * ((Math.min(H, belowY0 + box.h * 0.8) - belowY0) / 2));
+    return zone.length / total;
+  };
+  const longRatio = Math.max(
+    sideArea(Math.max(0, box.x - box.w * 0.35), box.x + box.w * 0.25),
+    sideArea(box.x + box.w * 0.75, Math.min(W, box.x + box.w * 1.35))
+  );
+  const hairStyle = longRatio > 0.3 ? 'twintail' : longRatio > 0.1 ? 'bob' : 'short';
+
+  const out = {
+    skin: nearestHex(SKIN_TONES, skinRgb),
+    hairColor: nearestHex(HAIR_COLORS, hairRgb),
+    hairStyle,
+    face,
+  };
+  if (eyeRgb) out.eyeColor = nearestHex(EYE_COLORS, eyeRgb);
+  return out;
+}
+
 function buildChibiMaker() {
   const closeX = el('button', { id: 'lu-am-close', type: 'button', 'aria-label': '닫기', text: '×' });
   const title = el('div', { className: 'lu-am-title', text: '아야모 꾸미기' });
@@ -2389,6 +2539,39 @@ function buildChibiMaker() {
   const canvas = el('canvas', { width: '300', height: '400' });
   const previewHint = el('div', { className: 'lu-am-preview-hint', text: '드래그해서 회전' });
   const previewBox = el('div', { className: 'lu-am-preview' }, [canvas, previewHint]);
+
+  // 사진 → 아야모: 업로드 없이 브라우저 안에서만 분석 (개인정보 설계 원칙)
+  const PHOTO_NOTE_DEFAULT = '사진은 기기 안에서만 분석되고 저장·전송되지 않아요.';
+  const photoInput = el('input', { type: 'file', accept: 'image/*', style: 'display:none;' });
+  const photoBtn = el('button', { className: 'lu-am-btn lu-am-photo-btn', type: 'button', text: '📷 사진으로 시작하기' });
+  const photoNote = el('div', { className: 'lu-am-photo-note', text: PHOTO_NOTE_DEFAULT });
+  let photoNoteTimer = null;
+  const flashNote = (msg) => {
+    photoNote.textContent = msg;
+    if (photoNoteTimer) clearTimeout(photoNoteTimer);
+    photoNoteTimer = setTimeout(() => { photoNote.textContent = PHOTO_NOTE_DEFAULT; }, 4500);
+  };
+  photoBtn.addEventListener('click', () => photoInput.click());
+  photoInput.addEventListener('change', async () => {
+    const f = photoInput.files && photoInput.files[0];
+    photoInput.value = '';
+    if (!f || !chibiParams) return;
+    photoBtn.disabled = true;
+    photoBtn.textContent = '분석 중…';
+    try {
+      const guess = await analyzeChibiPhoto(f);
+      chibiParams = normalizeChibi(Object.assign({}, chibiParams, guess));
+      rebuildPreview();
+      renderPanel();
+      flashNote('비슷한 조합으로 맞춰봤어요 ✨ 마음에 안 드는 부분만 바꾸면 돼요.');
+    } catch (err) {
+      console.warn('사진 분석 실패:', err);
+      flashNote('사진을 읽지 못했어요 — 얼굴이 크게 나온 다른 사진으로 시도해 보세요.');
+    }
+    photoBtn.disabled = false;
+    photoBtn.textContent = '📷 사진으로 시작하기';
+  });
+  const previewCol = el('div', { className: 'lu-am-preview-col' }, [previewBox, photoBtn, photoNote, photoInput]);
 
   let previewRenderer = null;
   let previewScene = null;
@@ -2425,7 +2608,7 @@ function buildChibiMaker() {
   const panel = el('div', { className: 'lu-am-panel' });
   const page = el('div', { className: 'lu-am-tabpage' });
   panel.appendChild(page);
-  const body = el('div', { className: 'lu-am-body' }, [previewBox, panel]);
+  const body = el('div', { className: 'lu-am-body' }, [previewCol, panel]);
 
   const saveBtn = el('button', { className: 'lu-am-btn lu-am-btn-primary', type: 'button', text: '저장하고 사용' });
   const closeBtn = el('button', { className: 'lu-am-btn', type: 'button', text: '닫기' });
@@ -2478,6 +2661,7 @@ function buildChibiMaker() {
     page.textContent = '';
     if (!chibiParams) return;
     chipRow('헤어', CHIBI_HAIR_STYLES, 'hairStyle');
+    chipRow('얼굴형', CHIBI_FACE_SHAPES, 'face');
     chipRow('눈', CHIBI_EYE_STYLES, 'eyeStyle');
     chipRow('입', CHIBI_MOUTH_STYLES, 'mouth');
     chipRow('볼터치', [{ id: true, name: '있음' }, { id: false, name: '없음' }], 'blush');
