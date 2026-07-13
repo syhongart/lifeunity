@@ -1,4 +1,4 @@
-// ARTSHOW Metaverse — 1인칭 플레이어 컨트롤러
+// OpenArtShow Metaverse — 1인칭 플레이어 컨트롤러
 // PointerLock 마우스 시점 + WASD 이동 + 모바일 터치(가상 조이스틱/시점 드래그)
 // 다층 미술관 수직 이동: BUILDING(config.js)의 층/슬래브 개구부/계단 밴드를 소비해
 // 실물 지오메트리(계단·난간·보이드) 없이도 지면 높이와 추락/관통을 물리적으로 해석한다.

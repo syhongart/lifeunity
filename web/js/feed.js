@@ -1,5 +1,5 @@
 // feed.js — 커뮤니티 피드 저장소 (방문자 로그 · 포토월)
-// ARTSHOW Metaverse
+// OpenArtShow Metaverse
 //
 // SOLID 설계 노트
 //  - 단일 책임(S): VisitorLog는 "누가 다녀갔나", PhotoWall은 "어떤 사진이 남았나"만 담당.

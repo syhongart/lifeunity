@@ -1,4 +1,4 @@
-// main.js — ARTSHOW Museum 통합 엔트리 포인트
+// main.js — OpenArtShow Museum 통합 엔트리 포인트
 // 소유: 통합 담당. 다른 모듈의 공개 API 계약을 그대로 사용한다.
 
 import * as THREE from 'three';
@@ -517,7 +517,7 @@ async function init() {
   // 배율이고, 드로우콜 지배적이라 해상도를 낮춰도 안 빨라지는 것까지 부합).
   // 렌더러 생성 "전"에 판별해야 antialias(생성 시점 옵션)를 끌 수 있다.
   gpuInfo = probeGpu();
-  console.info('[ARTSHOW] GPU:', gpuInfo.name || '(unknown)', gpuInfo.soft ? '— SOFTWARE RENDERING' : '');
+  console.info('[OpenArtShow] GPU:', gpuInfo.name || '(unknown)', gpuInfo.soft ? '— SOFTWARE RENDERING' : '');
   try {
     renderer = new THREE.WebGLRenderer({
       antialias: !gpuInfo.soft, // AA off는 소프트웨어 렌더러 전용 — low 스펙도 씬 경량화 후 MSAA 감당 가능
@@ -661,7 +661,7 @@ async function init() {
         try {
           navigator.clipboard.writeText(report);
           setStatus('진단 정보가 복사됐어요 — 붙여넣어 보내주세요');
-        } catch (_) { console.info('[ARTSHOW diag]', report); }
+        } catch (_) { console.info('[OpenArtShow diag]', report); }
       });
     }
     if (gpuInfo.soft && !document.getElementById('lu-potato-badge')) {
@@ -821,7 +821,7 @@ function capturePhoto() {
       showShareModal({
         blob: dataUrlToBlob(outDataUrl),
         dataUrl: outDataUrl,
-        galleryName: (galleryInfo && galleryInfo.name) || 'ARTSHOW 전시',
+        galleryName: (galleryInfo && galleryInfo.name) || 'OpenArtShow 전시',
         shareUrl: getShareUrl(),
       });
     };
@@ -844,7 +844,7 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: 'image/png' });
 }
 
-// 캡처 이미지 하단에 그라디언트 + 전시명(좌) + ARTSHOW 브랜드/URL(우) 워터마크를 합성한다.
+// 캡처 이미지 하단에 그라디언트 + 전시명(좌) + OpenArtShow 브랜드/URL(우) 워터마크를 합성한다.
 function drawWatermark(ctx, w, h, galleryName) {
   const bandHeight = Math.max(90, Math.round(h * 0.14));
   const grad = ctx.createLinearGradient(0, h - bandHeight, 0, h);
@@ -862,12 +862,12 @@ function drawWatermark(ctx, w, h, galleryName) {
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(255,255,255,0.95)';
   ctx.font = `300 ${Math.round(18 * s)}px Helvetica, Arial, sans-serif`;
-  ctx.fillText(galleryName || 'ARTSHOW 전시', pad, h - pad - 6 * s);
+  ctx.fillText(galleryName || 'OpenArtShow 전시', pad, h - pad - 6 * s);
 
-  // 우하단 — ARTSHOW(골드, letter-spacing) + 사이트 URL
+  // 우하단 — OpenArtShow(골드, letter-spacing) + 사이트 URL
   ctx.fillStyle = '#5f9e7d';
   ctx.font = `300 ${Math.round(16 * s)}px Helvetica, Arial, sans-serif`;
-  drawLetterSpacedRight(ctx, 'ARTSHOW', w - pad, h - pad - 22 * s, 2.5 * s);
+  drawLetterSpacedRight(ctx, 'OpenArtShow', w - pad, h - pad - 22 * s, 2.5 * s);
 
   ctx.textAlign = 'right';
   ctx.fillStyle = 'rgba(255,255,255,0.6)';

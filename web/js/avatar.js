@@ -1,5 +1,5 @@
 // avatar.js — 아바타 인스턴스 생성 (치비 전용)
-// ARTSHOW Metaverse — 감독 지시로 서드파티 캐릭터(KayKit/RPM/DCL) 전면 삭제.
+// OpenArtShow Metaverse — 감독 지시로 서드파티 캐릭터(KayKit/RPM/DCL) 전면 삭제.
 // 유일한 캐릭터는 자체 제작 치비(chibi.js — 외부 에셋 0, 저작권 완전 보유)이며,
 // 구버전 접속자가 보내오는 옛 charId('knight', 'dcl:...', 'rpm:...')는 모두
 // 기본 치비로 폴백해 하위호환을 유지한다.

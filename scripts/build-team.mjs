@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_URL = 'https://syhongart.github.io/openartshow';
-const SITE = 'ARTSHOW';
+const SITE = 'OpenArtShow';
 const OUT = join(ROOT, 'team');
 
 // ---------------------------------------------------------------------------
@@ -163,7 +163,7 @@ const html = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>팀 · 인사기록 — ${SITE}</title>
-<meta name="description" content="ARTSHOW를 만드는 팀 — 정규직과 계약직(디자이너·법무·카피·성능·리서처)의 인사기록과 기여도. 사람과 AI가 함께 만드는 미술관.">
+<meta name="description" content="OpenArtShow를 만드는 팀 — 정규직과 계약직(디자이너·법무·카피·성능·리서처)의 인사기록과 기여도. 사람과 AI가 함께 만드는 미술관.">
 <link rel="canonical" href="${BASE_URL}/team/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${SITE}">
@@ -175,7 +175,7 @@ const html = `<!DOCTYPE html>
 </head>
 <body>
 <header class="top">
-  <a class="logo" href="../">ARTSHOW<span class="dot">.</span></a>
+  <a class="logo" href="../">OpenArtShow<span class="dot">.</span></a>
   <nav>
     <a href="../team/">팀</a>
     <a href="../devlog/">개발일지</a>
@@ -187,7 +187,7 @@ const html = `<!DOCTYPE html>
 <div class="wrap">
   <div class="eyebrow">Team · HR</div>
   <h1>팀 · 인사기록</h1>
-  <p class="lead">ARTSHOW는 감독 한 사람과 AI 팀이 함께 만듭니다.<br>
+  <p class="lead">OpenArtShow는 감독 한 사람과 AI 팀이 함께 만듭니다.<br>
   무거운 일에는 전문 계약직을 고용해 맡깁니다 — 아래는 그 기록입니다.</p>
 
   <div class="stat-row">
@@ -210,7 +210,7 @@ const html = `<!DOCTYPE html>
     <span style="color:var(--ink-dim)">최종 갱신 ${ROSTER.updated}</span>
   </p>
 </div>
-<footer>&copy; 2026 ARTSHOW. — 사람과 AI가 함께 만드는 미술관.</footer>
+<footer>&copy; 2026 OpenArtShow. — 사람과 AI가 함께 만드는 미술관.</footer>
 </body>
 </html>
 `;

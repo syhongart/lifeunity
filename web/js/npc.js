@@ -1,5 +1,5 @@
 // npc.js — AI 관객 (치비 NPC) 시뮬레이터
-// ARTSHOW Metaverse — 전시장을 돌아다니며 작품을 감상하는 앰비언트 관객.
+// OpenArtShow Metaverse — 전시장을 돌아다니며 작품을 감상하는 앰비언트 관객.
 //
 // 아키텍처: 시뮬레이션은 "호스트만" 돌리고, 결과 상태를 기존 멀티플레이
 // states 브로드캐스트에 합류시킨다(multiplayer.js의 npcProvider 훅). 접속자

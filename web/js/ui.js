@@ -1,5 +1,5 @@
 // web/js/ui.js
-// ARTSHOW Museum — UI 모듈 (DOM/CSS 전부 JS에서 동적 생성)
+// OpenArtShow Museum — UI 모듈 (DOM/CSS 전부 JS에서 동적 생성)
 // MoMA 미니멀 미학: Helvetica, 화이트/블랙, 골드(#5f9e7d) 포인트
 
 import * as THREE from 'three';
@@ -1455,7 +1455,7 @@ function buildLoading() {
 }
 
 function buildLobby() {
-  const title = el('div', { className: 'lu-lobby-title', text: 'ARTSHOW MUSEUM' });
+  const title = el('div', { className: 'lu-lobby-title', text: 'OpenArtShow MUSEUM' });
   const sub = el('div', { className: 'lu-lobby-sub', text: 'VIRTUAL EXHIBITION' });
   const rule = el('div', { className: 'lu-lobby-rule' });
 
@@ -2317,8 +2317,8 @@ function buildShareModal() {
       const file = new File([shareData.blob], 'artshow.png', { type: 'image/png' });
       await navigator.share({
         files: [file],
-        title: shareData.galleryName || 'ARTSHOW',
-        text: `${shareData.galleryName || 'ARTSHOW'} — ARTSHOW 3D 전시`,
+        title: shareData.galleryName || 'OpenArtShow',
+        text: `${shareData.galleryName || 'OpenArtShow'} — OpenArtShow 3D 전시`,
       });
     } catch (_) {
       /* 사용자가 공유 시트를 취소한 경우 등 — 조용히 무시 */
@@ -2336,13 +2336,13 @@ function buildShareModal() {
   });
 
   xBtn.addEventListener('click', () => {
-    const text = `${shareData.galleryName || 'ARTSHOW'} — ARTSHOW 3D 전시`;
+    const text = `${shareData.galleryName || 'OpenArtShow'} — OpenArtShow 3D 전시`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareData.shareUrl || '')}`;
     window.open(url, '_blank', 'noopener');
   });
 
   threadsBtn.addEventListener('click', () => {
-    const text = `${shareData.galleryName || 'ARTSHOW'} — ARTSHOW 3D 전시 ${shareData.shareUrl || ''}`;
+    const text = `${shareData.galleryName || 'OpenArtShow'} — OpenArtShow 3D 전시 ${shareData.shareUrl || ''}`;
     const url = `https://www.threads.net/intent/post?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank', 'noopener');
   });

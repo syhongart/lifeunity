@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_URL = 'https://syhongart.github.io/openartshow';
-const SITE = 'ARTSHOW';
+const SITE = 'OpenArtShow';
 const HIST = join(ROOT, 'docs', 'valuation-history.json');
 const TRACTION = join(ROOT, 'docs', 'traction.json');
 const OUT = join(ROOT, 'valuation');
@@ -177,7 +177,7 @@ const html = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>시장가치 추이 · 목표 50억 — ${SITE}</title>
-<meta name="description" content="ARTSHOW의 결과물·트랙션 기반 시장가치를 매일 자동 산출하고 50억 목표까지의 경로를 추적합니다.">
+<meta name="description" content="OpenArtShow의 결과물·트랙션 기반 시장가치를 매일 자동 산출하고 50억 목표까지의 경로를 추적합니다.">
 <link rel="canonical" href="${BASE_URL}/valuation/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${SITE}">
@@ -188,7 +188,7 @@ const html = `<!DOCTYPE html>
 </head>
 <body>
 <header class="top">
-  <a class="logo" href="../">ARTSHOW<span class="dot">.</span></a>
+  <a class="logo" href="../">OpenArtShow<span class="dot">.</span></a>
   <nav>
     <a href="../valuation/">밸류에이션</a>
     <a href="../team/">팀</a>
@@ -250,7 +250,7 @@ const html = `<!DOCTYPE html>
     트랙션 확보라는 조건부 시나리오입니다. 실제 가치는 시장이 정합니다.
   </div>
 </div>
-<footer>&copy; 2026 ARTSHOW. — 매일 04:00 KST 자동 산출 · 목표 50억 · 최종 ${last.date}</footer>
+<footer>&copy; 2026 OpenArtShow. — 매일 04:00 KST 자동 산출 · 목표 50억 · 최종 ${last.date}</footer>
 </body>
 </html>
 `;

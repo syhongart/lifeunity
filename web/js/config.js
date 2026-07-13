@@ -1,4 +1,4 @@
-// ARTSHOW Metaverse — 공통 설정
+// OpenArtShow Metaverse — 공통 설정
 // 소유자: config.js / scene.js 담당 에이전트
 
 export const ROOM = { size: 50, wallHeight: 6, bound: 24 }; // (구) 단층 홀 — 실외 지형 스케일 기준으로만 사용

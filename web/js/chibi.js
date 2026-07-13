@@ -1,5 +1,5 @@
 // chibi.js — 자체 제작 치비(SD) 캐릭터 생성기
-// ARTSHOW Metaverse — 외부 에셋 0: three.js 프리미티브 + 캔버스 얼굴 텍스처만으로
+// OpenArtShow Metaverse — 외부 에셋 0: three.js 프리미티브 + 캔버스 얼굴 텍스처만으로
 // "애니멀 크로싱 공식"(큰 머리 + 왕눈이 + 단순한 몸)을 코드로 조립한다.
 //
 // 설계 원칙

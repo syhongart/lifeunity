@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_URL = 'https://syhongart.github.io/openartshow'; // 랜딩 OG와 동일 규약
-const SITE = 'ARTSHOW';
+const SITE = 'OpenArtShow';
 const OUT = join(ROOT, 'devlog');
 
 // ---------- 파싱 ----------
@@ -178,7 +178,7 @@ function shell({ title, desc, path, og, jsonld, bodyHtml }) {
 </head>
 <body>
 <header class="top">
-  <a class="logo" href="../">ARTSHOW<span class="dot">.</span></a>
+  <a class="logo" href="../">OpenArtShow<span class="dot">.</span></a>
   <nav>
     <a href="../devlog/">개발일지</a>
     <a href="../team/">팀</a>
@@ -190,7 +190,7 @@ function shell({ title, desc, path, og, jsonld, bodyHtml }) {
 <div class="wrap">
 ${bodyHtml}
 </div>
-<footer>&copy; 2026 ARTSHOW. — 만드는 과정을 기록합니다.</footer>
+<footer>&copy; 2026 OpenArtShow. — 만드는 과정을 기록합니다.</footer>
 </body>
 </html>
 `;
@@ -210,7 +210,7 @@ entries.forEach((e, i) => {
 <article>
 <div class="eyebrow">${e.date}</div>
 <h1><span class="emo">${emojiFor(e.title)}</span>${esc(e.title)}</h1>
-<p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
+<p class="meta">OpenArtShow 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 ${mdToHtml(e.body)}
 </article>
 ${pn.length ? `<div class="pn">${pn.join('')}</div>` : ''}`;
@@ -238,7 +238,7 @@ const cards = entries.map(e => `<a class="card" href="./${e.slug}.html">
 
 writeFileSync(join(OUT, 'index.html'), shell({
   title: `개발일지 — ${SITE}`,
-  desc: 'ARTSHOW를 만드는 과정의 공개 기록. 웹 3D 미술관의 성능·디자인·법무·브랜드 결정을 원인-분석-개선-결과로 남깁니다.',
+  desc: 'OpenArtShow를 만드는 과정의 공개 기록. 웹 3D 미술관의 성능·디자인·법무·브랜드 결정을 원인-분석-개선-결과로 남깁니다.',
   path: '/devlog/',
   og: 'website',
   jsonld: {
