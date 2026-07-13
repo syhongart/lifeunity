@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토) — OpenArtShow 개발일지</title>
+<meta name="description" content="감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable)">
+<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/2026-07-13-6a30c3.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="OpenArtShow">
+<meta property="og:title" content="보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토) — OpenArtShow 개발일지">
+<meta property="og:description" content="감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable)">
+<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/2026-07-13-6a30c3.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)","datePublished":"2026-07-13","author":{"@type":"Organization","name":"OpenArtShow"},"mainEntityOfPage":"https://syhongart.github.io/openartshow/devlog/2026-07-13-6a30c3.html","inLanguage":"ko"}</script>
+<style>
+:root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
+--ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
+--g700:#3f7a5c;--g800:#2c5844;--g900:#14261d;--r:3px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+font-size:15px;line-height:1.75;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+a{color:var(--gold-text);text-decoration:none}
+.top{display:flex;align-items:center;gap:18px;padding:14px 22px;background:var(--g900);color:#f2f2f0}
+.top .logo{font-weight:700;letter-spacing:0.04em;color:#fff;font-size:16px}
+.top .logo .dot{color:var(--gold)}
+.top nav{margin-left:auto;display:flex;gap:18px;font-size:13px}
+.top nav a{color:rgba(242,242,240,0.75)} .top nav a:hover{color:#fff}
+.wrap{max-width:760px;margin:0 auto;padding:48px 22px 90px}
+.eyebrow{font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:var(--gold-text);font-weight:600}
+h1{font-size:clamp(26px,4.5vw,36px);line-height:1.3;margin:10px 0 6px;letter-spacing:-0.01em}
+.lead{color:var(--ink-body);margin:0 0 34px}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin:0 0 14px;
+transition:border-color .2s,transform .2s}
+.card:hover{border-color:var(--g300);transform:translateY(-1px)}
+.card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
+.card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
+.card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
+article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
+article ul{margin:0 0 16px;padding-left:20px}
+article li{margin:0 0 6px;color:var(--ink-body)}
+article p{color:var(--ink-body)}
+article strong{color:var(--ink)}
+article code{background:var(--paper-deep);border:1px solid var(--line);border-radius:var(--r);padding:1px 5px;font-size:12.5px}
+article pre{background:var(--g900);color:#e8efe9;padding:14px 16px;border-radius:var(--r);overflow-x:auto;font-size:12.5px;line-height:1.6}
+article pre code{background:none;border:none;color:inherit;padding:0}
+.tbl{overflow-x:auto;margin:0 0 16px}
+table{border-collapse:collapse;font-size:13px;min-width:420px}
+th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;color:var(--ink-body)}
+th{background:var(--paper-deep);color:var(--ink);font-weight:600}
+.meta{color:var(--ink-dim);font-size:13px;margin:0 0 30px}
+.pn{display:flex;gap:12px;margin-top:50px;flex-wrap:wrap}
+.pn a{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;font-size:13px}
+.pn a:hover{border-color:var(--g300)}
+.pn .lbl{display:block;font-size:11px;letter-spacing:0.14em;color:var(--ink-dim);margin-bottom:4px}
+.back{display:inline-block;margin-bottom:26px;font-size:13px}
+footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;color:var(--ink-dim);font-size:12.5px}
+@media(max-width:520px){.top nav{gap:12px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="../">OpenArtShow<span class="dot">.</span></a>
+  <nav>
+    <a href="../devlog/">개발일지</a>
+    <a href="../team/">팀</a>
+    <a href="../valuation/">밸류에이션</a>
+    <a href="../guide.html">가이드</a>
+    <a href="../app/">입장하기</a>
+  </nav>
+</header>
+<div class="wrap">
+
+<a class="back" href="./">← 개발일지 전체</a>
+<article>
+<div class="eyebrow">2026-07-13</div>
+<h1><span class="emo">🛠️</span>보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)</h1>
+<p class="meta">OpenArtShow 개발일지 — 원인 · 분석 · 개선 · 결과</p>
+<h3>원인</h3>
+<ul><li>감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable) 판단. 결론: 코드 은닉은 연극, public 무방. 대규모 공개 전 3개는 블로커.</li></ul>
+<h3>개선</h3>
+<ul><li><strong>multiplayer.js</strong>: 메시지 64KB 상한, peer당 초당 30건 레이트리밋(고정창), 채팅 표시명을 hello 닉으로 고정(data.name 스푸핑 무시)+300자, 방명록 정제(이름40·텍스트200·1회20·총500) 후 병합, 좌표 finite+±500 클램프 (호스트·게스트 양측). hit target/좌표도 정제.</li><li><strong>artworks.js</strong>: safeMediaUrl 화이트리스트 — #gz=/#gd= 공유링크의 imageUrl/ videoUrl을 https/http·data:image·data:video·상대경로만 허용, 나머지 제거.</li><li><strong>index.html</strong>: CSP 메타(script-src 'self'+importmap sha256 해시, object-src none, base-uri none). 'unsafe-inline' 없이 인라인 importmap 허용.</li></ul>
+<h3>결과</h3>
+<ul><li>QA: 문법 통과, safeMediaUrl 9/9, P2P 헬퍼·레이트리밋 단위테스트 통과, CSP+importmap 헤드리스 부팅 성공(위반 0·에러 0).</li><li>주의: 롤백이 옛 구조 multiplayer.js를 되살려 첫 구현이 옛 버전에 적용됨 — 발견 후 현재 origin(575줄, NPC·타격·사진 포함)에 재적용·재검증.</li><li>팀장 판단: 지인 공유 지금 GO, 대규모 공개는 3종 머지 후 GO.</li></ul>
+</article>
+<div class="pn"><a href="./2026-07-12-e2c1fd.html"><span class="lbl">← 이전 기록</span>밸류에이션 모델에 트랙션 입력 + 50억 목표선 (감독 지시)</a><a href="./2026-07-13-f4b9d9.html" style="text-align:right"><span class="lbl">다음 기록 →</span>[법무/IP] 상표 출원 가이드 — 아야모 셀프 / OpenArtShow 변리사 (지식재산 전문가)</a></div>
+</div>
+<footer>&copy; 2026 OpenArtShow. — 만드는 과정을 기록합니다.</footer>
+</body>
+</html>

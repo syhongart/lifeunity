@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>개발일지 — OpenArtShow</title>
+<meta name="description" content="OpenArtShow를 만드는 과정의 공개 기록. 웹 3D 미술관의 성능·디자인·법무·브랜드 결정을 원인-분석-개선-결과로 남깁니다.">
+<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenArtShow">
+<meta property="og:title" content="개발일지 — OpenArtShow">
+<meta property="og:description" content="OpenArtShow를 만드는 과정의 공개 기록. 웹 3D 미술관의 성능·디자인·법무·브랜드 결정을 원인-분석-개선-결과로 남깁니다.">
+<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Blog","name":"OpenArtShow 개발일지","url":"https://syhongart.github.io/openartshow/devlog/","inLanguage":"ko","blogPost":[{"@type":"BlogPosting","headline":"히어로/워드마크 재조판 — \"길다\"는 자간, \"무겁다\"는 weight (디자이너+카피)","datePublished":"2026-07-13","url":"https://syhongart.github.io/openartshow/devlog/2026-07-13-f538dd.html"},{"@type":"BlogPosting","headline":"브랜드 개명 ARTSHOW → OpenArtShow(오픈아트쇼) (감독 지시)","datePublished":"2026-07-13","url":"https://syhongart.github.io/openartshow/devlog/2026-07-13-d31630.html"},{"@type":"BlogPosting","headline":"강좌 유니티 잔재 3.1GB 제거 — 제품만 남김 (감독 지적)","datePublished":"2026-07-13","url":"https://syhongart.github.io/openartshow/devlog/2026-07-13-36e5fc.html"},{"@type":"BlogPosting","headline":"[법무/IP] 상표 출원 가이드 — 아야모 셀프 / OpenArtShow 변리사 (지식재산 전문가)","datePublished":"2026-07-13","url":"https://syhongart.github.io/openartshow/devlog/2026-07-13-f4b9d9.html"},{"@type":"BlogPosting","headline":"보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)","datePublished":"2026-07-13","url":"https://syhongart.github.io/openartshow/devlog/2026-07-13-6a30c3.html"},{"@type":"BlogPosting","headline":"밸류에이션 모델에 트랙션 입력 + 50억 목표선 (감독 지시)","datePublished":"2026-07-12","url":"https://syhongart.github.io/openartshow/devlog/2026-07-12-e2c1fd.html"},{"@type":"BlogPosting","headline":"시장가치 추적기 /valuation/ — 매일 04:00 자동 산출 그래프 (감독 지시)","datePublished":"2026-07-12","url":"https://syhongart.github.io/openartshow/devlog/2026-07-12-b762ee.html"},{"@type":"BlogPosting","headline":"팀 인사기록 페이지 /team/ — 정규직·계약직 기여도 (감독 지시)","datePublished":"2026-07-12","url":"https://syhongart.github.io/openartshow/devlog/2026-07-12-f4698c.html"},{"@type":"BlogPosting","headline":"사진→아야모 철회 (감독 판단)","datePublished":"2026-07-12","url":"https://syhongart.github.io/openartshow/devlog/2026-07-12-d554d9.html"},{"@type":"BlogPosting","headline":"얼굴형 \"통통\" 폐기 → \"각짐\" (감독 피드백)","datePublished":"2026-07-12","url":"https://syhongart.github.io/openartshow/devlog/2026-07-12-756624.html"}]}</script>
+<style>
+:root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
+--ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
+--g700:#3f7a5c;--g800:#2c5844;--g900:#14261d;--r:3px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+font-size:15px;line-height:1.75;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+a{color:var(--gold-text);text-decoration:none}
+.top{display:flex;align-items:center;gap:18px;padding:14px 22px;background:var(--g900);color:#f2f2f0}
+.top .logo{font-weight:700;letter-spacing:0.04em;color:#fff;font-size:16px}
+.top .logo .dot{color:var(--gold)}
+.top nav{margin-left:auto;display:flex;gap:18px;font-size:13px}
+.top nav a{color:rgba(242,242,240,0.75)} .top nav a:hover{color:#fff}
+.wrap{max-width:760px;margin:0 auto;padding:48px 22px 90px}
+.eyebrow{font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:var(--gold-text);font-weight:600}
+h1{font-size:clamp(26px,4.5vw,36px);line-height:1.3;margin:10px 0 6px;letter-spacing:-0.01em}
+.lead{color:var(--ink-body);margin:0 0 34px}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin:0 0 14px;
+transition:border-color .2s,transform .2s}
+.card:hover{border-color:var(--g300);transform:translateY(-1px)}
+.card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
+.card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
+.card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
+article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
+article ul{margin:0 0 16px;padding-left:20px}
+article li{margin:0 0 6px;color:var(--ink-body)}
+article p{color:var(--ink-body)}
+article strong{color:var(--ink)}
+article code{background:var(--paper-deep);border:1px solid var(--line);border-radius:var(--r);padding:1px 5px;font-size:12.5px}
+article pre{background:var(--g900);color:#e8efe9;padding:14px 16px;border-radius:var(--r);overflow-x:auto;font-size:12.5px;line-height:1.6}
+article pre code{background:none;border:none;color:inherit;padding:0}
+.tbl{overflow-x:auto;margin:0 0 16px}
+table{border-collapse:collapse;font-size:13px;min-width:420px}
+th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;color:var(--ink-body)}
+th{background:var(--paper-deep);color:var(--ink);font-weight:600}
+.meta{color:var(--ink-dim);font-size:13px;margin:0 0 30px}
+.pn{display:flex;gap:12px;margin-top:50px;flex-wrap:wrap}
+.pn a{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;font-size:13px}
+.pn a:hover{border-color:var(--g300)}
+.pn .lbl{display:block;font-size:11px;letter-spacing:0.14em;color:var(--ink-dim);margin-bottom:4px}
+.back{display:inline-block;margin-bottom:26px;font-size:13px}
+footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;color:var(--ink-dim);font-size:12.5px}
+@media(max-width:520px){.top nav{gap:12px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="../">OpenArtShow<span class="dot">.</span></a>
+  <nav>
+    <a href="../devlog/">개발일지</a>
+    <a href="../team/">팀</a>
+    <a href="../valuation/">밸류에이션</a>
+    <a href="../guide.html">가이드</a>
+    <a href="../app/">입장하기</a>
+  </nav>
+</header>
+<div class="wrap">
+
+<div class="eyebrow">Devlog</div>
+<h1>개발일지</h1>
+<p class="lead">링크 하나로 열리는 3D 미술관을 만드는 과정 — 50건의 기록.<br>
+문제의 원인, 분석, 개선, 결과를 그대로 남깁니다.</p>
+<a class="card" href="./2026-07-13-f538dd.html">
+  <span class="d">2026-07-13</span>
+  <h2><span class="emo">🎨</span>히어로/워드마크 재조판 — "길다"는 자간, "무겁다"는 weight (디자이너+카피)</h2>
+  <p>감독: "OpenArtShow가 영어로 저렇게 있으니 왜 이리 길어… 디자이너·카피와</p>
+</a>
+<a class="card" href="./2026-07-13-d31630.html">
+  <span class="d">2026-07-13</span>
+  <h2><span class="emo">📱</span>브랜드 개명 ARTSHOW → OpenArtShow(오픈아트쇼) (감독 지시)</h2>
+  <p>감독: "이름을 아트쇼가 아니라 오픈아트쇼!!!" 저장소명(openartshow)과</p>
+</a>
+<a class="card" href="./2026-07-13-36e5fc.html">
+  <span class="d">2026-07-13</span>
+  <h2><span class="emo">📱</span>강좌 유니티 잔재 3.1GB 제거 — 제품만 남김 (감독 지적)</h2>
+  <p>감독: "우리 이름은 openartshow인데 lifeunity 항목이 보인다. 다 찾아 검토."</p>
+</a>
+<a class="card" href="./2026-07-13-f4b9d9.html">
+  <span class="d">2026-07-13</span>
+  <h2><span class="emo">⚖️</span>[법무/IP] 상표 출원 가이드 — 아야모 셀프 / OpenArtShow 변리사 (지식재산 전문가)</h2>
+  <p>감독 지시: 상표 출원(OpenArtShow·아야모) 절차 정리 + 감독 할 일 기록.</p>
+</a>
+<a class="card" href="./2026-07-13-6a30c3.html">
+  <span class="d">2026-07-13</span>
+  <h2><span class="emo">🛠️</span>보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)</h2>
+  <p>감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable)</p>
+</a>
+<a class="card" href="./2026-07-12-e2c1fd.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📱</span>밸류에이션 모델에 트랙션 입력 + 50억 목표선 (감독 지시)</h2>
+  <p>감독 질문 "50억 가치 방법은?" → 답을 그래프로 추적 가능하게 만들자.</p>
+</a>
+<a class="card" href="./2026-07-12-b762ee.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📱</span>시장가치 추적기 /valuation/ — 매일 04:00 자동 산출 그래프 (감독 지시)</h2>
+  <p>감독 지시: 매일 새벽 4시에 시장가치를 분석하고 그래프로 표현하라.</p>
+</a>
+<a class="card" href="./2026-07-12-f4698c.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📱</span>팀 인사기록 페이지 /team/ — 정규직·계약직 기여도 (감독 지시)</h2>
+  <p>감독 지시: 사이트에 팀·계약직 인사기록을 남기고, 각자 어느 정도</p>
+</a>
+<a class="card" href="./2026-07-12-d554d9.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">🧸</span>사진→아야모 철회 (감독 판단)</h2>
+  <p>감독 평가: "사진으로 하는 게 큰 의미가 없어 보이네." — 색상 몇 개</p>
+</a>
+<a class="card" href="./2026-07-12-756624.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📱</span>얼굴형 "통통" 폐기 → "각짐" (감독 피드백)</h2>
+  <p>감독 지시: "뚱뚱하게 하지는 말자. 형태만, 비슷하게." — 통통(두상</p>
+</a>
+<a class="card" href="./2026-07-12-7f2f6e.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">🧸</span>사진 → 아야모 + 얼굴형 파츠 (감독 제안)</h2>
+  <p>감독 제안: "사진을 넣으면 귀엽게 비슷하게 만들 수 있을까? 얼굴형도 하자."</p>
+</a>
+<a class="card" href="./2026-07-12-cec0b0.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📝</span>개발일지 블로그 — 실사 캡처 + 주제 이모티콘 (감독 제안)</h2>
+  <p>감독 제안: 블로그에 이미지 캡처와 이모티콘도 넣자. 글자만 있는</p>
+</a>
+<a class="card" href="./2026-07-12-4bce7f.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📝</span>개발일지 공개 블로그 /devlog/ — 37건 일괄 발행 + SEO 기반</h2>
+  <p>감독 결정: 개발일지를 블로그로 공개하자. 워드프레스·노션·위키 비교 후</p>
+</a>
+<a class="card" href="./2026-07-12-5deb90.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📱</span>좌측 스크롤 진행 레일 철회 (감독 피드백)</h2>
+  <p>감독 판단: 좌측 레일도 없애자. SCROLL 큐 제거는 유지.</p>
+</a>
+<a class="card" href="./2026-07-12-38b13d.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📱</span>SCROLL 큐 제거 → 좌측 2px 진행 레일 (감독 제안)</h2>
+  <p>히어로 하단 영문 "SCROLL" 텍스트 큐(+드립 애니메이션) 제거.</p>
+</a>
+<a class="card" href="./2026-07-12-a92324.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📱</span>한국어 조판 정비 — keep-all + 모바일 쉼표 줄바꿈</h2>
+  <p>감독 제안: 모바일에서 쉼표 다음에 줄을 띄우자. 실기기에서 "서게 됩니다"가</p>
+</a>
+<a class="card" href="./2026-07-12-574a2a.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">🎨</span>특징 카드 챕터 룰 제거 — "선이 애매" 해소</h2>
+  <p>감독 피드백: 카드 상단 그린 그라디언트 선이 애매하게 느껴짐 — 중앙</p>
+</a>
+<a class="card" href="./2026-07-12-d306dd.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📱</span>모바일 특징 카드 중앙 정렬 — "왼쪽으로 쏠린 느낌" 해소</h2>
+  <p>감독 실기기 스크린샷: 1열 전폭 카드에서 룰·아이콘·글이 전부 좌측 기준이라</p>
+</a>
+<a class="card" href="./2026-07-12-621832.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📱</span>모바일 네비 — 햄버거 메뉴로 교체</h2>
+  <p>감독 지시: 모바일은 심플한 햄버거 메뉴로.</p>
+</a>
+<a class="card" href="./2026-07-12-d5ddc1.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">📜</span>상단 입장하기 CTA — 스크롤 노출로 중복 해소</h2>
+  <p>감독 지적: 상단 네비 "입장하기"가 히어로 "지금 입장하기"와 중복.</p>
+</a>
+<a class="card" href="./2026-07-12-fc9fa9.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">🎨</span>히어로 배지 제거 + 랜딩 로그인/회원가입</h2>
+  <p>감독 지시: "베타 오픈 박스 없애자. 메인창에 회원가입·로그인 넣어야지."</p>
+</a>
+<a class="card" href="./2026-07-12-cefdc1.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">🎨</span>특징 카드 3종 — 설명문에서 실사 스크린샷으로</h2>
+  <p>감독 피드백: "메인 밑 소개 3박스, 설명충 같은 느낌."</p>
+</a>
+<a class="card" href="./2026-07-12-7799b7.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">🎨</span>청자 그린 스케일 확장 — "강한 색도, 다양하게"</h2>
+  <p>감독 피드백: 초록 차분해서 좋다 + 더 강한 색·다양한 톤도 쓰자.</p>
+</a>
+<a class="card" href="./2026-07-12-472713.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">🎨</span>브랜드 액센트 골드 → 청자 그린 전환</h2>
+  <p>감독 결정: "아트는 초록 계열이어서." (A/B 시안 비교 후)</p>
+</a>
+<a class="card" href="./2026-07-12-8adc9e.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">🎨</span>랜딩 "갤러리 플레이트" 개편 — 라운드박스 현대화 + 타이포 대비 복구</h2>
+  <p>감독 피드백: "라운드박스가 현대적이지 않다. 글도 박스도 눈에 안 들어온다."</p>
+</a>
+<a class="card" href="./2026-07-12-677ac3.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">🧸</span>마스코트 이름 확정 — 아야모(Ayamo) 표기 일괄 적용</h2>
+  <p>감독 확정. 3라운드 네이밍(카피라이터) × 3회 법무 실사를 거친 유일한</p>
+</a>
+<a class="card" href="./2026-07-12-05e4b5.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">⚖️</span>[법무] 네이밍 최종 실사 — 아야모 🟢 청신호 (전 후보 중 유일)</h2>
+  <p>볼리 🔴(삼성 Ballie) · 데구리 🔴(포켓몬) · 아야 🟡 · 구르미 🟡 · 아야미 🟡 ·</p>
+</a>
+<a class="card" href="./2026-07-12-d3c57c.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">⚖️</span>[법무] 네이밍 3차 실사 — 데구리 폐기, 구르미 1순위 승격</h2>
+  <p>판정 (웹 검색 기반 신속 실사)</p>
+</a>
+<a class="card" href="./2026-07-12-75ddb3.html">
+  <span class="d">2026-07-12</span>
+  <h2><span class="emo">⚖️</span>[법무] 마스코트 네이밍 실사 — '볼리' 적신호 폐기</h2>
+  <p>카피라이터 2차 추천 1순위 '볼리(Bolli)'에 대해 감독 지시로 법무팀(전담</p>
+</a>
+<a class="card" href="./2026-07-11-38ce56.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">🧸</span>서드파티 캐릭터 전면 삭제 — 치비 단일 체제</h2>
+  <p>에셋 저작권 감사에서 KayKit(CC0·안전)·RPM/DCL(약관 확인 필요) 발견 →</p>
+</a>
+<a class="card" href="./2026-07-11-2b6c68.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">🌌</span>하늘 HDRI 전환 + 3D 포인트 별 — "별 이상해" 수정</h2>
+  <p>감독 제보: 별이 이상함 + HDRI 제안. 기존 별은 돔 캔버스 텍스처에 찍은</p>
+</a>
+<a class="card" href="./2026-07-11-2e71bf.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">🌅</span>기본 전시 cycle 테마 전환 + 잠복 버그 수정 (fog 널 가드)</h2>
+  <p>감독 지시: 일몰 → "계속 바뀌는" 실시간 낮밤 순환(cycle)으로.</p>
+</a>
+<a class="card" href="./2026-07-11-cdd65e.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">🌳</span>나무 전면 업그레이드 — blob → 디테일 트리, 비용 +2콜</h2>
+  <p>감독 질문: "동그란 나무를 잎 있는 것으로 다 바꾸면 비용이 올라가려나?"</p>
+</a>
+<a class="card" href="./2026-07-11-dc3ce8.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">🌗</span>그림자 강화 — 대비 3층위 상향</h2>
+  <p>감독 지시: "그림자를 좀 더 진하게 해도 될듯."</p>
+</a>
+<a class="card" href="./2026-07-11-3b3e32.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">💥</span>콕 찌르기 3종 개선 — 사거리 7m + 때린 사람 응시 + "아얏!" 사운드</h2>
+  <p>감독 지시: ① 좀 더 멀리서도 때릴 수 있게 ② 맞으면 때린 사람을 쳐다보며</p>
+</a>
+<a class="card" href="./2026-07-11-72d5ad.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">⚡</span>60fps 달성 후 "알리아싱 필요해" — 등급별 픽셀 예산 + 라이브 샤프닝</h2>
+  <p>감독 실기기 60fps 도달. 남은 불만은 계단(알리아싱).</p>
+</a>
+<a class="card" href="./2026-07-11-404374.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">⚡</span>16fps·뿌옇·계단 제보 — 포테이토 상향 + 진단 가시화</h2>
+  <p>감독 실기기: 병합 배포 후에도 16fps, 뿌옇고 계단 현상. "ㅠ"</p>
+</a>
+<a class="card" href="./2026-07-11-42d9d4.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">⚡</span>가속 후 20fps + 뿌연 화면 — 드로우콜 -62% 병합 + 학습 오염 정리</h2>
+  <p>감독 실기기: 하드웨어 가속을 켜자 3→20fps로 올랐지만 60에 못 미치고,</p>
+</a>
+<a class="card" href="./2026-07-11-f5dcde.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">⚡</span>PC 3fps 최종 진단 — 소프트웨어 렌더링 감지 + 포테이토 모드 (전문가 자문)</h2>
+  <p>감독 반문: "모바일이 60fps인데 PC가 3fps인 게 이상하다. 씬을 깎아 화질을</p>
+</a>
+<a class="card" href="./2026-07-11-2795e3.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">⚡</span>데스크톱 3fps 심층 조사 — 조명 19→5 + 섀도맵 프리즈</h2>
+  <p>픽셀 예산 캡 이후에도 감독 PC에서 여전히 3fps — 해상도(필레이트) 문제가</p>
+</a>
+<a class="card" href="./2026-07-11-f70135.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">⚡</span>데스크톱 3fps 추락 — 픽셀 예산 캡 + 라이브 강등 + 블러 다이어트</h2>
+  <p>감독 실기기 제보: 데스크톱에서 3fps.</p>
+</a>
+<a class="card" href="./2026-07-11-0a9584.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">💥</span>[VFX+HUD 디자이너 동시 감사] 만화 타격 이펙트 + 모바일 HUD 게임급 개편</h2>
+  <p>감독 지시 ①: 캐릭터 콕 찌를 때 "만화에서 맞았을 때" 같은 시각 리액션이</p>
+</a>
+<a class="card" href="./2026-07-11-d9f6f7.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">🚶</span>캐릭터 몸 충돌 — 통과 방지 + 회피 조향</h2>
+  <p>감독 제보: 걷는 캐릭터가 다른 캐릭터를 그대로 통과하고, 플레이어도</p>
+</a>
+<a class="card" href="./2026-07-11-9f2caa.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">🎨</span>비네팅 경계선 제거 (폴오프 스무딩)</h2>
+  <p>감독 피드백: "비네팅 경계가 살짝 보여" — 화면 가장자리 어두워짐이 시작되는</p>
+</a>
+<a class="card" href="./2026-07-11-ad4ea5.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">🎨</span>로비(입장 화면) 심플화</h2>
+  <p>준비 중인 소셜 로그인 3버튼이 최상단 점유, 캐릭터가 텍스트 칩 나열</p>
+</a>
+<a class="card" href="./2026-07-11-2f474e.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">🎨</span>[카피+디자인 동시 감사] 랜딩 전면 개편</h2>
+  <p>감독 지시로 카피라이터·디자이너(전담 에이전트 2인)를 동시 고용해 랜딩 교차 감사.</p>
+</a>
+<a class="card" href="./2026-07-11-16d1b4.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">📖</span>디자인 리파인 — 방명록·작품 캡션·라이트박스</h2>
+  <p>감독 피드백: "방명록·작품 설명 화면이 조악하다" — 기능은 갖췄지만 플랫한</p>
+</a>
+<a class="card" href="./2026-07-11-95d7e5.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">📱</span>[UX 감사] 모바일 독 사망 버그 + 행동 온보딩</h2>
+  <p>"모바일 키 입력을 어떻게 풀지"를 UX/UI 디자이너(전담 에이전트)에게 감사시킨</p>
+</a>
+<a class="card" href="./2026-07-11-6fa433.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">⚡</span>AI 관객 겹침 해소 + 짝 대화 + 드로우콜 병합 + 적응형 저사양 모드</h2>
+  <p>실기기 제보: 한 작품을 관객 3명이 보는데 전원이 같은 지점에 포개져 서 있음.</p>
+</a>
+<a class="card" href="./2026-07-11-d81524.html">
+  <span class="d">2026-07-11</span>
+  <h2><span class="emo">⚡</span>베이크드 라이팅 — 모바일 프레임 개선</h2>
+  <p>원인 (무엇이 문제였나)</p>
+</a>
+</div>
+<footer>&copy; 2026 OpenArtShow. — 만드는 과정을 기록합니다.</footer>
+</body>
+</html>

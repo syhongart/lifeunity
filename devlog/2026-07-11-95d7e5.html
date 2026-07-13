@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[UX 감사] 모바일 독 사망 버그 + 행동 온보딩 — OpenArtShow 개발일지</title>
+<meta name="description" content=""모바일 키 입력을 어떻게 풀지"를 UX/UI 디자이너(전담 에이전트)에게 감사시킨">
+<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/2026-07-11-95d7e5.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="OpenArtShow">
+<meta property="og:title" content="[UX 감사] 모바일 독 사망 버그 + 행동 온보딩 — OpenArtShow 개발일지">
+<meta property="og:description" content=""모바일 키 입력을 어떻게 풀지"를 UX/UI 디자이너(전담 에이전트)에게 감사시킨">
+<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/2026-07-11-95d7e5.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"[UX 감사] 모바일 독 사망 버그 + 행동 온보딩","datePublished":"2026-07-11","author":{"@type":"Organization","name":"OpenArtShow"},"mainEntityOfPage":"https://syhongart.github.io/openartshow/devlog/2026-07-11-95d7e5.html","inLanguage":"ko"}</script>
+<style>
+:root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
+--ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
+--g700:#3f7a5c;--g800:#2c5844;--g900:#14261d;--r:3px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+font-size:15px;line-height:1.75;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+a{color:var(--gold-text);text-decoration:none}
+.top{display:flex;align-items:center;gap:18px;padding:14px 22px;background:var(--g900);color:#f2f2f0}
+.top .logo{font-weight:700;letter-spacing:0.04em;color:#fff;font-size:16px}
+.top .logo .dot{color:var(--gold)}
+.top nav{margin-left:auto;display:flex;gap:18px;font-size:13px}
+.top nav a{color:rgba(242,242,240,0.75)} .top nav a:hover{color:#fff}
+.wrap{max-width:760px;margin:0 auto;padding:48px 22px 90px}
+.eyebrow{font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:var(--gold-text);font-weight:600}
+h1{font-size:clamp(26px,4.5vw,36px);line-height:1.3;margin:10px 0 6px;letter-spacing:-0.01em}
+.lead{color:var(--ink-body);margin:0 0 34px}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin:0 0 14px;
+transition:border-color .2s,transform .2s}
+.card:hover{border-color:var(--g300);transform:translateY(-1px)}
+.card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
+.card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
+.card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
+article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
+article ul{margin:0 0 16px;padding-left:20px}
+article li{margin:0 0 6px;color:var(--ink-body)}
+article p{color:var(--ink-body)}
+article strong{color:var(--ink)}
+article code{background:var(--paper-deep);border:1px solid var(--line);border-radius:var(--r);padding:1px 5px;font-size:12.5px}
+article pre{background:var(--g900);color:#e8efe9;padding:14px 16px;border-radius:var(--r);overflow-x:auto;font-size:12.5px;line-height:1.6}
+article pre code{background:none;border:none;color:inherit;padding:0}
+.tbl{overflow-x:auto;margin:0 0 16px}
+table{border-collapse:collapse;font-size:13px;min-width:420px}
+th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;color:var(--ink-body)}
+th{background:var(--paper-deep);color:var(--ink);font-weight:600}
+.meta{color:var(--ink-dim);font-size:13px;margin:0 0 30px}
+.pn{display:flex;gap:12px;margin-top:50px;flex-wrap:wrap}
+.pn a{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;font-size:13px}
+.pn a:hover{border-color:var(--g300)}
+.pn .lbl{display:block;font-size:11px;letter-spacing:0.14em;color:var(--ink-dim);margin-bottom:4px}
+.back{display:inline-block;margin-bottom:26px;font-size:13px}
+footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;color:var(--ink-dim);font-size:12.5px}
+@media(max-width:520px){.top nav{gap:12px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="../">OpenArtShow<span class="dot">.</span></a>
+  <nav>
+    <a href="../devlog/">개발일지</a>
+    <a href="../team/">팀</a>
+    <a href="../valuation/">밸류에이션</a>
+    <a href="../guide.html">가이드</a>
+    <a href="../app/">입장하기</a>
+  </nav>
+</header>
+<div class="wrap">
+
+<a class="back" href="./">← 개발일지 전체</a>
+<article>
+<div class="eyebrow">2026-07-11</div>
+<h1><span class="emo">📱</span>[UX 감사] 모바일 독 사망 버그 + 행동 온보딩</h1>
+<p class="meta">OpenArtShow 개발일지 — 원인 · 분석 · 개선 · 결과</p>
+<h3>원인</h3>
+<ul><li>"모바일 키 입력을 어떻게 풀지"를 UX/UI 디자이너(전담 에이전트)에게 감사시킨 결과, 제안 이전에 <strong>치명 버그</strong>가 발견됨: 입장 시 HUD 가시화 목록에서 모바일 독(dock)과 '?' 조작법 토글이 누락 + <code>.lu-hud</code>의 pointer-events:none이 복구되지 않아, <strong>실기기에서 독 버튼 5개(채팅/목록/투어/시점/캡처)가 투명한 채 터치도 불가능한 상태로 죽어 있었음</strong>. 방명록 탭만 동작.</li><li>기존 QA가 못 잡은 이유: JS <code>element.click()</code>은 pointer-events와 opacity를 무시하고 발화 — 실제 입력 경로(터치스크린 좌표 탭)로 검증하지 않았음.</li></ul>
+<h3>분석 (감사 보고서 요지)</h3>
+<ul><li>도달성: 독 5개가 세로 300px로 엄지 호 바깥까지, '?'는 좌상단(최악 사분면), safe-area 미대응.</li><li>발견성: 첫 방문 조작 학습 수단 0(플로팅 조이스틱은 터치 전 어포던스 없음), 달리기(끝까지 밀기)·탭 드래그·콕 찌르기 전부 숨은 기능.</li><li>충돌: 작품 정보 카드가 근접 시 오른쪽 시점 드래그 존을 봉쇄(모바일 전용 회귀), 방명록 탭 기본 위치가 조이스틱 시작점과 겹침.</li></ul>
+<h3>개선</h3>
+<p>1. <strong>[P0] 독·토글 부활</strong>: hideLobby 가시화 목록에 추가 + 인터랙티브 HUD pointer-events 복구 CSS. 2. <strong>작품 카드 터치 통과</strong>: 터치 기기에서 카드 몸통은 pointer-events:none, [크게 보기] 버튼만 반응 — 작품 앞에서도 시점 회전 가능. 3. <strong>첫 방문 행동 온보딩</strong>(터치): 모달 없이 3단계 — 맥동 링 "누른 채 밀면 걸어요" → 이동 1.5m 감지 → "오른쪽을 쓸면 둘러봐요" → 회전 0.6rad 감지 → "작품에 다가가면 설명이 — 어려우면 [투어]" → 7초 후 종료(1회, localStorage). 4. 달리기 노브 골드 발광(숨은 기능 가시화), 방명록 탭 기본 38%→20% 상향, 터치 기기 상태 문구의 키보드 안내 겸용화.</p>
+<h3>결과</h3>
+<ul><li><strong>실제 터치스크린 탭</strong>으로 [캡처] → 공유 모달 오픈 확인 (수정 전 불가).</li><li>작품 카드 pointer-events none/버튼 auto, 온보딩 링 표시, 탭 위치 상향 검증.</li><li>QA 교훈: 가시성·입력 검증은 JS click()이 아니라 실제 입력 경로(touchscreen 좌표)로 — 이후 모바일 QA 표준으로 채택.</li><li>감사 잔여 권고 P2 3종도 같은 날 구현 완료: ① 독 IA 개편 — [투어][캡처(골드 강조)][⋯] 3버튼 + 더보기 시트(목록/내 모습/ 채팅/조작법), safe-area 대응, 투어 활성 상태 표시, 채팅 버튼은 접속자 ≥2일 때만 동적 승격. ② 작품 탭 이동 — 화면의 작품을 탭하면 감상 위치로 자동 트윈(레이캐스트 → 기존 handleArtworkSelect 재사용). 검증: 2층 작품 탭 → 10.4m 층간 자동 이동. ③ 라이트박스 감상 제스처 — 핀치 줌(1~4배)·팬·더블탭 줌 토글(2.4배)· 가로 스와이프 작품 넘김·아래로 쓸어 닫기. 줌 중에는 스와이프가 팬으로 동작(의도된 모드 분리). 전 항목 실측 통과.</li></ul>
+</article>
+<div class="pn"><a href="./2026-07-11-6fa433.html"><span class="lbl">← 이전 기록</span>AI 관객 겹침 해소 + 짝 대화 + 드로우콜 병합 + 적응형 저사양 모드</a><a href="./2026-07-11-16d1b4.html" style="text-align:right"><span class="lbl">다음 기록 →</span>디자인 리파인 — 방명록·작품 캡션·라이트박스</a></div>
+</div>
+<footer>&copy; 2026 OpenArtShow. — 만드는 과정을 기록합니다.</footer>
+</body>
+</html>

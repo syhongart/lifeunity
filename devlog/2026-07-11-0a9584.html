@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[VFX+HUD 디자이너 동시 감사] 만화 타격 이펙트 + 모바일 HUD 게임급 개편 — OpenArtShow 개발일지</title>
+<meta name="description" content="감독 지시 ①: 캐릭터 콕 찌를 때 "만화에서 맞았을 때" 같은 시각 리액션이">
+<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/2026-07-11-0a9584.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="OpenArtShow">
+<meta property="og:title" content="[VFX+HUD 디자이너 동시 감사] 만화 타격 이펙트 + 모바일 HUD 게임급 개편 — OpenArtShow 개발일지">
+<meta property="og:description" content="감독 지시 ①: 캐릭터 콕 찌를 때 "만화에서 맞았을 때" 같은 시각 리액션이">
+<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/2026-07-11-0a9584.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"[VFX+HUD 디자이너 동시 감사] 만화 타격 이펙트 + 모바일 HUD 게임급 개편","datePublished":"2026-07-11","author":{"@type":"Organization","name":"OpenArtShow"},"mainEntityOfPage":"https://syhongart.github.io/openartshow/devlog/2026-07-11-0a9584.html","inLanguage":"ko"}</script>
+<style>
+:root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
+--ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
+--g700:#3f7a5c;--g800:#2c5844;--g900:#14261d;--r:3px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+font-size:15px;line-height:1.75;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+a{color:var(--gold-text);text-decoration:none}
+.top{display:flex;align-items:center;gap:18px;padding:14px 22px;background:var(--g900);color:#f2f2f0}
+.top .logo{font-weight:700;letter-spacing:0.04em;color:#fff;font-size:16px}
+.top .logo .dot{color:var(--gold)}
+.top nav{margin-left:auto;display:flex;gap:18px;font-size:13px}
+.top nav a{color:rgba(242,242,240,0.75)} .top nav a:hover{color:#fff}
+.wrap{max-width:760px;margin:0 auto;padding:48px 22px 90px}
+.eyebrow{font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:var(--gold-text);font-weight:600}
+h1{font-size:clamp(26px,4.5vw,36px);line-height:1.3;margin:10px 0 6px;letter-spacing:-0.01em}
+.lead{color:var(--ink-body);margin:0 0 34px}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin:0 0 14px;
+transition:border-color .2s,transform .2s}
+.card:hover{border-color:var(--g300);transform:translateY(-1px)}
+.card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
+.card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
+.card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
+article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
+article ul{margin:0 0 16px;padding-left:20px}
+article li{margin:0 0 6px;color:var(--ink-body)}
+article p{color:var(--ink-body)}
+article strong{color:var(--ink)}
+article code{background:var(--paper-deep);border:1px solid var(--line);border-radius:var(--r);padding:1px 5px;font-size:12.5px}
+article pre{background:var(--g900);color:#e8efe9;padding:14px 16px;border-radius:var(--r);overflow-x:auto;font-size:12.5px;line-height:1.6}
+article pre code{background:none;border:none;color:inherit;padding:0}
+.tbl{overflow-x:auto;margin:0 0 16px}
+table{border-collapse:collapse;font-size:13px;min-width:420px}
+th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;color:var(--ink-body)}
+th{background:var(--paper-deep);color:var(--ink);font-weight:600}
+.meta{color:var(--ink-dim);font-size:13px;margin:0 0 30px}
+.pn{display:flex;gap:12px;margin-top:50px;flex-wrap:wrap}
+.pn a{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;font-size:13px}
+.pn a:hover{border-color:var(--g300)}
+.pn .lbl{display:block;font-size:11px;letter-spacing:0.14em;color:var(--ink-dim);margin-bottom:4px}
+.back{display:inline-block;margin-bottom:26px;font-size:13px}
+footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;color:var(--ink-dim);font-size:12.5px}
+@media(max-width:520px){.top nav{gap:12px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="../">OpenArtShow<span class="dot">.</span></a>
+  <nav>
+    <a href="../devlog/">개발일지</a>
+    <a href="../team/">팀</a>
+    <a href="../valuation/">밸류에이션</a>
+    <a href="../guide.html">가이드</a>
+    <a href="../app/">입장하기</a>
+  </nav>
+</header>
+<div class="wrap">
+
+<a class="back" href="./">← 개발일지 전체</a>
+<article>
+<div class="eyebrow">2026-07-11</div>
+<h1><span class="emo">💥</span>[VFX+HUD 디자이너 동시 감사] 만화 타격 이펙트 + 모바일 HUD 게임급 개편</h1>
+<p class="meta">OpenArtShow 개발일지 — 원인 · 분석 · 개선 · 결과</p>
+<h3>원인</h3>
+<ul><li>감독 지시 ①: 캐릭터 콕 찌를 때 "만화에서 맞았을 때" 같은 시각 리액션이 없어 타격감 부재. ②: 모바일 HUD가 여전히 조악 — 레퍼런스는 오버워치.</li></ul>
+<h3>분석 (전담 디자이너 2인 보고)</h3>
+<ul><li>VFX: 기존 리액션은 &gt;_&lt; 표정+스쿼시뿐. 사운드 없이 타격감을 내려면 임팩트 프레임(무페이드 등장)·타이밍 계단·스냅 소멸이 핵심.</li><li>HUD 감사 8건: 라운드 값 7종 혼재(실루엣 시스템 부재), 원형 버튼 안 한글 텍스트(아이콘 0개), 배경 6종·보더 6종 난립, 골드 인플레이션(포인트가 모든 곳에), 0.15s 물컹한 눌림, 300웨이트 초소형 타이포, <strong>viewport-fit=cover 부재로 iOS에서 safe-area env()가 전부 0</strong> (치명).</li></ul>
+<h3>개선</h3>
+<ul><li><strong>hitfx.js 신설</strong>: 공유 캔버스 텍스처 8장(1회 생성) + Sprite clone만으로 히트당 8~20 스프라이트. 골드 스타버스트(임팩트 프레임, 스냅 소멸) → 의성어 "콩!/빡!/퍽!!"(+0.03s, easeOutBack, L3 진동 지터) → 방사 스파크 (1/4 핑크) → 충격 링 → 어질별 궤도 → 발밑 먼지. 레벨 1~3 차등, 전역 80개 상한 초과 시 축소 모드. 잉크 외곽선(#463a30)으로 치비와 한 그림.</li><li><strong>Gilded Frame HUD</strong>: 챔퍼 1규칙(7px/14px 대각 컷) + 유리 3토큰 (glass-1/2 + 크림 종이) + 골드 4규칙(발광 동시 1개). 독 버튼 56px 스트로크 아이콘+마이크로 라벨, 눌림 0ms/복귀 스프링, 캡처 골드 면+팝. 조이스틱: 조준선 틱 링 + 달리기 임계 링 점등 + 골드 노브 + 등장 스프링. 상단 통합 바(전시명+라이브 도트 접속자), FPS는 터치에서 숨김. 토스트 상단 이동+골드 노치. 더보기 시트 4열 그리드+핸들. 방명록 탭 종이 재질. 작품 카드 → 하단 좌측 미니 캡션(pointer-events 핵 제거, 카드 전체 탭). index.html에 viewport-fit=cover — iOS safe-area 부활.</li></ul>
+<h3>결과</h3>
+<ul><li><strong>후속(감독 피드백 "모서리컷 이상해")</strong>: 챔퍼 clip-path가 보더를 대각선에서 끊어 모서리가 미완성처럼 보임 → 챔퍼 전면 철회, 라운드 2단계(버튼 10~12px / 패널 16px / 상단 바 필)로 교체. 유리 토큰·골드 규칙·모션은 유지.</li><li><strong>후속 2(감독 픽)</strong>: 방명록 책갈피는 종이 재질보다 기존 다크 유리+골드 라인이 좋다는 피드백 — 원래 디자인으로 복귀(위치 safe-area 대응만 유지).</li><li>모바일 QA(390×844 터치): 독 아이콘 4종·통합 바·FPS 숨김·시트 핸들 확인, 조이스틱 lu-live/lu-run 점등, 히트 L2 스프라이트 정확히 14개(스펙 일치), L3 버스트 스크린샷에서 링+스파크+퍽!!+먼지 확인, 버스트 자동 정리.</li><li>데스크톱 회귀 없음(통합 바·FPS 칩·컨트롤 정상).</li></ul>
+</article>
+<div class="pn"><a href="./2026-07-11-d9f6f7.html"><span class="lbl">← 이전 기록</span>캐릭터 몸 충돌 — 통과 방지 + 회피 조향</a><a href="./2026-07-11-f70135.html" style="text-align:right"><span class="lbl">다음 기록 →</span>데스크톱 3fps 추락 — 픽셀 예산 캡 + 라이브 강등 + 블러 다이어트</a></div>
+</div>
+<footer>&copy; 2026 OpenArtShow. — 만드는 과정을 기록합니다.</footer>
+</body>
+</html>

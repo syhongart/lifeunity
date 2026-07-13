@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenArtShow STUDIO — 나만의 전시장 만들기</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenArtShow">
+<meta property="og:title" content="OpenArtShow STUDIO — 나만의 전시장 만들기">
+<meta property="og:description" content="작품을 업로드하고 나만의 3D 가상 전시장을 만들어 링크 하나로 공유하세요.">
+<meta property="og:image" content="https://syhongart.github.io/openartshow/app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://syhongart.github.io/openartshow/app/studio.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OpenArtShow STUDIO — 나만의 전시장 만들기">
+<meta name="twitter:description" content="작품을 업로드하고 나만의 3D 가상 전시장을 만들어 링크 하나로 공유하세요.">
+<meta name="twitter:image" content="https://syhongart.github.io/openartshow/app/assets/og.png">
+<style>
+  :root {
+    --gold: #5f9e7d;
+    --bg: #0a0a0a;
+    --bg-panel: #131313;
+    --bg-field: #1c1c1c;
+    --border: #2a2a2a;
+    --border-soft: #222;
+    --text: #f2f2f2;
+    --text-dim: #9a9a9a;
+    --text-dimmer: #6b6b6b;
+    --danger: #e0645a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Helvetica Neue", Helvetica, Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--gold); }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(10,10,10,0.92);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+    padding: 22px 28px 18px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 300;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+  }
+  header h1 .accent { color: var(--gold); }
+  header p.sub {
+    margin: 8px 0 0;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    font-weight: 300;
+  }
+
+  main {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 28px 100px;
+  }
+
+  section.block {
+    margin-bottom: 56px;
+  }
+
+  .block-title {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .block-title .num {
+    color: var(--gold);
+    font-size: 12px;
+    letter-spacing: 0.15em;
+  }
+  .block-title h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 300;
+    letter-spacing: 0.02em;
+  }
+  .block-title .hint {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-dimmer);
+    letter-spacing: 0.03em;
+  }
+
+  label.field-label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="url"],
+  textarea {
+    width: 100%;
+    background: var(--bg-field);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    font-family: inherit;
+    font-weight: 300;
+    font-size: 13px;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  input[type="text"]:focus,
+  input[type="number"]:focus,
+  input[type="url"]:focus,
+  textarea:focus {
+    border-color: var(--gold);
+  }
+  textarea {
+    resize: vertical;
+    min-height: 56px;
+    line-height: 1.5;
+  }
+  input.invalid {
+    border-color: var(--danger);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  /* Theme picker */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+  }
+  .theme-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-field);
+    border-radius: 3px;
+    padding: 14px;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s ease;
+  }
+  .theme-card:hover { border-color: #3a3a3a; }
+  .theme-card input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+  .theme-card.selected {
+    border-color: var(--gold);
+  }
+  .theme-card.selected .theme-card-title {
+    color: var(--gold);
+  }
+  .theme-swatch {
+    display: block;
+    width: 100%;
+    height: 44px;
+    border-radius: 2px;
+    border: 1px solid var(--border-soft);
+  }
+  .theme-swatch-daylight {
+    background: linear-gradient(180deg, #8fcdf0 0%, #d8f0ff 55%, #f5f9fb 100%);
+  }
+  .theme-swatch-sunset {
+    background: linear-gradient(180deg, #ffb26b 0%, #e8654f 45%, #5b3b82 100%);
+  }
+  .theme-swatch-night {
+    background:
+      radial-gradient(circle at 22% 28%, rgba(255,255,255,0.85) 1px, transparent 1.6px),
+      radial-gradient(circle at 68% 55%, rgba(255,255,255,0.6) 1px, transparent 1.6px),
+      radial-gradient(circle at 45% 75%, rgba(255,255,255,0.7) 1px, transparent 1.6px),
+      radial-gradient(circle at 85% 20%, rgba(255,255,255,0.5) 1px, transparent 1.6px),
+      linear-gradient(180deg, #0a0e28 0%, #171d42 55%, #232a52 100%);
+  }
+  .theme-swatch-auto {
+    background: linear-gradient(90deg,
+      #8fcdf0 0%, #d8f0ff 30%,
+      #ffb26b 38%, #e8654f 62%,
+      #171d42 72%, #0a0e28 100%);
+  }
+  .theme-swatch-cycle {
+    background: linear-gradient(90deg,
+      #7fb2e0 0%, #d8f0ff 22%,
+      #ffb26b 40%, #c96a5e 55%,
+      #0a0e28 72%, #232a52 88%, #e8654f 100%);
+  }
+  .theme-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .theme-card-title {
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    color: var(--text);
+  }
+  .theme-card-desc {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    line-height: 1.5;
+  }
+
+  .field {
+    margin-bottom: 18px;
+  }
+
+  .field-msg {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-dimmer);
+    letter-spacing: 0.02em;
+  }
+  .field-msg.error {
+    color: var(--danger);
+  }
+  .field-msg.ok {
+    color: var(--gold);
+  }
+
+  #exhibitUrlPreview {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    margin-top: 6px;
+    letter-spacing: 0.02em;
+  }
+  #exhibitUrlPreview span {
+    color: var(--gold);
+  }
+
+  /* Artwork rows */
+  #artworkList {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .aw-row {
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    border-radius: 3px;
+    padding: 18px;
+    position: relative;
+  }
+  .aw-row.featured {
+    border-color: var(--gold);
+  }
+
+  .aw-row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .aw-row-head .aw-index {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+  }
+  .aw-row-head .aw-index .featured-tag {
+    color: var(--gold);
+    margin-left: 8px;
+  }
+
+  .aw-row-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr 100px;
+    gap: 14px;
+  }
+  .aw-row-body .desc-cell {
+    grid-column: 1 / -1;
+  }
+  .aw-row-body .image-cell {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 84px;
+    gap: 14px;
+    align-items: start;
+  }
+
+  .thumb-wrap {
+    width: 84px;
+    height: 84px;
+    border: 1px solid var(--border);
+    background: #000 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="84" height="84"><rect width="84" height="84" fill="%23151515"/></svg>');
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 9px;
+    color: var(--text-dimmer);
+    text-align: center;
+    line-height: 1.4;
+    padding: 4px;
+  }
+  .thumb-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .aw-row-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    user-select: none;
+  }
+  .checkbox-field input {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--gold);
+    cursor: pointer;
+  }
+
+  button {
+    font-family: inherit;
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 18px;
+    font-size: 12px;
+    text-transform: uppercase;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .btn:hover { border-color: var(--gold); color: var(--gold); }
+  .btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .btn:disabled:hover { border-color: var(--border); color: var(--text); }
+
+  .btn-gold {
+    background: var(--gold);
+    border: 1px solid var(--gold);
+    color: #111;
+  }
+  .btn-gold:hover {
+    background: #e6c358;
+    color: #111;
+    border-color: #e6c358;
+  }
+  .btn-gold:disabled {
+    background: var(--border);
+    border-color: var(--border);
+    color: var(--text-dimmer);
+    opacity: 1;
+  }
+  .btn-gold:disabled:hover {
+    background: var(--border);
+    color: var(--text-dimmer);
+    border-color: var(--border);
+  }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dimmer);
+    padding: 6px 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+  .btn-danger:hover { border-color: var(--danger); color: var(--danger); }
+
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  .add-row-wrap {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .add-row-wrap .count-hint {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    letter-spacing: 0.03em;
+  }
+  .add-row-wrap .count-hint .warn {
+    color: var(--danger);
+  }
+
+  .empty-state {
+    border: 1px dashed var(--border);
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-dimmer);
+    font-size: 13px;
+  }
+
+  /* Download / preview actions */
+  .action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+  }
+  .action-status {
+    font-size: 12px;
+    color: var(--text-dimmer);
+  }
+  .action-status.error { color: var(--danger); }
+  .action-status.ok { color: var(--gold); }
+
+  .share-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .share-row input[type="text"] {
+    flex: 1;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+
+  .instructions {
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 22px;
+    border-radius: 3px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+  .instructions code {
+    background: var(--bg-field);
+    border: 1px solid var(--border);
+    padding: 2px 7px;
+    border-radius: 2px;
+    color: var(--gold);
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+  }
+  .instructions ol {
+    margin: 10px 0 0;
+    padding-left: 20px;
+  }
+  .instructions li { margin-bottom: 6px; }
+
+  .save-indicator {
+    position: fixed;
+    bottom: 20px;
+    right: 24px;
+    font-size: 11px;
+    color: var(--text-dimmer);
+    letter-spacing: 0.06em;
+    background: rgba(19,19,19,0.9);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+  }
+  .save-indicator.show { opacity: 1; }
+  .save-indicator .dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    margin-right: 8px;
+  }
+
+  footer {
+    text-align: center;
+    padding: 30px 20px 50px;
+    color: var(--text-dimmer);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  @media (max-width: 640px) {
+    header { padding: 18px 16px 14px; }
+    header h1 { font-size: 13px; letter-spacing: 0.22em; }
+    main { padding: 28px 14px 90px; }
+    .grid-2 { grid-template-columns: 1fr; gap: 0; }
+    .theme-grid { grid-template-columns: 1fr; }
+    .aw-row-body { grid-template-columns: 1fr; }
+    .aw-row-body .image-cell { grid-template-columns: 1fr; }
+    .thumb-wrap { width: 100%; height: 140px; }
+    .block-title { flex-wrap: wrap; }
+    .block-title .hint { margin-left: 0; width: 100%; }
+    .action-row { flex-direction: column; align-items: stretch; }
+    .action-row .btn, .action-row .btn-gold { width: 100%; text-align: center; }
+    .share-row { flex-direction: column; align-items: stretch; }
+    .share-row .btn { width: 100%; text-align: center; }
+    .save-indicator { left: 14px; right: 14px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>OpenArtShow <span class="accent">STUDIO</span> — 나만의 전시장 만들기</h1>
+  <p class="sub">작품을 등록하고, 전시 JSON을 만들어 나만의 3D 전시장을 오픈하세요.</p>
+</header>
+
+<main>
+
+  <section class="block">
+    <div class="block-title">
+      <span class="num">01</span>
+      <h2>전시 정보</h2>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="exhibitId">전시장 ID (영소문자, 숫자, 하이픈만 사용)</label>
+      <input type="text" id="exhibitId" placeholder="예: syhongart" autocomplete="off" spellcheck="false">
+      <div class="field-msg" id="exhibitIdMsg">전시장 주소에 사용됩니다. 예: index.html?g=<span id="idPreviewInline">id</span></div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="exhibitName">전시 제목</label>
+      <input type="text" id="exhibitName" placeholder="예: syhongart 개인전" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="exhibitDesc">전시 소개</label>
+      <textarea id="exhibitDesc" placeholder="전시에 대한 소개 문구를 입력하세요." rows="4"></textarea>
+    </div>
+
+    <div class="field">
+      <label class="field-label">전시 분위기 (테마)</label>
+      <div class="theme-grid" id="themeGrid">
+        <label class="theme-card" data-theme="daylight">
+          <input type="radio" name="theme" value="daylight" checked>
+          <span class="theme-swatch theme-swatch-daylight"></span>
+          <span class="theme-card-body">
+            <span class="theme-card-title">맑은 오후</span>
+            <span class="theme-card-desc">파란 하늘, 자연광이 가득한 기본 전시장</span>
+          </span>
+        </label>
+        <label class="theme-card" data-theme="sunset">
+          <input type="radio" name="theme" value="sunset">
+          <span class="theme-swatch theme-swatch-sunset"></span>
+          <span class="theme-card-body">
+            <span class="theme-card-title">황혼</span>
+            <span class="theme-card-desc">노을빛 감도는 웜톤 분위기의 전시장</span>
+          </span>
+        </label>
+        <label class="theme-card" data-theme="night">
+          <input type="radio" name="theme" value="night">
+          <span class="theme-swatch theme-swatch-night"></span>
+          <span class="theme-card-body">
+            <span class="theme-card-title">야간 개장</span>
+            <span class="theme-card-desc">별빛 하늘 아래 스포트라이트가 작품을 비추는 밤</span>
+          </span>
+        </label>
+        <label class="theme-card" data-theme="auto">
+          <input type="radio" name="theme" value="auto">
+          <span class="theme-swatch theme-swatch-auto"></span>
+          <span class="theme-card-body">
+            <span class="theme-card-title">시간대별 자동</span>
+            <span class="theme-card-desc">관람객의 현지 시각에 따라 낮·황혼·밤이 자동 적용</span>
+          </span>
+        </label>
+        <label class="theme-card" data-theme="cycle">
+          <input type="radio" name="theme" value="cycle">
+          <span class="theme-swatch theme-swatch-cycle"></span>
+          <span class="theme-card-body">
+            <span class="theme-card-title">실시간 낮밤</span>
+            <span class="theme-card-desc">태양이 실제로 뜨고 지는 살아있는 전시장 (12분 주기)</span>
+          </span>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-title">
+      <span class="num">02</span>
+      <h2>작품 목록</h2>
+      <span class="hint">최대 14점 · 대표작(featured)은 최대 2점</span>
+    </div>
+
+    <div id="artworkList"></div>
+
+    <div class="add-row-wrap">
+      <button class="btn" id="addArtworkBtn" type="button">+ 작품 추가</button>
+      <span class="count-hint" id="artworkCountHint"></span>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-title">
+      <span class="num">03</span>
+      <h2>전시 JSON 내보내기</h2>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-gold" id="downloadBtn" type="button">JSON 다운로드</button>
+      <button class="btn" id="previewBtn" type="button">내 전시 미리보기</button>
+      <span class="action-status" id="downloadStatus"></span>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-title">
+      <span class="num">04</span>
+      <h2>공유 링크</h2>
+      <span class="hint">파일 업로드 없이 URL 하나로 전시를 공유합니다</span>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-gold" id="shareLinkBtn" type="button">공유 링크 만들기</button>
+      <span class="action-status" id="shareStatus"></span>
+    </div>
+
+    <div class="field" id="shareResultWrap" style="display:none; margin-top:18px;">
+      <label class="field-label" for="shareUrlInput">전시 공유 URL</label>
+      <div class="share-row">
+        <input type="text" id="shareUrlInput" readonly spellcheck="false">
+        <button class="btn btn-sm" id="copyShareBtn" type="button">복사</button>
+      </div>
+      <div class="field-msg" id="shareLenMsg"></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-title">
+      <span class="num">05</span>
+      <h2>안내</h2>
+    </div>
+    <div class="instructions">
+      <div>다운로드한 <code>&lt;id&gt;.json</code> 파일을 프로젝트의 <code>galleries/</code> 폴더 안에 넣어주세요.</div>
+      <ol>
+        <li>위 <b>JSON 다운로드</b> 버튼을 눌러 파일을 저장합니다.</li>
+        <li>저장된 파일을 <code>web/galleries/</code> 폴더에 복사합니다.</li>
+        <li>브라우저에서 아래 주소로 접속하면 전시장이 열립니다.</li>
+      </ol>
+      <div id="exhibitUrlPreview">예시 주소: <span id="urlPreviewFull">./index.html?g=id</span></div>
+      <div style="margin-top:14px;">파일 업로드가 번거롭다면 <b>공유 링크</b>를 사용하세요. 전시 데이터가 주소 안에 담기므로 링크만 전달해도 바로 관람할 수 있습니다.</div>
+    </div>
+  </section>
+
+</main>
+
+<footer>OpenArtShow STUDIO — 작가를 위한 3D 전시장 제작 도구</footer>
+
+<div class="save-indicator" id="saveIndicator"><span class="dot"></span>임시 저장됨</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'artshow-studio-draft-v1';
+  // ---- 플랜 (P2 임시 운영: 결제 대신 활성화 코드 — 랜딩 요금제 섹션에서 등록) ----
+  var PLAN_KEY = 'artshow-plan-v1';
+  function planIsPremium() {
+    try { return localStorage.getItem(PLAN_KEY) === 'premium'; } catch (e) { return false; }
+  }
+  var PREMIUM = planIsPremium();
+  var FREE_THEMES = ['daylight', 'auto'];
+
+  var MAX_ARTWORKS = PREMIUM ? 14 : 6;
+  var MAX_FEATURED = PREMIUM ? 2 : 1;
+  var THEMES = ['daylight', 'sunset', 'night', 'auto', 'cycle'];
+
+  // 플랜 배지 — 헤더 h1 옆
+  (function () {
+    var h1 = document.querySelector('h1');
+    if (!h1) return;
+    var badge = document.createElement('span');
+    badge.id = 'planBadge';
+    badge.textContent = PREMIUM ? 'PREMIUM' : 'FREE';
+    badge.style.cssText = 'font-size:12px;vertical-align:middle;margin-left:10px;padding:3px 10px;border:1px solid rgba(178,138,46,0.6);border-radius:999px;color:#3f7a5c;letter-spacing:0.08em;';
+    h1.appendChild(badge);
+    if (!PREMIUM) {
+      var up = document.createElement('a');
+      up.href = '../#pricing';
+      up.textContent = '업그레이드 ↗';
+      up.style.cssText = 'font-size:12px;margin-left:8px;color:#3f7a5c;vertical-align:middle;';
+      h1.appendChild(up);
+    }
+  })();
+
+  var state = {
+    id: '',
+    name: '',
+    description: '',
+    theme: 'daylight',
+    artworks: []
+  };
+
+  var uidCounter = 0;
+  function nextUid() { uidCounter += 1; return 'row-' + uidCounter; }
+
+  // ---------- DOM refs ----------
+  var $id = document.getElementById('exhibitId');
+  var $idMsg = document.getElementById('exhibitIdMsg');
+  var $idPreviewInline = document.getElementById('idPreviewInline');
+  var $name = document.getElementById('exhibitName');
+  var $desc = document.getElementById('exhibitDesc');
+  var $themeGrid = document.getElementById('themeGrid');
+  var $themeRadios = $themeGrid.querySelectorAll('input[name="theme"]');
+  var $list = document.getElementById('artworkList');
+  var $addBtn = document.getElementById('addArtworkBtn');
+  var $countHint = document.getElementById('artworkCountHint');
+  var $downloadBtn = document.getElementById('downloadBtn');
+  var $previewBtn = document.getElementById('previewBtn');
+  var $downloadStatus = document.getElementById('downloadStatus');
+  var $urlPreviewFull = document.getElementById('urlPreviewFull');
+  var $saveIndicator = document.getElementById('saveIndicator');
+  var $shareLinkBtn = document.getElementById('shareLinkBtn');
+  var $shareStatus = document.getElementById('shareStatus');
+  var $shareResultWrap = document.getElementById('shareResultWrap');
+  var $shareUrlInput = document.getElementById('shareUrlInput');
+  var $shareLenMsg = document.getElementById('shareLenMsg');
+  var $copyShareBtn = document.getElementById('copyShareBtn');
+
+  var SHARE_URL_WARN_LEN = 6000;
+
+  var ID_RE = /^[a-z0-9-]+$/;
+
+  // ---------- persistence ----------
+  var saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        flashSaveIndicator();
+      } catch (e) {
+        console.warn('로컬 저장 실패:', e);
+      }
+    }, 300);
+  }
+
+  var indicatorTimer = null;
+  function flashSaveIndicator() {
+    $saveIndicator.classList.add('show');
+    clearTimeout(indicatorTimer);
+    indicatorTimer = setTimeout(function () {
+      $saveIndicator.classList.remove('show');
+    }, 1400);
+  }
+
+  function loadDraft() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+      state.id = typeof parsed.id === 'string' ? parsed.id : '';
+      state.name = typeof parsed.name === 'string' ? parsed.name : '';
+      state.description = typeof parsed.description === 'string' ? parsed.description : '';
+      state.theme = (typeof parsed.theme === 'string' && THEMES.indexOf(parsed.theme) !== -1) ? parsed.theme : 'daylight';
+      state.artworks = Array.isArray(parsed.artworks) ? parsed.artworks.map(function (a) {
+        return {
+          _uid: nextUid(),
+          title: a.title || '',
+          artist: a.artist || '',
+          year: a.year || '',
+          desc: a.desc || '',
+          imageUrl: a.imageUrl || '',
+          featured: !!a.featured
+        };
+      }) : [];
+    } catch (e) {
+      console.warn('임시 저장 데이터를 불러오지 못했습니다:', e);
+    }
+  }
+
+  // ---------- validation ----------
+  function validateId(showState) {
+    var v = state.id.trim();
+    var valid = v.length > 0 && ID_RE.test(v);
+    if (showState) {
+      $id.classList.toggle('invalid', v.length > 0 && !valid);
+      if (v.length === 0) {
+        $idMsg.textContent = '전시장 주소에 사용됩니다. 예: index.html?g=' + 'id';
+        $idMsg.className = 'field-msg';
+      } else if (!valid) {
+        $idMsg.textContent = '영소문자, 숫자, 하이픈(-)만 사용할 수 있습니다.';
+        $idMsg.className = 'field-msg error';
+      } else {
+        $idMsg.textContent = '사용 가능한 ID 입니다.';
+        $idMsg.className = 'field-msg ok';
+      }
+    }
+    return valid;
+  }
+
+  function featuredCount() {
+    return state.artworks.filter(function (a) { return a.featured; }).length;
+  }
+
+  function updateUrlPreview() {
+    var idVal = state.id.trim() || 'id';
+    $idPreviewInline.textContent = idVal;
+    $urlPreviewFull.textContent = './index.html?g=' + idVal;
+  }
+
+  // ---------- rendering ----------
+  function render() {
+    $id.value = state.id;
+    $name.value = state.name;
+    $desc.value = state.description;
+    validateId(true);
+    updateUrlPreview();
+    renderTheme();
+    renderArtworks();
+    updateActionState();
+  }
+
+  function renderTheme() {
+    for (var i = 0; i < $themeRadios.length; i++) {
+      var radio = $themeRadios[i];
+      var selected = radio.value === state.theme;
+      radio.checked = selected;
+      radio.closest('.theme-card').classList.toggle('selected', selected);
+    }
+  }
+
+  function renderArtworks() {
+    $list.innerHTML = '';
+
+    if (state.artworks.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = '등록된 작품이 없습니다. 아래 "+ 작품 추가" 버튼으로 시작하세요.';
+      $list.appendChild(empty);
+    }
+
+    state.artworks.forEach(function (aw, index) {
+      $list.appendChild(buildArtworkRow(aw, index));
+    });
+
+    var count = state.artworks.length;
+    var fCount = featuredCount();
+    var hintParts = [count + ' / ' + MAX_ARTWORKS + '점'];
+    hintParts.push('대표작 ' + fCount + ' / ' + MAX_FEATURED);
+    $countHint.innerHTML = hintParts.join(' &nbsp;·&nbsp; ');
+    $countHint.classList.toggle('warn', count >= MAX_ARTWORKS);
+
+    $addBtn.disabled = count >= MAX_ARTWORKS;
+  }
+
+  function buildArtworkRow(aw, index) {
+    var row = document.createElement('div');
+    row.className = 'aw-row' + (aw.featured ? ' featured' : '');
+    row.dataset.uid = aw._uid;
+
+    var head = document.createElement('div');
+    head.className = 'aw-row-head';
+
+    var idxLabel = document.createElement('span');
+    idxLabel.className = 'aw-index';
+    idxLabel.textContent = '작품 ' + (index + 1);
+    if (aw.featured) {
+      var tag = document.createElement('span');
+      tag.className = 'featured-tag';
+      tag.textContent = '★ 대표작';
+      idxLabel.appendChild(tag);
+    }
+    head.appendChild(idxLabel);
+
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn-danger';
+    delBtn.textContent = '삭제';
+    delBtn.addEventListener('click', function () {
+      state.artworks = state.artworks.filter(function (a) { return a._uid !== aw._uid; });
+      renderArtworks();
+      updateActionState();
+      scheduleSave();
+    });
+    head.appendChild(delBtn);
+
+    row.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'aw-row-body';
+
+    body.appendChild(makeTextField('제목', aw.title, function (v) {
+      aw.title = v; scheduleSave();
+    }));
+    body.appendChild(makeTextField('작가명', aw.artist, function (v) {
+      aw.artist = v; scheduleSave();
+    }));
+    body.appendChild(makeNumberField('연도', aw.year, function (v) {
+      aw.year = v; scheduleSave();
+    }));
+
+    var descCell = document.createElement('div');
+    descCell.className = 'field-cell desc-cell';
+    var descLabel = document.createElement('label');
+    descLabel.className = 'field-label';
+    descLabel.textContent = '설명';
+    var descArea = document.createElement('textarea');
+    descArea.rows = 2;
+    descArea.value = aw.desc;
+    descArea.placeholder = '작품에 대한 설명을 입력하세요.';
+    descArea.addEventListener('input', function () {
+      aw.desc = descArea.value;
+      scheduleSave();
+    });
+    descCell.appendChild(descLabel);
+    descCell.appendChild(descArea);
+    body.appendChild(descCell);
+
+    var imageCell = document.createElement('div');
+    imageCell.className = 'field-cell image-cell';
+
+    var urlWrap = document.createElement('div');
+    var urlLabel = document.createElement('label');
+    urlLabel.className = 'field-label';
+    urlLabel.textContent = '이미지 URL';
+    var urlInput = document.createElement('input');
+    urlInput.type = 'url';
+    urlInput.placeholder = 'https://... 또는 ./assets/파일.png';
+    urlInput.value = aw.imageUrl;
+    urlInput.spellcheck = false;
+    urlWrap.appendChild(urlLabel);
+    urlWrap.appendChild(urlInput);
+
+    var thumbWrap = document.createElement('div');
+    thumbWrap.className = 'thumb-wrap';
+    thumbWrap.id = 'thumb-' + aw._uid;
+
+    function refreshThumb() {
+      thumbWrap.innerHTML = '';
+      var url = urlInput.value.trim();
+      if (!url) {
+        thumbWrap.textContent = '미리보기';
+        return;
+      }
+      var img = document.createElement('img');
+      img.src = url;
+      img.alt = '미리보기';
+      img.onerror = function () {
+        thumbWrap.innerHTML = '';
+        thumbWrap.textContent = '이미지를 불러올 수 없습니다';
+      };
+      thumbWrap.appendChild(img);
+    }
+    refreshThumb();
+
+    urlInput.addEventListener('input', function () {
+      aw.imageUrl = urlInput.value;
+      refreshThumb();
+      scheduleSave();
+    });
+
+    imageCell.appendChild(urlWrap);
+    imageCell.appendChild(thumbWrap);
+    body.appendChild(imageCell);
+
+    row.appendChild(body);
+
+    var foot = document.createElement('div');
+    foot.className = 'aw-row-foot';
+
+    var checkboxLabel = document.createElement('label');
+    checkboxLabel.className = 'checkbox-field';
+    var checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !!aw.featured;
+    checkbox.addEventListener('change', function () {
+      if (checkbox.checked && featuredCount() >= MAX_FEATURED) {
+        checkbox.checked = false;
+        window.alert('대표작은 최대 ' + MAX_FEATURED + '점까지만 지정할 수 있습니다.');
+        return;
+      }
+      aw.featured = checkbox.checked;
+      row.classList.toggle('featured', aw.featured);
+      idxLabel.innerHTML = '작품 ' + (index + 1);
+      if (aw.featured) {
+        var tag2 = document.createElement('span');
+        tag2.className = 'featured-tag';
+        tag2.textContent = '★ 대표작';
+        idxLabel.appendChild(tag2);
+      }
+      renderArtworks();
+      scheduleSave();
+    });
+    var checkboxText = document.createElement('span');
+    checkboxText.textContent = '대표작으로 지정 (중앙 가벽 정면)';
+    checkboxLabel.appendChild(checkbox);
+    checkboxLabel.appendChild(checkboxText);
+
+    foot.appendChild(checkboxLabel);
+    row.appendChild(foot);
+
+    return row;
+  }
+
+  function makeTextField(labelText, value, onChange) {
+    var cell = document.createElement('div');
+    cell.className = 'field-cell';
+    var label = document.createElement('label');
+    label.className = 'field-label';
+    label.textContent = labelText;
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.value = value;
+    input.addEventListener('input', function () { onChange(input.value); });
+    cell.appendChild(label);
+    cell.appendChild(input);
+    return cell;
+  }
+
+  function makeNumberField(labelText, value, onChange) {
+    var cell = document.createElement('div');
+    cell.className = 'field-cell';
+    var label = document.createElement('label');
+    label.className = 'field-label';
+    label.textContent = labelText;
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.value = value;
+    input.addEventListener('input', function () {
+      var n = parseInt(input.value, 10);
+      onChange(isNaN(n) ? '' : n);
+    });
+    cell.appendChild(label);
+    cell.appendChild(input);
+    return cell;
+  }
+
+  function updateActionState() {
+    var idValid = validateId(false);
+    var hasName = state.name.trim().length > 0;
+    var ready = idValid && hasName;
+    $downloadBtn.disabled = false; // allow click to trigger validation messaging
+    if (!ready) {
+      $downloadStatus.textContent = '';
+      $downloadStatus.className = 'action-status';
+    }
+  }
+
+  // ---------- events ----------
+  $id.addEventListener('input', function () {
+    state.id = $id.value.replace(/\s+/g, '');
+    validateId(true);
+    updateUrlPreview();
+    updateActionState();
+    scheduleSave();
+  });
+
+  $name.addEventListener('input', function () {
+    state.name = $name.value;
+    updateActionState();
+    scheduleSave();
+  });
+
+  $desc.addEventListener('input', function () {
+    state.description = $desc.value;
+    scheduleSave();
+  });
+
+  // 무료 플랜 테마 잠금 — 카드에 자물쇠 배지 + 선택 차단
+  if (!PREMIUM) {
+    var lockCards = document.querySelectorAll('.theme-card');
+    for (var ci = 0; ci < lockCards.length; ci++) {
+      var themeName = lockCards[ci].getAttribute('data-theme');
+      if (FREE_THEMES.indexOf(themeName) === -1) {
+        lockCards[ci].style.opacity = '0.45';
+        var lockBadge = document.createElement('span');
+        lockBadge.textContent = '\uD83D\uDD12 프리미엄';
+        lockBadge.style.cssText = 'font-size:11px;color:#3f7a5c;margin-left:auto;white-space:nowrap;';
+        lockCards[ci].appendChild(lockBadge);
+        lockCards[ci].querySelector('input').disabled = true;
+      }
+    }
+  }
+
+  for (var ti = 0; ti < $themeRadios.length; ti++) {
+    $themeRadios[ti].addEventListener('change', function () {
+      if (this.checked) {
+        if (!PREMIUM && FREE_THEMES.indexOf(this.value) === -1) {
+          this.checked = false;
+          window.alert('이 테마는 프리미엄 플랜 전용입니다.\n랜딩 페이지의 요금제에서 활성화 코드를 등록해 주세요.');
+          return;
+        }
+        state.theme = this.value;
+        renderTheme();
+        scheduleSave();
+      }
+    });
+  }
+
+  $addBtn.addEventListener('click', function () {
+    if (state.artworks.length >= MAX_ARTWORKS) {
+      window.alert(
+        PREMIUM
+          ? '작품은 최대 ' + MAX_ARTWORKS + '점까지 등록할 수 있습니다.'
+          : '무료 플랜은 작품 ' + MAX_ARTWORKS + '점까지입니다.\n프리미엄(작품 14점 + 대표작 2점 + 모든 테마)은 랜딩의 요금제를 확인해 주세요.'
+      );
+      return;
+    }
+    state.artworks.push({
+      _uid: nextUid(),
+      title: '',
+      artist: '',
+      year: new Date().getFullYear(),
+      desc: '',
+      imageUrl: '',
+      featured: false
+    });
+    renderArtworks();
+    updateActionState();
+    scheduleSave();
+  });
+
+  function validateForExport() {
+    var idValid = validateId(true);
+    if (!idValid) {
+      $downloadStatus.textContent = '전시장 ID를 올바르게 입력해주세요.';
+      $downloadStatus.className = 'action-status error';
+      $id.focus();
+      return false;
+    }
+    if (state.name.trim().length === 0) {
+      $downloadStatus.textContent = '전시 제목을 입력해주세요.';
+      $downloadStatus.className = 'action-status error';
+      $name.focus();
+      return false;
+    }
+    if (state.artworks.length === 0) {
+      $downloadStatus.textContent = '작품을 1개 이상 추가해주세요.';
+      $downloadStatus.className = 'action-status error';
+      return false;
+    }
+    if (featuredCount() > MAX_FEATURED) {
+      $downloadStatus.textContent = '대표작은 최대 ' + MAX_FEATURED + '점까지만 지정할 수 있습니다.';
+      $downloadStatus.className = 'action-status error';
+      return false;
+    }
+    return true;
+  }
+
+  // base64url-encode a gallery JSON object for the #gd= share link
+  function encodeGalleryData(obj) {
+    var json = JSON.stringify(obj);
+    var bytes = new TextEncoder().encode(json);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  // deflate-raw 압축 발행 (#gz=) — 무압축(#gd=) 대비 URL이 절반 이하로 줄어
+  // 메신저의 긴 주소 잘림을 피한다. CompressionStream 미지원 브라우저는
+  // 호출부에서 무압축으로 폴백한다. 뷰어(artworks.js)는 두 규약 모두 읽는다.
+  function encodeGalleryDataGz(obj) {
+    var jsonBytes = new TextEncoder().encode(JSON.stringify(obj));
+    var stream = new Blob([jsonBytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return new Response(stream).arrayBuffer().then(function (buf) {
+      var bytes = new Uint8Array(buf);
+      var bin = '';
+      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    });
+  }
+
+  // 공유/미리보기 공용 — 가능하면 압축(#gz=), 아니면 무압축(#gd=) 프래그먼트를 만든다
+  function buildShareFragment(json) {
+    if (typeof CompressionStream !== 'undefined') {
+      return encodeGalleryDataGz(json).then(function (enc) { return '#gz=' + enc; });
+    }
+    return Promise.resolve('#gd=' + encodeGalleryData(json));
+  }
+
+  $downloadBtn.addEventListener('click', function () {
+    if (!validateForExport()) return;
+
+    var json = buildGalleryJson();
+    var blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = state.id.trim() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+
+    $downloadStatus.textContent = state.id.trim() + '.json 파일을 다운로드했습니다.';
+    $downloadStatus.className = 'action-status ok';
+  });
+
+  $previewBtn.addEventListener('click', function () {
+    if (!validateForExport()) return;
+
+    var json = buildGalleryJson();
+    buildShareFragment(json).then(function (fragment) {
+      window.open('./index.html' + fragment, '_blank');
+    }).catch(function () {
+      $downloadStatus.textContent = '미리보기 링크 생성에 실패했습니다.';
+      $downloadStatus.className = 'action-status error';
+    });
+  });
+
+  $shareLinkBtn.addEventListener('click', function () {
+    if (!validateForExport()) return;
+
+    var json = buildGalleryJson();
+    buildShareFragment(json).then(function (fragment) {
+      var fullUrl;
+      try {
+        fullUrl = new URL('./index.html' + fragment, window.location.href).href;
+      } catch (e) {
+        fullUrl = './index.html' + fragment;
+      }
+      renderShareResult(fullUrl);
+    }).catch(function () {
+      $shareStatus.textContent = '공유 링크 생성에 실패했습니다.';
+      $shareStatus.className = 'action-status error';
+    });
+  });
+
+  function renderShareResult(fullUrl) {
+
+    $shareUrlInput.value = fullUrl;
+    $shareResultWrap.style.display = '';
+
+    if (fullUrl.length > SHARE_URL_WARN_LEN) {
+      $shareLenMsg.textContent = '주소 길이 ' + fullUrl.length + '자 — 작품 설명을 줄이거나 JSON 다운로드 방식을 사용하세요.';
+      $shareLenMsg.className = 'field-msg error';
+    } else {
+      $shareLenMsg.textContent = '주소 길이 ' + fullUrl.length + '자';
+      $shareLenMsg.className = 'field-msg';
+    }
+
+    $shareStatus.textContent = '공유 링크를 생성했습니다.';
+    $shareStatus.className = 'action-status ok';
+  }
+
+  $copyShareBtn.addEventListener('click', function () {
+    var text = $shareUrlInput.value;
+    if (!text) return;
+
+    function showCopyFail() {
+      $shareStatus.textContent = '복사에 실패했습니다. 주소를 직접 선택해 복사해주세요.';
+      $shareStatus.className = 'action-status error';
+    }
+    function showCopyOk() {
+      $shareStatus.textContent = '링크를 복사했습니다.';
+      $shareStatus.className = 'action-status ok';
+    }
+    function fallbackCopy() {
+      $shareUrlInput.focus();
+      $shareUrlInput.select();
+      try {
+        if (document.execCommand('copy')) {
+          showCopyOk();
+        } else {
+          showCopyFail();
+        }
+      } catch (e) {
+        showCopyFail();
+      }
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(showCopyOk, fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
+  });
+
+  function buildGalleryJson() {
+    var normal = state.artworks.filter(function (a) { return !a.featured; });
+    var featured = state.artworks.filter(function (a) { return a.featured; });
+
+    if (normal.length > 12) {
+      console.warn('일반 작품이 12점을 초과하여 초과분은 무시됩니다.');
+      normal = normal.slice(0, 12);
+    }
+    if (featured.length > MAX_FEATURED) {
+      console.warn('대표작이 ' + MAX_FEATURED + '점을 초과하여 초과분은 무시됩니다.');
+      featured = featured.slice(0, MAX_FEATURED);
+    }
+
+    var artworks = [];
+
+    normal.forEach(function (a, i) {
+      artworks.push(toArtworkEntry(a, 'aw-' + pad2(i + 1), false));
+    });
+    featured.forEach(function (a, i) {
+      artworks.push(toArtworkEntry(a, 'aw-featured-' + pad2(i + 1), true));
+    });
+
+    return {
+      id: state.id.trim(),
+      name: state.name.trim(),
+      description: state.description.trim(),
+      theme: THEMES.indexOf(state.theme) !== -1 ? state.theme : 'daylight',
+      artworks: artworks
+    };
+  }
+
+  function toArtworkEntry(a, id, featured) {
+    var entry = {
+      id: id,
+      title: a.title.trim(),
+      artist: a.artist.trim(),
+      year: typeof a.year === 'number' ? a.year : (parseInt(a.year, 10) || new Date().getFullYear()),
+      desc: a.desc.trim(),
+      imageUrl: a.imageUrl.trim()
+    };
+    if (featured) entry.featured = true;
+    return entry;
+  }
+
+  function pad2(n) {
+    return n < 10 ? '0' + n : String(n);
+  }
+
+  // ---------- init ----------
+  loadDraft();
+  render();
+})();
+</script>
+
+</body>
+</html>
