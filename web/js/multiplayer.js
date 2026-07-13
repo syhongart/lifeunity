@@ -14,6 +14,31 @@ const HIT_RANGE = 7.0; // 호스트가 검증하는 최대 타격 거리(m) — 
 const SEND_INTERVAL = 1 / 10; // 10Hz
 const LERP_RATE = 10;
 
+// ── P2P 입력 검증·레이트리밋 (보안 검토 §지금 반드시) ─────────────────
+// 호스트 릴레이는 게스트 입력을 N명에게 증폭하므로, 무검증 시 스푸핑·도배·
+// DoS의 증폭기가 된다. 아래 상한으로 신뢰 경계를 세운다.
+const MAX_MSG_BYTES = 64 * 1024;   // 메시지 1건 크기 상한 (사진 썸네일 data URL 여유)
+const CHAT_MAX = 300;              // 채팅 글자 상한
+const GB_TEXT_MAX = 200;           // 방명록 글자 상한
+const GB_NAME_MAX = 40;            // 이름 상한
+const GB_NOTES_PER_MSG = 20;       // gbook 메시지 1건당 최대 노트 수
+const GB_TOTAL_MAX = 500;          // 호스트 보관 방명록 총량 상한
+const RATE_MSGS = 30;              // peer당 창당 최대 메시지 (10Hz state + 여유)
+const RATE_WINDOW_MS = 1000;       // 레이트 창 1초
+const POS_LIMIT = 500;             // 좌표 절대값 클램프
+
+const finite = (v, d = 0) => (Number.isFinite(v) ? v : d);
+const clampPos = (v) => Math.max(-POS_LIMIT, Math.min(POS_LIMIT, finite(v, 0)));
+function sanitizeIncomingNote(n) {
+  if (!n || typeof n !== 'object' || typeof n.id !== 'string') return null;
+  return {
+    id: n.id.slice(0, 32),
+    name: String(n.name || '익명').slice(0, GB_NAME_MAX),
+    text: String(n.text || '').slice(0, GB_TEXT_MAX),
+    ts: Number.isFinite(n.ts) ? n.ts : Date.now(),
+  };
+}
+
 export class MultiplayerManager {
   /**
    * @param {THREE.Scene} scene
@@ -49,6 +74,7 @@ export class MultiplayerManager {
     this.hostConn = null;         // 게스트일 때 호스트로의 연결
     this.connections = new Map(); // 호스트일 때: peerId → DataConnection
     this.playerInfo = new Map();  // 호스트일 때: peerId → {nickname,color,char,x,y,z,ry}
+    this._rate = new Map();       // 호스트일 때: peerId → {n,t} 레이트리밋 상태
 
     // 원격 아바타: peerId → { inst, group, targetPos: Vector3, targetRy, prevPos, smoothedSpeed }
     this.remoteAvatars = new Map();
@@ -311,19 +337,27 @@ export class MultiplayerManager {
 
     conn.on('data', (data) => {
       if (!data || typeof data !== 'object') return;
+      // 크기 상한 — 호스트가 대용량 페이로드를 N명에게 증폭하는 DoS 차단
+      let sz = 0;
+      try { sz = JSON.stringify(data).length; } catch (e) { return; }
+      if (sz > MAX_MSG_BYTES) return;
+      // 레이트리밋 — peer당 초당 메시지 수 제한 (도배·플러딩 차단)
+      if (!this._checkRate(conn.peer)) return;
 
       if (data.type === 'hello') {
         this.playerInfo.set(conn.peer, {
-          nickname: String(data.nickname || '게스트'),
-          color: String(data.color || '#3498db'),
-          char: String(data.char || 'chibi:{}'), // 하위호환: char 없는 구버전 게스트도 기본 치비
+          nickname: String(data.nickname || '게스트').slice(0, GB_NAME_MAX),
+          color: String(data.color || '#3498db').slice(0, 32),
+          char: String(data.char || 'chibi:{}').slice(0, 512), // 하위호환: char 없는 구버전 게스트도 기본 치비
           x: 0, y: EYE_HEIGHT, z: 0, ry: 0,
         });
         this._updateCount();
       } else if (data.type === 'state') {
         const info = this.playerInfo.get(conn.peer);
         if (info) {
-          info.x = data.x; info.y = data.y; info.z = data.z; info.ry = data.ry;
+          // 좌표는 유한값만 + 씬 범위로 클램프 (NaN/Infinity 렌더 깨짐 차단)
+          info.x = clampPos(data.x); info.y = clampPos(data.y);
+          info.z = clampPos(data.z); info.ry = finite(data.ry, 0);
           this._updateRemoteAvatar(conn.peer, info);
         }
       } else if (data.type === 'photo') {
@@ -333,19 +367,26 @@ export class MultiplayerManager {
         }
       } else if (data.type === 'hit') {
         // 게스트의 타격 요청 — 검증 후 전원 릴레이 (sx/sz는 요청자 위치)
-        this._applyHit({ target: data.target, sx: data.sx, sz: data.sz });
+        this._applyHit({ target: String(data.target || '').slice(0, 64), sx: finite(data.sx), sz: finite(data.sz) });
       } else if (data.type === 'chat') {
+        const info = this.playerInfo.get(conn.peer);
+        // 표시명은 연결 peer의 hello 닉네임으로 고정 — data.name 스푸핑 무시
+        const text = String(data.text || '').slice(0, CHAT_MAX);
+        if (!text) return;
         const msg = {
           type: 'chat',
-          name: String(data.name || '게스트'),
-          text: String(data.text || ''),
+          name: info ? info.nickname : '게스트',
+          text,
           senderId: conn.peer, // 릴레이 시 발신자 id 보존 — 수신 측 자기 에코 필터용
         };
         this._broadcast(msg, conn.peer); // 발신자 제외 릴레이 (발신자는 자기 화면에 이미 표시함)
         this.onChat(msg.name, msg.text); // 호스트 자신도 표시
       } else if (data.type === 'gbook') {
-        const incoming = Array.isArray(data.notes) ? data.notes : [];
-        this._guestbookNotes = mergeNotes(this._guestbookNotes, incoming);
+        // 노트 개수·글자 상한으로 정제 후 병합 (무제한 주입·도배 차단)
+        const arr = Array.isArray(data.notes) ? data.notes.slice(0, GB_NOTES_PER_MSG) : [];
+        const clean = arr.map(sanitizeIncomingNote).filter(Boolean);
+        if (!clean.length) return;
+        this._guestbookNotes = mergeNotes(this._guestbookNotes, clean).slice(0, GB_TOTAL_MAX);
         this._broadcast({ type: 'gbook', notes: this._guestbookNotes });
         this.onGuestbook(this._guestbookNotes); // 호스트 자신도 수신 개념으로 콜백
       }
@@ -354,11 +395,21 @@ export class MultiplayerManager {
     const cleanup = () => {
       this.connections.delete(conn.peer);
       this.playerInfo.delete(conn.peer);
+      this._rate.delete(conn.peer);
       this._removeAvatar(conn.peer);
       this._updateCount();
     };
     conn.on('close', cleanup);
     conn.on('error', cleanup);
+  }
+
+  // peer당 고정창(fixed-window) 레이트리밋 — 창당 RATE_MSGS 초과분 drop
+  _checkRate(peerId) {
+    const now = Date.now();
+    let r = this._rate.get(peerId);
+    if (!r || now - r.t > RATE_WINDOW_MS) { r = { n: 0, t: now }; this._rate.set(peerId, r); }
+    r.n++;
+    return r.n <= RATE_MSGS;
   }
 
   _broadcast(msg, exceptPeerId) {
@@ -473,9 +524,11 @@ export class MultiplayerManager {
       this._receiveHitFx(String(data.target || ''), Math.max(1, Math.min(3, data.level | 0)));
     } else if (data.type === 'chat') {
       if (data.senderId && data.senderId === selfId) return; // 자기 메시지 에코 무시
-      this.onChat(String(data.name || '게스트'), String(data.text || ''));
+      // 악성 호스트 방어 — 글자 상한 적용 (렌더는 textContent라 XSS 아님)
+      this.onChat(String(data.name || '게스트').slice(0, GB_NAME_MAX), String(data.text || '').slice(0, CHAT_MAX));
     } else if (data.type === 'gbook') {
-      this.onGuestbook(Array.isArray(data.notes) ? data.notes : []);
+      const notes = Array.isArray(data.notes) ? data.notes.slice(0, GB_TOTAL_MAX).map(sanitizeIncomingNote).filter(Boolean) : [];
+      this.onGuestbook(notes);
     }
   }
 
@@ -508,15 +561,18 @@ export class MultiplayerManager {
 
   _updateRemoteAvatar(id, info) {
     if (!info) return;
+    // 좌표는 유한값만 + 클램프 — 게스트가 악성 호스트로부터 받는 경우도 방어
+    const ix = clampPos(info.x), iz = clampPos(info.z);
+    const iy = clampPos(info.y != null ? info.y : EYE_HEIGHT) - EYE_HEIGHT;
+    const iry = finite(info.ry, 0);
     let av = this.remoteAvatars.get(id);
 
     if (!av) {
       // 하위호환: 원격 정보에 char가 없으면(구버전 접속자) 'knight'로 폴백
       const inst = createAvatarInstance(info.char || 'chibi:{}', info.color || '#3498db', info.nickname || '게스트');
       const group = inst.group;
-      const y = (info.y != null ? info.y : EYE_HEIGHT) - EYE_HEIGHT;
-      group.position.set(info.x || 0, y, info.z || 0);
-      group.rotation.y = info.ry || 0;
+      group.position.set(ix, iy, iz);
+      group.rotation.y = iry;
       this.scene.add(group);
       av = {
         inst,
@@ -531,12 +587,8 @@ export class MultiplayerManager {
       if (!info.npc && !id.startsWith('npc-')) this.onVisitor(id, info);
     }
 
-    av.targetPos.set(
-      info.x || 0,
-      (info.y != null ? info.y : EYE_HEIGHT) - EYE_HEIGHT, // 눈높이 → 발 기준 보정
-      info.z || 0
-    );
-    av.targetRy = info.ry || 0;
+    av.targetPos.set(ix, iy, iz);
+    av.targetRy = iry;
   }
 
   /**

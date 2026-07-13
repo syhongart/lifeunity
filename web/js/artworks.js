@@ -267,6 +267,20 @@ function b64urlToBytes(b64url) {
   return bytes;
 }
 
+// 공유 링크(#gz=/#gd=)로 들어온 미디어 URL 화이트리스트 (보안 검토 §지금 반드시).
+// 우리 도메인 외피로 임의 리소스를 로드하는 것을 막는다 — https/http·data:image·
+// data:video·상대경로만 허용. javascript:·blob:·data:text/html 등은 거부(폴백).
+function safeMediaUrl(url) {
+  if (typeof url !== 'string' || !url) return null;
+  const u = url.trim();
+  const scheme = u.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (!scheme) return u; // 상대경로 — 우리 오리진 내부, 안전
+  const s = scheme[1].toLowerCase();
+  if (s === 'https' || s === 'http') return u;
+  if (/^data:(image|video)\//i.test(u)) return u;
+  return null; // javascript:·blob:·data:text/*·file: 등 거부
+}
+
 async function decodeGalleryFromHash() {
   try {
     const hash = window.location.hash;
@@ -288,6 +302,13 @@ async function decodeGalleryFromHash() {
     const data = JSON.parse(json);
     if (!data || !Array.isArray(data.artworks)) {
       throw new Error('공유 링크 데이터에 artworks 배열이 없습니다');
+    }
+    // 공유 링크의 미디어 URL은 신뢰할 수 없다 — 화이트리스트 통과분만 유지,
+    // 거부된 URL은 제거해 렌더 시 캡션 폴백으로 처리한다.
+    for (const art of data.artworks) {
+      if (!art || typeof art !== 'object') continue;
+      if ('imageUrl' in art) { const v = safeMediaUrl(art.imageUrl); if (v) art.imageUrl = v; else delete art.imageUrl; }
+      if ('videoUrl' in art) { const v = safeMediaUrl(art.videoUrl); if (v) art.videoUrl = v; else delete art.videoUrl; }
     }
     return data;
   } catch (err) {

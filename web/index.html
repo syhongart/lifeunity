@@ -28,6 +28,10 @@
     }
     canvas { display: block; touch-action: none; }
   </style>
+  <!-- 콘텐츠 보안 정책 (보안 검토 §지금 반드시) — XSS가 뚫려도 외부 스크립트
+       반입을 원천 차단. 인라인 importmap은 sha256 해시로만 허용('unsafe-inline' 금지).
+       connect-src: PeerJS 시그널링/TURN. img·media: https·data 허용(공유 작품). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-i3xI/A/WTquSlQaPUPKKX+yS3fB3tVynZxQRlJy+8fA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'">
   <!-- 라이브러리 로컬 내장 — CDN 장애/차단 환경에서도 동작 -->
   <script src="./vendor/peerjs.min.js"></script>
   <script type="importmap">
