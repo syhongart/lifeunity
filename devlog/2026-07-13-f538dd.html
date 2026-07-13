@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>브랜드 개명 ARTSHOW → OpenArtShow(오픈아트쇼) (감독 지시) — OpenArtShow 개발일지</title>
-<meta name="description" content="감독: "이름을 아트쇼가 아니라 오픈아트쇼!!!" 저장소명(openartshow)과">
-<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/2026-07-13-d31630.html">
+<title>히어로/워드마크 재조판 — "길다"는 자간, "무겁다"는 weight (디자이너+카피) — OpenArtShow 개발일지</title>
+<meta name="description" content="감독: "OpenArtShow가 영어로 저렇게 있으니 왜 이리 길어… 디자이너·카피와">
+<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/2026-07-13-f538dd.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="OpenArtShow">
-<meta property="og:title" content="브랜드 개명 ARTSHOW → OpenArtShow(오픈아트쇼) (감독 지시) — OpenArtShow 개발일지">
-<meta property="og:description" content="감독: "이름을 아트쇼가 아니라 오픈아트쇼!!!" 저장소명(openartshow)과">
-<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/2026-07-13-d31630.html">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"브랜드 개명 ARTSHOW → OpenArtShow(오픈아트쇼) (감독 지시)","datePublished":"2026-07-13","author":{"@type":"Organization","name":"OpenArtShow"},"mainEntityOfPage":"https://syhongart.github.io/openartshow/devlog/2026-07-13-d31630.html","inLanguage":"ko"}</script>
+<meta property="og:title" content="히어로/워드마크 재조판 — "길다"는 자간, "무겁다"는 weight (디자이너+카피) — OpenArtShow 개발일지">
+<meta property="og:description" content="감독: "OpenArtShow가 영어로 저렇게 있으니 왜 이리 길어… 디자이너·카피와">
+<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/2026-07-13-f538dd.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"히어로/워드마크 재조판 — \"길다\"는 자간, \"무겁다\"는 weight (디자이너+카피)","datePublished":"2026-07-13","author":{"@type":"Organization","name":"OpenArtShow"},"mainEntityOfPage":"https://syhongart.github.io/openartshow/devlog/2026-07-13-f538dd.html","inLanguage":"ko"}</script>
 <style>
 :root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
 --ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
@@ -77,16 +77,16 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
 <div class="eyebrow">2026-07-13</div>
-<h1><span class="emo">📱</span>브랜드 개명 ARTSHOW → OpenArtShow(오픈아트쇼) (감독 지시)</h1>
+<h1><span class="emo">🎨</span>히어로/워드마크 재조판 — "길다"는 자간, "무겁다"는 weight (디자이너+카피)</h1>
 <p class="meta">OpenArtShow 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 <h3>원인</h3>
-<ul><li>감독: "이름을 아트쇼가 아니라 오픈아트쇼!!!" 저장소명(openartshow)과 브랜드 통일. 보너스: 법무팀이 지적한 'ART SHOW=미술전시' 식별력 거절 위험이 'Open' 접두어로 완화됨(상표 등록 가능성↑).</li></ul>
-<h3>개선</h3>
-<ul><li>제품 전체 ARTSHOW→OpenArtShow, 아트쇼→오픈아트쇼 (web·scripts·docs· README, 60여 곳). 로고·타이틀·OG·생성기 SITE 상수 포함.</li><li>가이드/앱의 "라이프유니티"는 web 소스엔 없음 확인 — 감독이 본 것은 아직 리셋 전 옛 라이브 배포. openartshow 리셋 시 OpenArtShow로 갱신됨.</li></ul>
+<ul><li>감독: "OpenArtShow가 영어로 저렇게 있으니 왜 이리 길어… 디자이너·카피와 다시 고민하고 메인 다시 보자."</li><li>진단(디자이너): 길고 무거운 진짜 원인은 글자 수가 아니라 조판 — h1 자간 0.14em@108px(늘어난 배너), 내비 weight 700 vs 히어로 200(불일치), 영문 요소 3개 중복(eyebrow·h1·tagline-en).</li></ul>
+<h3>개선 (두 전문가 수렴안)</h3>
+<ul><li><strong>워드마크 톤 분리</strong>: 'Open'을 청자 그린(green-300)으로 빼 두 덩어리로 파싱 → 체감 길이 축소, 브랜드 정체성 강화. 이름·URL 그대로.</li><li><strong>자간 0.14→0.02, 크기 108→80</strong>(모바일 96→60): "긴 배너" 직접 해소.</li><li><strong>내비 로고 weight 700→500, 자간 0.14→0.06</strong>: "무겁다" 해소, 히어로와 한 가족.</li><li><strong>히어로 5단→3단</strong>: 중복 영문 tagline-en 제거, eyebrow를 기술문구 대신 "Your Museum, One Link"로, 한글 훅을 위계 위로(18~24px). 한글 태그는 "링크 하나로, 나만의 미술관." + 보조 1줄로 압축(카피라이터안).</li></ul>
 <h3>결과</h3>
-<ul><li>잔여 'ARTSHOW'/'아트쇼' 0. CSP 해시 유지·부팅 정상·가로넘침 없음. 히어로 "OpenArtShow." 로고 렌더 확인.</li><li>clean-main에 반영 → openartshow 리셋 한 번에 보안+청소+개명 동시 적용.</li></ul>
+<ul><li>데스크톱·모바일 가로넘침 0, 한 줄 유지. "OpenArtShow." 두 덩어리로 가볍고 정제됨. 한국어 우선 + 영문 액센트 원칙과 일치.</li><li>후속(선택): 파비콘 'O.' 갤러리 플레이트 타일(디자이너 제안).</li></ul>
 </article>
-<div class="pn"><a href="./2026-07-13-36e5fc.html"><span class="lbl">← 이전 기록</span>강좌 유니티 잔재 3.1GB 제거 — 제품만 남김 (감독 지적)</a><a href="./2026-07-13-f538dd.html" style="text-align:right"><span class="lbl">다음 기록 →</span>히어로/워드마크 재조판 — "길다"는 자간, "무겁다"는 weight (디자이너+카피)</a></div>
+<div class="pn"><a href="./2026-07-13-d31630.html"><span class="lbl">← 이전 기록</span>브랜드 개명 ARTSHOW → OpenArtShow(오픈아트쇼) (감독 지시)</a></div>
 </div>
 <footer>&copy; 2026 OpenArtShow. — 만드는 과정을 기록합니다.</footer>
 </body>
