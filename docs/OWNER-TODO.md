@@ -12,10 +12,18 @@
 
 ## 🔴 대규모 공개 전 필수 (블로커)
 
-- 🔄 **openartshow main을 clean-main으로 리셋** (보안 3종 + 강좌 잔재 제거 동시)
-  부팀장: **준비 완료** ✅ (clean-main = 보안 3종 반영 + 3.1GB 강좌 잔재 제거된
-  깨끗한 110파일). 감독: openartshow 세션에 리셋 지시문 붙여넣기 → 실행하면 ✅.
-  이 한 번으로 P2P검증·URL화이트리스트·CSP + 3.1GB 청소가 라이브에 반영됨.
+- 🔄 **라이브로 올리기 (go-live)** — 개명·새 히어로·보안·청소 전부 한 번에
+  부팀장: **배포본 완성** ✅ (lifeunity의 clean-pages=바로 서빙 가능한 배포본,
+  clean-main=소스). 감독: **openartshow에서 Claude 새 세션 열고** 아래 붙여넣기:
+  ```bash
+  git fetch https://github.com/syhongart/lifeunity clean-pages
+  git push --force origin FETCH_HEAD:gh-pages   # ← 라이브 사이트 1~2분 후 갱신
+  git fetch https://github.com/syhongart/lifeunity clean-main
+  git push --force origin FETCH_HEAD:main       # ← 소스 갱신
+  ```
+  → 실행하면 https://syhongart.github.io/openartshow/ 에 최신이 다 보임 = ✅.
+  (지금 라이브가 옛날인 이유: 부팀장이 openartshow에 직접 못 밈 — 게이트 403.
+  이 한 번이 라이브와 작업본을 동기화하는 유일한 다리.)
 - ⬜ **상표 출원 — 아야모(셀프) / OpenArtShow(변리사 상담)**
   리서치 완료 ✅ → 이제 감독 차례. 아래 §상표 절차 체크리스트대로.
   · **아야모(문자+도형)**: 조어라 등록 무난 → **셀프 출원 진행**
