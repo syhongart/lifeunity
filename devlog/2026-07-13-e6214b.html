@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토) — ARTSHOW 개발일지</title>
-<meta name="description" content="감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable)">
-<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/2026-07-13-6a30c3.html">
+<title>[법무/IP] 상표 출원 가이드 — 아야모 셀프 / ARTSHOW 변리사 (지식재산 전문가) — ARTSHOW 개발일지</title>
+<meta name="description" content="감독 지시: 상표 출원(ARTSHOW·아야모) 절차 정리 + 감독 할 일 기록.">
+<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/2026-07-13-e6214b.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="ARTSHOW">
-<meta property="og:title" content="보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토) — ARTSHOW 개발일지">
-<meta property="og:description" content="감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable)">
-<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/2026-07-13-6a30c3.html">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)","datePublished":"2026-07-13","author":{"@type":"Organization","name":"ARTSHOW"},"mainEntityOfPage":"https://syhongart.github.io/openartshow/devlog/2026-07-13-6a30c3.html","inLanguage":"ko"}</script>
+<meta property="og:title" content="[법무/IP] 상표 출원 가이드 — 아야모 셀프 / ARTSHOW 변리사 (지식재산 전문가) — ARTSHOW 개발일지">
+<meta property="og:description" content="감독 지시: 상표 출원(ARTSHOW·아야모) 절차 정리 + 감독 할 일 기록.">
+<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/2026-07-13-e6214b.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"[법무/IP] 상표 출원 가이드 — 아야모 셀프 / ARTSHOW 변리사 (지식재산 전문가)","datePublished":"2026-07-13","author":{"@type":"Organization","name":"ARTSHOW"},"mainEntityOfPage":"https://syhongart.github.io/openartshow/devlog/2026-07-13-e6214b.html","inLanguage":"ko"}</script>
 <style>
 :root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
 --ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
@@ -77,16 +77,18 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
 <div class="eyebrow">2026-07-13</div>
-<h1><span class="emo">🛠️</span>보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)</h1>
+<h1><span class="emo">⚖️</span>[법무/IP] 상표 출원 가이드 — 아야모 셀프 / ARTSHOW 변리사 (지식재산 전문가)</h1>
 <p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 <h3>원인</h3>
-<ul><li>감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable) 판단. 결론: 코드 은닉은 연극, public 무방. 대규모 공개 전 3개는 블로커.</li></ul>
+<ul><li>감독 지시: 상표 출원(ARTSHOW·아야모) 절차 정리 + 감독 할 일 기록. 보안 검토가 "코드 아닌 브랜드가 진짜 자산"이라 지목한 방어선.</li></ul>
+<h3>분석 (지식재산 전문 계약직 조사, 2025-26 현행)</h3>
+<ul><li><strong>아야모(Ayamo)</strong>: 사전에 없는 조어 → 식별력 문제 낮아 등록 가능성 높음. 셀프 출원 무난.</li><li><strong>ARTSHOW</strong>: 'art show=미술 전시'라 41류(전시)에서 성질표시(기술적 표장, 상표법 §33①3)로 <strong>식별력 거절 위험 실재</strong>. → 변리사 무료상담 후 로고 결합/조어 보강 전략 권고.</li><li>니스 분류: <strong>41류(온라인 전시·엔터)+42류(SaaS)가 핵심</strong>, 9류(다운로드 앱)·35류(판매 중개)는 수익모델 생기면.</li><li>비용(개인 전자출원·류당): 출원료 46,000원, 등록료 201,000원(등록결정 후), 우선심사 160,000원. 아야모 문자+도형 각 2류 등록까지 약 99만원.</li><li>문자+도형 <strong>별도 출원</strong>이 보호범위 최대(이름·그림 각각 방어).</li><li>심사 ~15개월, 우선심사 2~3개월(사용 증빙 필요).</li></ul>
 <h3>개선</h3>
-<ul><li><strong>multiplayer.js</strong>: 메시지 64KB 상한, peer당 초당 30건 레이트리밋(고정창), 채팅 표시명을 hello 닉으로 고정(data.name 스푸핑 무시)+300자, 방명록 정제(이름40·텍스트200·1회20·총500) 후 병합, 좌표 finite+±500 클램프 (호스트·게스트 양측). hit target/좌표도 정제.</li><li><strong>artworks.js</strong>: safeMediaUrl 화이트리스트 — #gz=/#gd= 공유링크의 imageUrl/ videoUrl을 https/http·data:image·data:video·상대경로만 허용, 나머지 제거.</li><li><strong>index.html</strong>: CSP 메타(script-src 'self'+importmap sha256 해시, object-src none, base-uri none). 'unsafe-inline' 없이 인라인 importmap 허용.</li></ul>
+<ul><li>docs/OWNER-TODO.md §상표 절차에 4단계 체크리스트+비용표+함정 기록, 상표 항목 상태 갱신(리서치 완료→감독 차례).</li></ul>
 <h3>결과</h3>
-<ul><li>QA: 문법 통과, safeMediaUrl 9/9, P2P 헬퍼·레이트리밋 단위테스트 통과, CSP+importmap 헤드리스 부팅 성공(위반 0·에러 0).</li><li>주의: 롤백이 옛 구조 multiplayer.js를 되살려 첫 구현이 옛 버전에 적용됨 — 발견 후 현재 origin(575줄, NPC·타격·사진 포함)에 재적용·재검증.</li><li>팀장 판단: 지인 공유 지금 GO, 대규모 공개는 3종 머지 후 GO.</li></ul>
+<ul><li>감독 실행 대기: ① KIPRIS 선행검색(행정상태 전체) → ② 41+42류 결정 → ③ 특허로 아야모 문자+도형 셀프 출원 → ④ ARTSHOW는 변리사 상담 먼저.</li><li>출처: KIPRIS(kipris.or.kr), 특허로(patent.go.kr), 특허청 수수료 안내, 상표법 §33(식별력), 니스 국제상품분류.</li></ul>
 </article>
-<div class="pn"><a href="./2026-07-12-e2c1fd.html"><span class="lbl">← 이전 기록</span>밸류에이션 모델에 트랙션 입력 + 50억 목표선 (감독 지시)</a><a href="./2026-07-13-e6214b.html" style="text-align:right"><span class="lbl">다음 기록 →</span>[법무/IP] 상표 출원 가이드 — 아야모 셀프 / ARTSHOW 변리사 (지식재산 전문가)</a></div>
+<div class="pn"><a href="./2026-07-13-6a30c3.html"><span class="lbl">← 이전 기록</span>보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)</a></div>
 </div>
 <footer>&copy; 2026 ARTSHOW. — 만드는 과정을 기록합니다.</footer>
 </body>
