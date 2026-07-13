@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-07-13 · 강좌 유니티 잔재 3.1GB 제거 — 제품만 남김 (감독 지적)
+
+### 원인
+- 감독: "우리 이름은 openartshow인데 lifeunity 항목이 보인다. 다 찾아 검토."
+- 검토 결과: 옛 유니티 강좌 프로젝트가 통째로 저장소에 실려 있었음 —
+  제품 108파일 vs 강좌잔재 78,931파일(3.1GB, 전체의 99.9%). openartshow에도
+  이전 때 그대로 넘어감.
+
+### 개선
+- 삭제: 강좌 챕터 폴더(1-4,3-1~3-3,4-1~4-11), 4-11 유니티 프로젝트(425MB),
+  *.unitypackage, 4-10_소스이미지.zip, WEBGL_DEPLOY/QUICKSTART·FINAL_SETUP.md,
+  .github/workflows/webgl-build.yml(옛 유니티 빌드=보안 지뢰였던 것).
+- 유지: web/·scripts/·docs/·devlog/·team/·valuation/·README·robots·sitemap·
+  valuation.yml. (제품 108 + .gitignore + valuation.yml = 110파일)
+- 문서 정정: MIGRATION.md 완료 축약, BACKLOG의 artshow→openartshow.
+
+### 결과
+- 저장소 79,040→110파일. 문법·생성기·CSP 부팅 QA 전부 통과(제품 무손상).
+- webgl-build.yml 제거로 force_orphan 지뢰도 영구 소멸.
+- openartshow에도 동일 제거 필요 → OWNER-TODO에 명령과 함께 등록.
+
+---
+
 ## 2026-07-13 · [법무/IP] 상표 출원 가이드 — 아야모 셀프 / ARTSHOW 변리사 (지식재산 전문가)
 
 ### 원인

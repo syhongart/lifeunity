@@ -4,7 +4,7 @@
 
 ## 1. 깃허브 정리 — artshow 저장소 이전 (진행 중)
 
-- lifeunity(강좌 포크)에서 `syhongart/artshow` 새 저장소로 이전
+- lifeunity(강좌 포크)에서 `syhongart/openartshow` 새 저장소로 이전
 - 준비 완료: origin의 `clean-main`(소스 단일 커밋) / `clean-pages`(배포 단일 커밋)
   브랜치를 매 배포마다 최신으로 갱신 중
 - 이전 절차: artshow 저장소 생성 → clean-main을 main으로, clean-pages를

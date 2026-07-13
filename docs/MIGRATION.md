@@ -1,38 +1,11 @@
-# openartshow 저장소 이전 절차
+# 저장소 이전 — ✅ 완료 (2026-07-13)
 
-이 저장소(lifeunity)는 강좌 포크 위에서 개발한 임시 거처다. 완성된 소스는
-`clean-main`, 배포 산출물은 `clean-pages` 브랜치에 **깨끗한 단일 커밋**으로
-매 배포마다 갱신되어 있다 — 강좌 히스토리 없이 이전할 준비 완료 상태.
+lifeunity(강좌 포크 위 임시 거처) → **syhongart/openartshow**로 이전 완료.
+라이브: https://syhongart.github.io/openartshow/
 
-## 감독(계정 소유자)이 할 일 — 딱 1가지
+- 소스는 openartshow `main`, 배포는 `gh-pages`에 있음.
+- 옛 강좌 유니티 프로젝트(3.1GB, 78,931파일)는 2026-07-13 제거 — 제품(web/·
+  scripts/·docs/·devlog/·team/·valuation/)만 남김.
+- 남은 감독 액션: 옛 lifeunity 저장소 Private 전환(docs/OWNER-TODO.md 참고).
 
-1. https://github.com/new 에서 **openartshow** 저장소 생성
-   (Public, README/GITIGNORE 추가하지 말 것 — 완전히 빈 저장소)
-
-## 그다음 (둘 중 하나)
-
-### A. Claude에게 맡기기 (권장)
-새 Claude Code 세션을 **openartshow 저장소**로 열고 이렇게 지시:
-> lifeunity 저장소의 clean-main 브랜치를 main으로, clean-pages를 gh-pages로
-> 가져와 푸시하고, Settings → Pages에서 gh-pages 브랜치를 활성화해줘.
-
-### B. 로컬 터미널에서 직접 (2분)
-```bash
-git clone --branch clean-main https://github.com/syhongart/lifeunity artshow
-cd artshow
-git remote set-url origin https://github.com/syhongart/openartshow
-git push -u origin clean-main:main
-git fetch https://github.com/syhongart/lifeunity clean-pages
-git push origin FETCH_HEAD:gh-pages
-```
-그리고 GitHub에서 artshow → Settings → Pages → Branch: `gh-pages`, `/ (root)` 저장.
-
-## 이전 후 확인
-
-- https://syhongart.github.io/openartshow/ (랜딩)
-- https://syhongart.github.io/openartshow/app/ (전시장)
-- README의 라이브 링크가 이미 artshow 경로로 작성되어 있어 수정 불필요.
-
-## 이전 후 lifeunity 저장소는
-
-- Archive 처리(Settings → Archive this repository) 권장 — 삭제보다 안전.
+(이 문서는 이전 기록용 — 절차는 종료됨.)
