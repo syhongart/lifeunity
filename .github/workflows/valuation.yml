@@ -1,0 +1,36 @@
+# 매일 새벽 4시(KST) 시장가치 자동 산출 — 영구 스케줄러
+# KST 04:00 = UTC 19:00 (전날). GitHub Actions cron은 UTC 기준.
+# 주의: 스케줄 워크플로는 기본 브랜치에서만 발화한다. artshow 이전 후
+#       기본 브랜치(main)에 이 파일이 있고 Actions가 켜져 있어야 동작한다.
+name: daily-valuation
+on:
+  schedule:
+    - cron: '7 19 * * *'   # 매일 04:07 KST
+  workflow_dispatch: {}     # 수동 실행 버튼
+
+permissions:
+  contents: write
+
+jobs:
+  valuate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: 밸류에이션 산출 + 페이지 재생성
+        run: |
+          node scripts/build-valuation.mjs
+          node scripts/build-devlog.mjs
+      - name: 변경 시 커밋
+        run: |
+          git config user.name  "artshow-bot"
+          git config user.email "bot@artshow.local"
+          if [ -n "$(git status --porcelain docs/valuation-history.json valuation/ sitemap.xml)" ]; then
+            git add docs/valuation-history.json valuation/ sitemap.xml
+            git commit -m "chore(valuation): $(date -u +%Y-%m-%d) 자동 산출"
+            git push
+          else
+            echo "변경 없음 — 스킵"
+          fi

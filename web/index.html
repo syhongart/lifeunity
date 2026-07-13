@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>OpenArtShow Museum</title>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="OpenArtShow">
+  <meta property="og:title" content="OpenArtShow — 3D 가상 전시 관람">
+  <meta property="og:description" content="웹 브라우저에서 바로 즐기는 3D 가상 전시. 링크 하나로 미술관 투어가 시작됩니다.">
+  <meta property="og:image" content="https://syhongart.github.io/openartshow/app/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://syhongart.github.io/openartshow/app/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="OpenArtShow — 3D 가상 전시 관람">
+  <meta name="twitter:description" content="웹 브라우저에서 바로 즐기는 3D 가상 전시. 링크 하나로 미술관 투어가 시작됩니다.">
+  <meta name="twitter:image" content="https://syhongart.github.io/openartshow/app/assets/og.png">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      width: 100%;
+      height: 100%;
+    }
+    canvas { display: block; touch-action: none; }
+  </style>
+  <!-- 콘텐츠 보안 정책 (보안 검토 §지금 반드시) — XSS가 뚫려도 외부 스크립트
+       반입을 원천 차단. 인라인 importmap은 sha256 해시로만 허용('unsafe-inline' 금지).
+       connect-src: PeerJS 시그널링/TURN. img·media: https·data 허용(공유 작품). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-i3xI/A/WTquSlQaPUPKKX+yS3fB3tVynZxQRlJy+8fA='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'">
+  <!-- 라이브러리 로컬 내장 — CDN 장애/차단 환경에서도 동작 -->
+  <script src="./vendor/peerjs.min.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
