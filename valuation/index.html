@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시장가치 추이 · 목표 50억 — OpenArtShow</title>
+<meta name="description" content="OpenArtShow의 결과물·트랙션 기반 시장가치를 매일 자동 산출하고 50억 목표까지의 경로를 추적합니다.">
+<link rel="canonical" href="https://syhongart.github.io/openartshow/valuation/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenArtShow">
+<meta property="og:title" content="시장가치 추이 · 목표 50억 — OpenArtShow">
+<meta property="og:description" content="결과물·트랙션 기반 밸류에이션과 50억 목표 경로.">
+<meta property="og:url" content="https://syhongart.github.io/openartshow/valuation/">
+<style>
+:root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
+--ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g100:#e3efe7;--g300:#8fd0ab;
+--g500:#5f9e7d;--g600:#4e8a6a;--g700:#3f7a5c;--g800:#2c5844;--g900:#14261d;--r:3px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+font-size:15px;line-height:1.7;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+a{color:var(--gold-text);text-decoration:none}
+.top{display:flex;align-items:center;gap:18px;padding:14px 22px;background:var(--g900);color:#f2f2f0}
+.top .logo{font-weight:700;letter-spacing:0.04em;color:#fff;font-size:16px}
+.top .logo .dot{color:var(--gold)}
+.top nav{margin-left:auto;display:flex;gap:18px;font-size:13px}
+.top nav a{color:rgba(242,242,240,0.75)} .top nav a:hover{color:#fff}
+.wrap{max-width:840px;margin:0 auto;padding:48px 22px 90px}
+.eyebrow{font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:var(--gold-text);font-weight:600}
+h1{font-size:clamp(26px,4.5vw,36px);line-height:1.3;margin:10px 0 6px;letter-spacing:-0.01em}
+.lead{color:var(--ink-body);margin:0 0 28px}
+.hero-n{display:flex;gap:26px;flex-wrap:wrap;align-items:baseline;margin:0 0 8px}
+.hero-n .big{font-size:44px;font-weight:600;color:var(--g700);line-height:1}
+.hero-n .sub{font-size:13px;color:var(--ink-dim)}
+.hero-n .rng{font-size:15px;color:var(--ink-body)}
+.goalbar{margin:6px 0 24px}
+.goalbar .track{height:12px;background:var(--paper-deep);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.goalbar .fill{height:100%;background:linear-gradient(90deg,var(--g300),var(--g600))}
+.goalbar .cap{font-size:12px;color:var(--ink-dim);margin-top:6px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin:0 0 22px}
+.chart{width:100%;height:auto;display:block}
+.grid{stroke:#eae3d3;stroke-width:1}
+.goal{stroke:var(--g600);stroke-width:1.5;stroke-dasharray:5 4}
+.goallab{fill:var(--g700);font-size:11px;font-weight:600}
+.ytick,.xtick{fill:var(--ink-dim);font-size:11px}
+.ytick{text-anchor:end}.xtick{text-anchor:middle}
+.band{fill:var(--g300);opacity:0.20}
+.real{fill:none;stroke:var(--g700);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.dot{fill:var(--g700);stroke:var(--panel);stroke-width:1.5}
+.endlab{fill:var(--g800);font-size:12px;font-weight:600;text-anchor:middle}
+.legend{display:flex;gap:20px;flex-wrap:wrap;margin:14px 0 0;font-size:12.5px;color:var(--ink-body)}
+.legend .k{display:inline-flex;align-items:center;gap:7px}
+.legend .sw{width:22px;height:0;border-top:3px solid var(--g700);border-radius:2px}
+.legend .sw.band{height:12px;border:none;background:var(--g300);opacity:0.4;border-radius:2px}
+.legend .sw.goal{border-top:2px dashed var(--g600)}
+h2.sec{font-size:15px;color:var(--g800);margin:30px 0 12px;padding-left:10px;border-left:3px solid var(--g300)}
+table{border-collapse:collapse;font-size:13px;width:100%}
+th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;color:var(--ink-body)}
+th{background:var(--paper-deep);color:var(--ink);font-weight:600}
+.lever{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}
+.lever .c{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.lever .c b{color:var(--g700)} .lever .c .s{font-size:12px;color:var(--ink-dim)}
+.note{font-size:12.5px;color:var(--ink-dim);line-height:1.7;margin-top:8px}
+.disc{background:var(--paper-deep);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;font-size:12.5px;color:var(--ink-body);margin-top:22px}
+footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;color:var(--ink-dim);font-size:12.5px}
+@media(max-width:560px){.top nav{gap:12px}.hero-n .big{font-size:34px}.lever{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="../">OpenArtShow<span class="dot">.</span></a>
+  <nav>
+    <a href="../valuation/">밸류에이션</a>
+    <a href="../team/">팀</a>
+    <a href="../devlog/">개발일지</a>
+    <a href="../app/">입장하기</a>
+  </nav>
+</header>
+<div class="wrap">
+  <div class="eyebrow">Valuation · 목표 50억 · 매일 04:00 KST</div>
+  <h1>시장가치 추이</h1>
+  <p class="lead">결과물(개발일지·문서·IP)과 트랙션(갤러리·이용자·매출)로 밸류에이션을 매일 산출하고,<br>
+  <strong>50억 목표까지의 경로</strong>를 추적합니다. 숫자는 시장 호가가 아니라 공개 모델의 출력입니다.</p>
+
+  <div class="hero-n">
+    <div><div class="big">1.28억</div><div class="sub">실현 가치 · 2026-07-13</div></div>
+    <div class="rng">조건부 시장범위 <strong>5.12억 ~ 15.36억</strong><br>
+      <span class="sub">트랙션 확보 시 (프리시드)</span></div>
+  </div>
+  <div class="goalbar">
+    <div class="track"><div class="fill" style="width:2.6%"></div></div>
+    <div class="cap">목표 50억까지 <strong>48.72억</strong> 남음 · 현재 <strong>2.6%</strong></div>
+  </div>
+
+  <div class="card">
+    <svg viewBox="0 0 720 380" class="chart" role="img" aria-label="시장가치 추이와 50억 목표">
+  <line x1="66" y1="336.0" x2="656" y2="336.0" class="grid"/><line x1="66" y1="276.6" x2="656" y2="276.6" class="grid"/><line x1="66" y1="217.1" x2="656" y2="217.1" class="grid"/><line x1="66" y1="157.7" x2="656" y2="157.7" class="grid"/><line x1="66" y1="98.3" x2="656" y2="98.3" class="grid"/><line x1="66" y1="38.9" x2="656" y2="38.9" class="grid"/><text x="56" y="340.0" class="ytick">0억</text><text x="56" y="280.6" class="ytick">10억</text><text x="56" y="221.1" class="ytick">20억</text><text x="56" y="161.7" class="ytick">30억</text><text x="56" y="102.3" class="ytick">40억</text><text x="56" y="42.9" class="ytick">50억</text><polygon points="66.0,264.0 361.0,246.9 656.0,244.7 656.0,305.6 361.0,306.3 66.0,312.0" class="band"/><line x1="66" y1="38.9" x2="656" y2="38.9" class="goal"/><text x="662" y="42.9" class="goallab">목표 50억</text><polyline points="66.0,330.0 361.0,328.6 656.0,328.4" class="real"/><circle cx="66.0" cy="330.0" r="3.5" class="dot"><title>2026-07-11 · 실현 1.01억</title></circle><circle cx="361.0" cy="328.6" r="3.5" class="dot"><title>2026-07-12 · 실현 1.25억</title></circle><circle cx="656.0" cy="328.4" r="3.5" class="dot"><title>2026-07-13 · 실현 1.28억</title></circle><text x="656.0" y="318.4" class="endlab">1.28억</text><text x="66.0" y="356" class="xtick">07-11</text><text x="361.0" y="356" class="xtick">07-12</text><text x="656.0" y="356" class="xtick">07-13</text>
+</svg>
+    <div class="legend">
+      <span class="k"><span class="sw"></span>실현 가치</span>
+      <span class="k"><span class="sw band"></span>조건부 시장범위</span>
+      <span class="k"><span class="sw goal"></span>목표 50억</span>
+    </div>
+  </div>
+
+  <h2 class="sec">50억을 여는 세 레버</h2>
+  <div class="lever">
+    <div class="c"><b>매출</b><br>월매출 5,000만<br><span class="s">= ARR 6억 × 8배 ≈ 48억. 가장 확실한 경로</span></div>
+    <div class="c"><b>이용자</b><br>MAU 1~3만<br><span class="s">작가 1인 1갤러리라 유저당 가치가 높다</span></div>
+    <div class="c"><b>카테고리</b><br>AI 관람객<br><span class="s">경쟁사에 없는 wedge — 배수를 2~3배로</span></div>
+  </div>
+  <p class="note">현재 트랙션(갤러리·MAU·월매출)은 모두 0 — 실현 가치 = 자산 가치.
+    <code>docs/traction.json</code>에 실측값이 들어오는 순간 실선이 목표선을 향해 올라간다.</p>
+
+  <h2 class="sec">일자별 기록</h2>
+  <div style="overflow-x:auto"><table>
+    <thead><tr><th>날짜</th><th>개발일지</th><th>갤러리·MAU·월매출</th><th>실현 가치</th><th>목표 대비</th></tr></thead>
+    <tbody><tr><td>2026-07-13</td><td>48건</td><td>0·0·0만</td><td>1.28억</td><td>2.6%</td></tr><tr><td>2026-07-12</td><td>45건</td><td>0·0·0만</td><td>1.25억</td><td>2.5%</td></tr><tr><td>2026-07-11</td><td>21건</td><td>0·0·0만</td><td>1.01억</td><td>2%</td></tr></tbody>
+  </table></div>
+
+  <h2 class="sec">산출 근거 (공개 모델)</h2>
+  <p class="note">
+    · <strong>자산가치</strong> = 8,000만(원가 재현) + 개발일지 × 100만(문서·IP 축적).<br>
+    · <strong>실현가치</strong> = 자산가치 + 상설갤러리×30만 + MAU×1만 + 월매출×12×8(ARR×시드 배수).<br>
+    · <strong>시장범위</strong> = 자산가치 ×4 ~ ×12 (트랙션 확보 전제, 현재 미실현).<br>
+    · <strong>목표 50억</strong>은 한국 시드 라운드 밸류. 위 세 레버 중 하나가 실측으로
+    쌓이면 실현가치가 목표선을 향해 오른다.
+  </p>
+
+  <div class="disc">
+    ⚠️ 내부 추적용 자기 추정이며 외부 투자·거래의 근거가 아닙니다. 시장범위·목표는
+    트랙션 확보라는 조건부 시나리오입니다. 실제 가치는 시장이 정합니다.
+  </div>
+</div>
+<footer>&copy; 2026 OpenArtShow. — 매일 04:00 KST 자동 산출 · 목표 50억 · 최종 2026-07-13</footer>
+</body>
+</html>

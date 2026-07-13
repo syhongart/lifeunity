@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://syhongart.github.io/openartshow/sitemap.xml

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>콕 찌르기 3종 개선 — 사거리 7m + 때린 사람 응시 + "아얏!" 사운드 — OpenArtShow 개발일지</title>
+<meta name="description" content="감독 지시: ① 좀 더 멀리서도 때릴 수 있게 ② 맞으면 때린 사람을 쳐다보며">
+<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/2026-07-11-3b3e32.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="OpenArtShow">
+<meta property="og:title" content="콕 찌르기 3종 개선 — 사거리 7m + 때린 사람 응시 + "아얏!" 사운드 — OpenArtShow 개발일지">
+<meta property="og:description" content="감독 지시: ① 좀 더 멀리서도 때릴 수 있게 ② 맞으면 때린 사람을 쳐다보며">
+<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/2026-07-11-3b3e32.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"콕 찌르기 3종 개선 — 사거리 7m + 때린 사람 응시 + \"아얏!\" 사운드","datePublished":"2026-07-11","author":{"@type":"Organization","name":"OpenArtShow"},"mainEntityOfPage":"https://syhongart.github.io/openartshow/devlog/2026-07-11-3b3e32.html","inLanguage":"ko"}</script>
+<style>
+:root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
+--ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
+--g700:#3f7a5c;--g800:#2c5844;--g900:#14261d;--r:3px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+font-size:15px;line-height:1.75;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+a{color:var(--gold-text);text-decoration:none}
+.top{display:flex;align-items:center;gap:18px;padding:14px 22px;background:var(--g900);color:#f2f2f0}
+.top .logo{font-weight:700;letter-spacing:0.04em;color:#fff;font-size:16px}
+.top .logo .dot{color:var(--gold)}
+.top nav{margin-left:auto;display:flex;gap:18px;font-size:13px}
+.top nav a{color:rgba(242,242,240,0.75)} .top nav a:hover{color:#fff}
+.wrap{max-width:760px;margin:0 auto;padding:48px 22px 90px}
+.eyebrow{font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:var(--gold-text);font-weight:600}
+h1{font-size:clamp(26px,4.5vw,36px);line-height:1.3;margin:10px 0 6px;letter-spacing:-0.01em}
+.lead{color:var(--ink-body);margin:0 0 34px}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin:0 0 14px;
+transition:border-color .2s,transform .2s}
+.card:hover{border-color:var(--g300);transform:translateY(-1px)}
+.card .d{font-size:12px;letter-spacing:0.12em;color:var(--gold-text);font-weight:600}
+.card h2{font-size:17px;margin:6px 0 6px;color:var(--ink);line-height:1.45}
+.card p{margin:0;font-size:13.5px;color:var(--ink-body)}
+.emo{margin-right:6px}
+.shot{margin:22px 0}
+.shot img{display:block;width:100%;border:1px solid var(--line);border-radius:var(--r)}
+.shot figcaption{margin-top:8px;font-size:12.5px;color:var(--ink-dim);text-align:center}
+article h3{font-size:15px;color:var(--g800);margin:34px 0 10px;padding-left:10px;border-left:3px solid var(--g300)}
+article ul{margin:0 0 16px;padding-left:20px}
+article li{margin:0 0 6px;color:var(--ink-body)}
+article p{color:var(--ink-body)}
+article strong{color:var(--ink)}
+article code{background:var(--paper-deep);border:1px solid var(--line);border-radius:var(--r);padding:1px 5px;font-size:12.5px}
+article pre{background:var(--g900);color:#e8efe9;padding:14px 16px;border-radius:var(--r);overflow-x:auto;font-size:12.5px;line-height:1.6}
+article pre code{background:none;border:none;color:inherit;padding:0}
+.tbl{overflow-x:auto;margin:0 0 16px}
+table{border-collapse:collapse;font-size:13px;min-width:420px}
+th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;color:var(--ink-body)}
+th{background:var(--paper-deep);color:var(--ink);font-weight:600}
+.meta{color:var(--ink-dim);font-size:13px;margin:0 0 30px}
+.pn{display:flex;gap:12px;margin-top:50px;flex-wrap:wrap}
+.pn a{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;font-size:13px}
+.pn a:hover{border-color:var(--g300)}
+.pn .lbl{display:block;font-size:11px;letter-spacing:0.14em;color:var(--ink-dim);margin-bottom:4px}
+.back{display:inline-block;margin-bottom:26px;font-size:13px}
+footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;color:var(--ink-dim);font-size:12.5px}
+@media(max-width:520px){.top nav{gap:12px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="../">OpenArtShow<span class="dot">.</span></a>
+  <nav>
+    <a href="../devlog/">개발일지</a>
+    <a href="../team/">팀</a>
+    <a href="../valuation/">밸류에이션</a>
+    <a href="../guide.html">가이드</a>
+    <a href="../app/">입장하기</a>
+  </nav>
+</header>
+<div class="wrap">
+
+<a class="back" href="./">← 개발일지 전체</a>
+<article>
+<div class="eyebrow">2026-07-11</div>
+<h1><span class="emo">💥</span>콕 찌르기 3종 개선 — 사거리 7m + 때린 사람 응시 + "아얏!" 사운드</h1>
+<p class="meta">OpenArtShow 개발일지 — 원인 · 분석 · 개선 · 결과</p>
+<h3>원인</h3>
+<ul><li>감독 지시: ① 좀 더 멀리서도 때릴 수 있게 ② 맞으면 때린 사람을 쳐다보며 아파하게 ③ "아얏" 사운드.</li></ul>
+<h3>개선</h3>
+<ul><li>사거리 4→7m (탭 레이캐스트 HIT_REACH + 호스트 검증 HIT_RANGE 동시).</li><li>호스트가 히트 메시지의 타격자 좌표를 NPC 시뮬에 전달 → NPC는 2.5초간 때린 사람을 최우선 응시(감상 중), 걷던 중이면 1.2초 멈춰 서서 돌아본다. 연타에도 매번 반응 (아파하는 대사만 쿨다운).</li><li>"아얏!" — WebAudio 합성(에셋 0): "아"(480→760Hz 치솟음 70ms) + "얏!" (820→300Hz 급낙하)의 2음절. 레벨이 높을수록 높고 길게, 히트마다 피치 ±8% 지터로 반복감 제거, 130ms 전역 쿨다운으로 다발 히트 불협화음 방지. 시각 이펙트(hitfx)와 한 몸이라 모든 클라이언트에서 함께 재생.</li></ul>
+<h3>결과</h3>
+<ul><li>E2E QA: 6m 거리(기존 한계 밖) 히트 등록 확인, NPC 응시 방향 오차 0 rad.</li></ul>
+</article>
+<div class="pn"><a href="./2026-07-11-72d5ad.html"><span class="lbl">← 이전 기록</span>60fps 달성 후 "알리아싱 필요해" — 등급별 픽셀 예산 + 라이브 샤프닝</a><a href="./2026-07-11-dc3ce8.html" style="text-align:right"><span class="lbl">다음 기록 →</span>그림자 강화 — 대비 3층위 상향</a></div>
+</div>
+<footer>&copy; 2026 OpenArtShow. — 만드는 과정을 기록합니다.</footer>
+</body>
+</html>
