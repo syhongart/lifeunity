@@ -4,6 +4,31 @@
 
 ---
 
+## 2026-07-13 · 보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)
+
+### 원인
+- 감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable)
+  판단. 결론: 코드 은닉은 연극, public 무방. 대규모 공개 전 3개는 블로커.
+
+### 개선
+- **multiplayer.js**: 메시지 64KB 상한, peer당 초당 30건 레이트리밋(고정창),
+  채팅 표시명을 hello 닉으로 고정(data.name 스푸핑 무시)+300자, 방명록
+  정제(이름40·텍스트200·1회20·총500) 후 병합, 좌표 finite+±500 클램프
+  (호스트·게스트 양측). hit target/좌표도 정제.
+- **artworks.js**: safeMediaUrl 화이트리스트 — #gz=/#gd= 공유링크의 imageUrl/
+  videoUrl을 https/http·data:image·data:video·상대경로만 허용, 나머지 제거.
+- **index.html**: CSP 메타(script-src 'self'+importmap sha256 해시, object-src
+  none, base-uri none). 'unsafe-inline' 없이 인라인 importmap 허용.
+
+### 결과
+- QA: 문법 통과, safeMediaUrl 9/9, P2P 헬퍼·레이트리밋 단위테스트 통과,
+  CSP+importmap 헤드리스 부팅 성공(위반 0·에러 0).
+- 주의: 롤백이 옛 구조 multiplayer.js를 되살려 첫 구현이 옛 버전에 적용됨 —
+  발견 후 현재 origin(575줄, NPC·타격·사진 포함)에 재적용·재검증.
+- 팀장 판단: 지인 공유 지금 GO, 대규모 공개는 3종 머지 후 GO.
+
+---
+
 ## 2026-07-12 · 밸류에이션 모델에 트랙션 입력 + 50억 목표선 (감독 지시)
 
 ### 원인

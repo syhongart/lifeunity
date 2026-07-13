@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>밸류에이션 모델에 트랙션 입력 + 50억 목표선 (감독 지시) — ARTSHOW 개발일지</title>
-<meta name="description" content="감독 질문 "50억 가치 방법은?" → 답을 그래프로 추적 가능하게 만들자.">
-<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/2026-07-12-e2c1fd.html">
+<title>보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토) — ARTSHOW 개발일지</title>
+<meta name="description" content="감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable)">
+<link rel="canonical" href="https://syhongart.github.io/openartshow/devlog/2026-07-13-6a30c3.html">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="ARTSHOW">
-<meta property="og:title" content="밸류에이션 모델에 트랙션 입력 + 50억 목표선 (감독 지시) — ARTSHOW 개발일지">
-<meta property="og:description" content="감독 질문 "50억 가치 방법은?" → 답을 그래프로 추적 가능하게 만들자.">
-<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/2026-07-12-e2c1fd.html">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"밸류에이션 모델에 트랙션 입력 + 50억 목표선 (감독 지시)","datePublished":"2026-07-12","author":{"@type":"Organization","name":"ARTSHOW"},"mainEntityOfPage":"https://syhongart.github.io/openartshow/devlog/2026-07-12-e2c1fd.html","inLanguage":"ko"}</script>
+<meta property="og:title" content="보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토) — ARTSHOW 개발일지">
+<meta property="og:description" content="감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable)">
+<meta property="og:url" content="https://syhongart.github.io/openartshow/devlog/2026-07-13-6a30c3.html">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)","datePublished":"2026-07-13","author":{"@type":"Organization","name":"ARTSHOW"},"mainEntityOfPage":"https://syhongart.github.io/openartshow/devlog/2026-07-13-6a30c3.html","inLanguage":"ko"}</script>
 <style>
 :root{--gold:#5f9e7d;--gold-text:#3d6b50;--paper:#fdfbf5;--paper-deep:#f6f1e4;--panel:#fffdf9;
 --ink:#17140f;--ink-body:#57503f;--ink-dim:#6b6459;--line:#e6dfcf;--g300:#8fd0ab;--g600:#4e8a6a;
@@ -76,19 +76,17 @@ footer{border-top:1px solid var(--line);padding:26px 22px;text-align:center;colo
 
 <a class="back" href="./">← 개발일지 전체</a>
 <article>
-<div class="eyebrow">2026-07-12</div>
-<h1><span class="emo">📱</span>밸류에이션 모델에 트랙션 입력 + 50억 목표선 (감독 지시)</h1>
+<div class="eyebrow">2026-07-13</div>
+<h1><span class="emo">🛠️</span>보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)</h1>
 <p class="meta">ARTSHOW 개발일지 — 원인 · 분석 · 개선 · 결과</p>
 <h3>원인</h3>
-<ul><li>감독 질문 "50억 가치 방법은?" → 답을 그래프로 추적 가능하게 만들자.</li></ul>
-<h3>분석</h3>
-<ul><li>50억은 개발일지(만든 것)만으론 불가 — 상한 ~15억. 트랙션(갤러리· MAU·매출)이 실현가치를 끌어올리는 유일한 레버. 특히 매출(ARR×8배)이 월 5,000만이면 ~48억으로 단독 도달.</li></ul>
+<ul><li>감독 "코드 훔쳐간다" 우려 → 보안담당자(계약직) 위협모델 + 팀장(Fable) 판단. 결론: 코드 은닉은 연극, public 무방. 대규모 공개 전 3개는 블로커.</li></ul>
 <h3>개선</h3>
-<ul><li>모델 확장: 실현가치 = 자산 + 갤러리×30만 + MAU×1만 + 월매출×12×8. 트랙션은 docs/traction.json(현재 전부 0)에서 읽어 매일 반영.</li><li>그래프: 50억 목표선(점선) + 진행률 바 + "50억 여는 세 레버" 카드 (매출/이용자/카테고리) + 목표 대비 % 열. 현재 2.5%(1.24억).</li><li>백로그에 50억 도달 전략·마일스톤 사다리 기록.</li></ul>
+<ul><li><strong>multiplayer.js</strong>: 메시지 64KB 상한, peer당 초당 30건 레이트리밋(고정창), 채팅 표시명을 hello 닉으로 고정(data.name 스푸핑 무시)+300자, 방명록 정제(이름40·텍스트200·1회20·총500) 후 병합, 좌표 finite+±500 클램프 (호스트·게스트 양측). hit target/좌표도 정제.</li><li><strong>artworks.js</strong>: safeMediaUrl 화이트리스트 — #gz=/#gd= 공유링크의 imageUrl/ videoUrl을 https/http·data:image·data:video·상대경로만 허용, 나머지 제거.</li><li><strong>index.html</strong>: CSP 메타(script-src 'self'+importmap sha256 해시, object-src none, base-uri none). 'unsafe-inline' 없이 인라인 importmap 허용.</li></ul>
 <h3>결과</h3>
-<ul><li>QA: 목표선·밴드·실선·진행바·표 렌더, 모바일 무가로스크롤, 에러 0.</li><li>트랙션 실측이 traction.json에 들어오면 실선이 목표선을 향해 상승.</li></ul>
+<ul><li>QA: 문법 통과, safeMediaUrl 9/9, P2P 헬퍼·레이트리밋 단위테스트 통과, CSP+importmap 헤드리스 부팅 성공(위반 0·에러 0).</li><li>주의: 롤백이 옛 구조 multiplayer.js를 되살려 첫 구현이 옛 버전에 적용됨 — 발견 후 현재 origin(575줄, NPC·타격·사진 포함)에 재적용·재검증.</li><li>팀장 판단: 지인 공유 지금 GO, 대규모 공개는 3종 머지 후 GO.</li></ul>
 </article>
-<div class="pn"><a href="./2026-07-12-b762ee.html"><span class="lbl">← 이전 기록</span>시장가치 추적기 /valuation/ — 매일 04:00 자동 산출 그래프 (감독 지시)</a><a href="./2026-07-13-6a30c3.html" style="text-align:right"><span class="lbl">다음 기록 →</span>보안 블로커 3종 — P2P 검증·URL 화이트리스트·CSP (보안담당자+팀장 검토)</a></div>
+<div class="pn"><a href="./2026-07-12-e2c1fd.html"><span class="lbl">← 이전 기록</span>밸류에이션 모델에 트랙션 입력 + 50억 목표선 (감독 지시)</a></div>
 </div>
 <footer>&copy; 2026 ARTSHOW. — 만드는 과정을 기록합니다.</footer>
 </body>
